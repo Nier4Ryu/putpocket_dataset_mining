@@ -1,0 +1,45 @@
+objective_id: dataset_mining
+version: v0.5
+implementation_lock:
+  status: ready_for_implementation
+  unlock_value: ready_for_implementation
+  note: >
+    Leave locked while humans review the feed. Codex must not implement until
+    this is changed to ready_for_implementation.
+
+current_status: spec_review
+repo_state:
+  expected_repo_kind: standalone_empty_dataset_mining_repo
+  owns_own_env: true
+  depends_on_fixing_repo: false
+
+decisions:
+  resolved:
+    - standalone_empty_repo_with_own_env
+    - package_name_putpocket_dataset_mining
+    - env_activate_sh_name
+    - qwen_qwen35_9b_generation_model
+    - huggingface_mbpp_google_default_with_muennighoff_fallback
+    - mbpp_code_is_reference_solution
+    - solution_py_stub_initial_workspace
+    - hidden_verifier_tests_only
+    - no_workspace_clinerules_file
+    - explicit_chat_template_rendering_inside_putpocket
+    - deterministic_greedy_generation_temperature_zero
+    - mining_seed_default_42
+    - RANDOM_SEED_default_42_for_later_evaluation
+    - original_cline_tool_format
+    - compact_cline_prompt_default_for_9b
+    - ubuntu_22_04_python_3_13_docker_base
+    - host_mounted_workspace_with_host_uid_gid
+    - codex_cli_read_only_judge
+    - master_only_sqlite_db_writer
+    - parallel_master_worker_multi_sample
+    - debug_first_parallel_full_server_profiles
+    - local_materialized_dataset_view_not_cross_repo_export
+    - shared_server_vllm_build_cpu_cap_32
+    - runtime_gpu_devices_restricted_to_4_5_6_7
+    - full_server_profile_uses_4_workers_not_8
+  remaining_human_decisions: []
+
+next_action_after_unlock: implement_dataset_mining_objective_v0_5

@@ -1,0 +1,433 @@
+objective_id: dataset_mining
+version: v0.5
+repo_role:
+  kind: standalone_dataset_mining_repo
+  description: >
+    This repo owns dataset mining code, environment setup, external dependencies,
+    Docker specs, run artifacts, and local materialized datasets. It must not
+    depend on the separate fixing-code repo at runtime.
+
+package:
+  python_distribution_name: putpocket-dataset-mining
+  import_root: putpocket_dataset_mining
+  source_root: src/putpocket_dataset_mining
+
+scope:
+  in_scope:
+    - repo-local env setup
+    - external dependency checkout/build under this repo
+    - headless Cline-style dataset mining
+    - local vLLM Python engine serving
+    - Docker-backed simulated user workspace
+    - hidden verifier tests
+    - Codex CLI judge
+    - SQLite mining index
+    - local materialized dataset view
+    - dataset structure documentation
+  out_of_scope:
+    - Mode B repair
+    - Prefix State Repair fixing code
+    - downstream dataset consumption APIs
+    - automatic dataset movement to another repo
+    - portable package/export as a required deliverable
+    - SWE-bench implementation beyond compatibility policy
+
+constants_policy:
+  random_seed_name: RANDOM_SEED
+  random_seed_default: 42
+  mining_seed_default: 42
+  shared_hf_hub_cache_dir: /data/shared/hf_cache/hub
+  hf_cache_policy: >
+    Use explicit cache_dir/download_dir kwargs for model and tokenizer downloads.
+    Do not mutate global HuggingFace env vars. Per-user credentials remain under $HOME.
+
+env:
+  venv_path: Putpocket_env
+  activation_script: scripts/env/env_activate.sh
+  python: "3.13"
+  cuda_home: /usr/local/cuda-12.8
+  torch: 2.10.0+cu128
+  ray: 2.55.1
+  externals:
+    vllm:
+      path: externals/vllm
+      branch: Putpocket-v0.19.1
+      role: editable_build_dependency
+    lmcache:
+      path: externals/lmcache
+      branch: Putpocket-v0.4.4
+      role: editable_build_dependency
+    cline:
+      path: externals/cline
+      role: read_only_reference_for_prompt_and_tool_format
+  build_resource_limits:
+    reason: server_shared_with_other_users
+    vllm_build_max_cpu_threads: 32
+    required_env_overrides:
+      PUTPOCKET_BUILD_THREADS: "32"
+      MAX_JOBS: "32"
+      CMAKE_BUILD_PARALLEL_LEVEL: "32"
+      CARGO_BUILD_JOBS: "32"
+      NVCC_THREADS: "1"
+    note: >
+      vLLM and CUDA extension builds must not exceed 32 CPU build threads.
+      Do not auto-detect and use all host CPU threads.
+  runtime_gpu_limits:
+    allowed_cuda_devices: [4, 5, 6, 7]
+    disallowed_cuda_devices: [0, 1, 2, 3]
+    note: >
+      This shared server only grants this mining repo GPUs 4,5,6,7.
+      Preflight must fail if a profile tries to allocate GPUs outside this set.
+
+model:
+  generation:
+    model_id: Qwen/Qwen3.5-9B
+    weight_path_policy: constants_model_registry
+    use_shared_hf_cache: true
+  prompt_profile:
+    default_for_qwen35_9b: compact
+    full_available: true
+  generation_defaults:
+    decoding_mode: greedy
+    temperature: 0.0
+    top_p: 1.0
+    n: 1
+    randomness_policy: disabled_by_default
+    record_generation_metadata: true
+
+dataset_source:
+  architecture: adapter_based
+  current_adapter: mbpp_huggingface
+  preferred_hf_dataset_id: google-research-datasets/mbpp
+  fallback_hf_dataset_id: Muennighoff/mbpp
+  split_order:
+    - train
+    - test
+  field_mapping:
+    task_id: task_id
+    prompt: text
+    reference_solution: code
+    tests: test_list
+    test_setup: test_setup_code
+  code_field_meaning: reference_solution_not_initial_code
+
+single_sample:
+  workspace_contract:
+    root: /workspace
+    agent_visible_initial_files:
+      solution.py:
+        kind: stub
+        content: "# TODO: implement the required function.\n"
+    no_agent_visible_dataset_tests: true
+    no_workspace_clinerules_file: true
+  unit_tests:
+    visibility: hidden_verifier_only
+    materialize_in_agent_workspace: false
+    materialize_for_verifier: true
+    materializer: MBPPTestListToPytest
+    injection_path: /workspace/tests/test_solution.py
+  cline_rules:
+    workspace_file_required: false
+    workspace_mirror_mode: disabled
+    source_of_truth: prepared_prompt_artifacts
+    history1_rules_artifact: prepared/cline_rules_v1.md
+    history2_rules_artifact: prepared/cline_rules_v2.md
+    rendered_into:
+      history1: prepared/system_prompt_1.md
+      history2: prepared/system_prompt_2.md
+  prompt_rendering:
+    mode: explicit_chat_template_rendering
+    apply_template_inside_putpocket: true
+    apply_template_inside_vllm: false
+    save_semantic_messages: true
+    save_rendered_prompt: true
+    save_tokenization_metadata: true
+    save_prompt_hash_and_token_count: true
+  history_model:
+    history1:
+      system_prompt: system_prompt_1_includes_cline_rules_v1
+      user_query: query1
+      generated_history: multi_step_llm_tool_observation_trajectory
+    history2:
+      system_prompt: system_prompt_2_includes_cline_rules_v2
+      includes:
+        - query1
+        - history1
+        - query2
+      generated_history: multi_step_llm_tool_observation_trajectory
+  query1_wrapper:
+    id: mbpp_function_task_to_cline_workspace_v1
+    description: >
+      Wrap raw MBPP function synthesis prompt as a Cline-style file-editing task
+      over solution.py.
+  query2_generation:
+    generated_by_mining_loop: true
+    initial_classes:
+      - rule_direct
+      - task_refactor
+    future_classes:
+      - rule_indirect
+      - workspace_inquiry
+      - unrelated_query
+      - task_extension
+    initial_policy_deltas:
+      - type_hints_required_v1
+      - google_docstring_required_v1
+      - forbidden_api_v1
+  final_status_labels:
+    - accepted
+    - rejected
+    - failed_infra
+    - uncertain
+  completion_definition: >
+    A single-sample attempt is complete when final_status is written as one of
+    accepted/rejected/failed_infra/uncertain and required artifacts are saved.
+
+headless_cline:
+  prompt_semantics: original_cline
+  action_protocol: original_cline_tool_format
+  tool_format_source: externals/cline
+  compact_prompt_default_for_9b: true
+  history1_max_turns: 30
+  history2_max_turns: 30
+  max_tool_calls_per_turn: follow_original_cline_runtime
+  parse_failure:
+    max_retries_per_history: 3
+    policy: return_format_error_observation_and_continue
+  finish_condition:
+    use_original_cline_completion_tool: true
+    expected_tool: attempt_completion
+  internal_tests:
+    allowed: true
+    counted_as_acceptance: false
+
+docker:
+  default_image:
+    image_name: putpocket-default-python
+    image_tag: ubuntu22.04-py313-v1
+    dockerfile_path: docker/default_python/Dockerfile
+    build_if_missing: true
+    rebuild_each_run: false
+    rebuild_each_episode: false
+    base:
+      image: ubuntu:22.04
+      os_family: ubuntu
+      os_version: "22.04 LTS"
+    python:
+      version: "3.13"
+      install_method: source_build
+      install_prefix: /opt/python/3.13
+    packages:
+      apt:
+        - bash
+        - coreutils
+        - git
+        - curl
+        - ca-certificates
+        - build-essential
+        - zlib1g-dev
+        - libssl-dev
+        - libbz2-dev
+        - libreadline-dev
+        - libsqlite3-dev
+        - libffi-dev
+        - liblzma-dev
+        - tk-dev
+        - uuid-dev
+        - ripgrep
+        - tree
+        - jq
+      pip:
+        - pytest
+  workspace:
+    mode: host_mounted
+    container_root: /workspace
+    run_container_as_host_uid_gid: true
+    container_home: /tmp/putpocket-home
+    chown_fallback_on_cleanup: true
+  runtime:
+    network: none
+    allow_dependency_install: false
+    gpu_for_workspace_container: false
+    cpus_per_episode: 8
+    memory_per_episode: 8g
+  timeouts:
+    episode_wall_time_sec: 1800
+    per_tool_command_sec: 120
+    per_generation_sec: 300
+    container_startup_sec: 120
+    image_build_sec: 900
+  snapshots:
+    type: workspace_file_snapshot
+    save_container_image: false
+    points:
+      - initial
+      - after_history1
+      - after_history2
+      - failure
+  dataset_provided_environment_policy:
+    use_as_canonical_initial_state: true
+    never_replace_with_putpocket_sandbox: true
+    first_implementation_scope: compatibility_policy_only
+
+verifier:
+  unit_tests:
+    source: dataset_provided_tests
+    hidden_from_agent: true
+    mode: fresh_container_from_workspace_snapshot
+  history1_test_command: pytest -q tests/test_solution.py
+  history2_test_command: pytest -q tests/test_solution.py
+  policy_checks:
+    enabled: true
+    initial_rules:
+      - type_hints_required_v1
+      - google_docstring_required_v1
+      - forbidden_api_v1
+  checklist:
+    storage: json_file_and_sqlite_index
+    history1_path: verification/history1/checklist.json
+    history2_path: verification/history2/checklist.json
+  failure_classes:
+    - history1.rollout.agent_parse_failed
+    - history1.rollout.max_turns_exceeded
+    - history1.unit_test.failed
+    - history1.unit_test.timeout
+    - history2.rollout.agent_parse_failed
+    - history2.rollout.max_turns_exceeded
+    - history2.unit_test.failed
+    - history2.policy_check.failed
+    - judge.failed
+    - judge.uncertain
+    - judge.cli_error
+    - infra.docker_start_failed
+    - infra.vllm_generation_failed
+    - infra.filesystem_permission_error
+
+judge:
+  enabled: true
+  backend: codex_cli
+  sandbox: read-only
+  approval: never
+  skip_if_unit_test_failed: true
+  input_scope:
+    - cline_rules_v1
+    - files_after_history1
+    - cline_rules_v2
+    - query2
+    - files_after_history2
+    - history2_unit_test_summary
+  output_schema:
+    required:
+      decision: pass_or_fail_or_uncertain
+    optional:
+      reason: string
+  rubric: >
+    Return pass only if files after history2 appear to satisfy query2 while
+    following cline-rules v2. Unit-test correctness is handled by verifier.
+
+multi_sample:
+  architecture: parallel_master_worker
+  profiles:
+    debug:
+      purpose: start/stop/control-flow testing
+      num_workers: 1
+      target_accepted: 1
+      max_attempts: 5
+      dataset_version: mbpp_stateful_debug_v0
+    first_parallel:
+      purpose: parallel end-to-end working test
+      num_workers: 2
+      target_accepted: 2
+      max_attempts: 10
+      dataset_version: mbpp_stateful_parallel_smoke_v0
+    full_server:
+      purpose: real mining on shared server GPUs 4,5,6,7
+      num_workers: 4
+      target_accepted: 20
+      max_attempts: 100
+      dataset_version: mbpp_stateful_working_v0
+  gpu_policy:
+    initial_model: Qwen/Qwen3.5-9B
+    preflight_required: true
+    tensor_parallel_size: 1
+    pipeline_parallel_size: 1
+    allowed_devices: [4, 5, 6, 7]
+    full_server_slots:
+      - [4]
+      - [5]
+      - [6]
+      - [7]
+  serving:
+    vllm_engine_lifetime: worker
+    reuse_engine_across_attempts: true
+  db:
+    writer: master_only
+    sqlite_path: data/dataset_mining/mining_index.sqlite
+  job_queue:
+    generation: lazy
+    skip_previous_accepted: true
+    skip_previous_rejected: true
+    skip_previous_failed_infra: true
+    rerun_failed_infra_override_flag: --rerun-failed-infra
+  stop_policy:
+    default: graceful
+    interfaces:
+      signal: true
+      stop_file: true
+      cli: true
+    graceful:
+      assign_new_jobs: false
+      allow_running_attempts_to_finish: true
+      materialize_completed_results: true
+    hard:
+      broadcast_cancel_to_workers: true
+      cleanup_running_containers: true
+      mark_running_attempts: cancelled_by_user
+  hard_stop_partial_artifacts:
+    delete:
+      - partial_trajectories
+      - partial_workspace_snapshots
+      - partial_serving_logs
+    keep:
+      - stop_record.json
+      - attempt_cancel_summary.json
+      - stdout_tail.log
+      - stderr_tail.log
+      - worker_status_at_stop.json
+  materialization:
+    mode: local_materialized_view
+    update_on_each_accepted: true
+    package_for_other_repo: false
+    cross_repo_import: out_of_scope
+    dataset_root: data/dataset_mining/datasets/{dataset_version}
+
+data_layout:
+  runs_root: data/dataset_mining/runs
+  index_db: data/dataset_mining/mining_index.sqlite
+  datasets_root: data/dataset_mining/datasets
+  note: >
+    runs/ stores raw mining execution artifacts. datasets/ stores local
+    materialized views over accepted/rejected/uncertain attempts. How another
+    repo consumes or moves this dataset is out of scope.
+
+acceptance:
+  must_create:
+    - scripts/env/env_activate.sh
+    - docker/default_python/Dockerfile
+    - src/putpocket_dataset_mining
+    - configs/dataset_mining/mbpp_stateful_single.yaml
+    - configs/dataset_mining/mbpp_stateful_multi.yaml
+    - docs/DATASET_STRUCTURE.md
+  required_capabilities:
+    - repo_local_env_setup
+    - docker_image_build_or_reuse
+    - hidden_verifier_test_materialization
+    - explicit_prompt_rendering
+    - original_cline_tool_parsing
+    - single_sample_episode_run
+    - codex_cli_judge_backend
+    - sqlite_index_master_writer
+    - multi_sample_master_worker_profiles
+    - vllm_build_cpu_cap_32_enforced
+    - gpu_preflight_restricts_to_devices_4_5_6_7
+    - local_dataset_materialization

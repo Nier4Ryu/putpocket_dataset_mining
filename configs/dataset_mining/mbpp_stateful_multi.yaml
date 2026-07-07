@@ -1,0 +1,95 @@
+# Multi-sample Dataset Mining config v0.5
+
+run:
+  mode: multi_sample_master_worker
+  mining_seed: 42
+  index_db: data/dataset_mining/mining_index.sqlite
+
+build_resources:
+  vllm_build_max_cpu_threads: 32
+  env_overrides:
+    PUTPOCKET_BUILD_THREADS: "32"
+    MAX_JOBS: "32"
+    CMAKE_BUILD_PARALLEL_LEVEL: "32"
+    CARGO_BUILD_JOBS: "32"
+    NVCC_THREADS: "1"
+  note: "This shared server build must not use more than 32 CPU threads."
+
+profiles:
+  debug:
+    num_workers: 1
+    target_accepted: 1
+    max_attempts: 5
+    dataset_version: mbpp_stateful_debug_v0
+  first_parallel:
+    num_workers: 2
+    target_accepted: 2
+    max_attempts: 10
+    dataset_version: mbpp_stateful_parallel_smoke_v0
+  full_server:
+    num_workers: 4
+    target_accepted: 20
+    max_attempts: 100
+    dataset_version: mbpp_stateful_working_v0
+
+gpu:
+  preflight_required: true
+  default_model: Qwen/Qwen3.5-9B
+  allowed_cuda_devices: [4, 5, 6, 7]
+  tensor_parallel_size: 1
+  pipeline_parallel_size: 1
+  debug_slots:
+    - [4]
+  first_parallel_slots:
+    - [4]
+    - [5]
+  full_server_slots:
+    - [4]
+    - [5]
+    - [6]
+    - [7]
+
+worker:
+  vllm_engine_lifetime: worker
+  reuse_engine_across_attempts: true
+  one_attempt_at_a_time: true
+  docker_container_lifetime: attempt
+
+job_queue:
+  generation: lazy
+  sample_selection: seeded_shuffle
+  skip_previous_accepted: true
+  skip_previous_rejected: true
+  skip_previous_failed_infra: true
+  rerun_failed_infra_override_flag: --rerun-failed-infra
+
+db:
+  writer: master_only
+
+stop:
+  default: graceful
+  interfaces: [signal, stop_file, cli]
+  stop_file_template: data/dataset_mining/control/{run_id}.stop
+  graceful:
+    assign_new_jobs: false
+    allow_running_attempts_to_finish: true
+    materialize_completed_results: true
+  hard:
+    cleanup_running_containers: true
+    mark_running_attempts: cancelled_by_user
+    delete_partial:
+      - partial_trajectories
+      - partial_workspace_snapshots
+      - partial_serving_logs
+    keep:
+      - stop_record.json
+      - attempt_cancel_summary.json
+      - stdout_tail.log
+      - stderr_tail.log
+      - worker_status_at_stop.json
+
+materialization:
+  mode: local_materialized_view
+  update_on_each_accepted: true
+  datasets_root: data/dataset_mining/datasets
+  package_for_other_repo: false

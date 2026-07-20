@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "putpocket-dataset-mining"
+version = "0.5.0"
+description = "Standalone Dataset Mining runner for MBPP-stateful Cline-style episodes."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "datasets>=2.20",
+  "pyyaml>=6.0",
+  "transformers>=4.43",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+vllm = ["vllm"]
+
+[project.scripts]
+putpocket-dataset-mining = "putpocket_dataset_mining.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

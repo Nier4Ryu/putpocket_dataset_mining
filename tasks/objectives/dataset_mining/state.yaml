@@ -7,7 +7,7 @@ implementation_lock:
     Leave locked while humans review the feed. Codex must not implement until
     this is changed to ready_for_implementation.
 
-current_status: spec_review
+current_status: dataset_mining_complete
 repo_state:
   expected_repo_kind: standalone_empty_dataset_mining_repo
   owns_own_env: true
@@ -43,3 +43,50 @@ decisions:
   remaining_human_decisions: []
 
 next_action_after_unlock: implement_dataset_mining_objective_v0_5
+
+implementation_progress:
+  started_by: codex
+  status: full_server_validation_complete
+  completed_phases:
+    - phase_0_repo_substrate
+    - phase_1_env_and_externals_helpers
+    - phase_2_docker_default_python_image_spec_and_manager
+    - phase_3_dataset_source_adapter
+    - phase_4_prompt_rendering
+    - phase_5_headless_cline_runtime
+    - phase_6_serving_connector
+    - phase_7_verifier_and_judge
+    - phase_8_single_sample_runner
+    - phase_9_multi_sample_master_worker
+    - phase_10_dataset_structure_docs
+    - runtime_e2e_validation
+  active_phase: completed
+  validation_completed:
+    environment:
+      - repo-local Python 3.13.13 available through Putpocket_env
+      - scripts/env/env_activate.sh activates Putpocket_env and applies build caps
+      - externals/vllm checked out at Putpocket-v0.19.1 and installed editable
+      - externals/lmcache checked out at Putpocket-v0.4.4 and installed editable
+      - externals/cline checked out
+      - build CPU cap enforced with PUTPOCKET_BUILD_THREADS=32, MAX_JOBS=32, CMAKE_BUILD_PARALLEL_LEVEL=32, CARGO_BUILD_JOBS=32, NVCC_THREADS=1
+      - runtime mining restricted to CUDA_VISIBLE_DEVICES=4,5,6,7
+      - Docker image putpocket-default-python:ubuntu22.04-py313-v1 built
+    commands:
+      - source scripts/env/env_activate.sh && putpocket-dataset-mining doctor --json
+      - source scripts/env/env_activate.sh && python -m compileall src tests
+      - source scripts/env/env_activate.sh && python -m unittest discover -s tests -v
+      - source scripts/env/env_activate.sh && python -c "import datasets, transformers, vllm, lmcache, putpocket_dataset_mining"
+      - CUDA_VISIBLE_DEVICES=4 putpocket-dataset-mining single --config configs/dataset_mining/mbpp_stateful_single.yaml --run-id single_validation_path_20260707T175646Z
+      - CUDA_VISIBLE_DEVICES=4 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile debug --run-id debug_validation_20260707T175646Z
+      - CUDA_VISIBLE_DEVICES=4,5 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile first_parallel --run-id first_parallel_validation_20260707T175646Z
+      - CUDA_VISIBLE_DEVICES=4,5,6,7 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile full_server --run-id full_server_validation_20260707T175646Z
+    artifacts:
+      debug_dataset: data/dataset_mining/datasets/mbpp_stateful_debug_v0
+      first_parallel_dataset: data/dataset_mining/datasets/mbpp_stateful_parallel_smoke_v0
+      full_server_dataset: data/dataset_mining/datasets/mbpp_stateful_working_v0
+      mining_index: data/dataset_mining/mining_index.sqlite
+      validation_logs: codex_runs/dataset_mining_validation_20260707T175646Z
+    accepted_counts:
+      mbpp_stateful_debug_v0: 1
+      mbpp_stateful_parallel_smoke_v0: 2
+      mbpp_stateful_working_v0: 20

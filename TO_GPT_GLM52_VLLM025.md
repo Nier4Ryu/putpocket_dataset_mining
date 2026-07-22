@@ -12,8 +12,9 @@ No dataset forwarding/evaluation smoke or full evaluation was run, by design, be
 
 - Branch: `blackwell`
 - Base commit before this work: `e034f49eb0b94525ddb4c641ada0698da9883d71`
+- Implementation/report commit: `a898837cc69f5c0dac06efe188464c45ae70ac0f`
 - Remote: `origin`
-- Report/write status: source, config, script, and report changes prepared for commit to `origin/blackwell`
+- Pushed status: `a898837cc69f5c0dac06efe188464c45ae70ac0f` was pushed to `origin/blackwell`; this status correction is a report-only follow-up.
 - Unrelated pre-existing untracked file left untouched: `TO_GPT_USE_SPARSE_AUDIT.md`
 
 ## Stack Separation

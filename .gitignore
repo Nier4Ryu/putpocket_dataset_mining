@@ -2,7 +2,7 @@ Putpocket_env/
 .local_python/
 externals/
 
-data/dataset_mining/
+data
 codex_runs/
 
 __pycache__/

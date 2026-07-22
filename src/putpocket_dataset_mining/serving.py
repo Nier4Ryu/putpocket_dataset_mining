@@ -17,6 +17,7 @@ class GenerationRequest:
     temperature: float = 0.0
     top_p: float = 1.0
     n: int = 1
+    seed: int | None = None
 
 
 @dataclass(frozen=True)
@@ -93,19 +94,26 @@ class LocalVLLMEngine:
             _ = self.llm
             sampling_cls = self._sampling_params_cls
         assert sampling_cls is not None
-        sampling = sampling_cls(
-            temperature=request.temperature,
-            top_p=request.top_p,
-            n=request.n,
-            max_tokens=request.max_tokens,
-        )
+        sampling_kwargs: dict[str, Any] = {
+            "temperature": request.temperature,
+            "top_p": request.top_p,
+            "n": request.n,
+            "max_tokens": request.max_tokens,
+        }
+        if request.seed is not None:
+            sampling_kwargs["seed"] = request.seed
+        sampling = sampling_cls(**sampling_kwargs)
         started = time.time()
         try:
             outputs = self.llm.generate([request.rendered_prompt], sampling)
         except Exception as exc:  # noqa: BLE001
             raise InfraError(f"vLLM generation failed: {exc}") from exc
         elapsed = time.time() - started
-        text = outputs[0].outputs[0].text if outputs and outputs[0].outputs else ""
+        output = outputs[0].outputs[0] if outputs and outputs[0].outputs else None
+        text = output.text if output is not None else ""
+        token_ids = getattr(output, "token_ids", None) if output is not None else None
+        completion_token_count = len(token_ids) if token_ids is not None else None
+        finish_reason = getattr(output, "finish_reason", None) if output is not None else None
         return GenerationResult(
             text=text,
             metadata={
@@ -116,7 +124,10 @@ class LocalVLLMEngine:
                 "temperature": request.temperature,
                 "top_p": request.top_p,
                 "n": request.n,
+                "seed": request.seed,
                 "max_tokens": request.max_tokens,
+                "completion_token_count": completion_token_count,
+                "finish_reason": finish_reason,
                 "max_model_len": self.max_model_len,
                 "gpu_memory_utilization": self.gpu_memory_utilization,
                 "max_num_seqs": self.max_num_seqs,

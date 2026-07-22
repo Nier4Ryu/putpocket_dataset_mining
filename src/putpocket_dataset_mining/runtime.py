@@ -61,6 +61,7 @@ class HeadlessClineRuntime:
         per_generation_timeout_sec: int = 300,
         per_tool_timeout_sec: int = 120,
         max_tokens: int = 2048,
+        generation_seed: int | None = None,
     ) -> None:
         self.attempt_dir = attempt_dir
         self.renderer = renderer
@@ -71,6 +72,7 @@ class HeadlessClineRuntime:
         self.per_generation_timeout_sec = per_generation_timeout_sec
         self.per_tool_timeout_sec = per_tool_timeout_sec
         self.max_tokens = max_tokens
+        self.generation_seed = generation_seed
         (attempt_dir / "trajectories").mkdir(parents=True, exist_ok=True)
         (attempt_dir / "serving").mkdir(parents=True, exist_ok=True)
 
@@ -95,6 +97,7 @@ class HeadlessClineRuntime:
                         temperature=0.0,
                         top_p=1.0,
                         n=1,
+                        seed=self.generation_seed,
                     )
                 )
             except Exception as exc:  # noqa: BLE001

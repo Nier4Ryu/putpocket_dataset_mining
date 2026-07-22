@@ -15,9 +15,12 @@ RUNS_ROOT = DATA_ROOT / "runs"
 DATASETS_ROOT = DATA_ROOT / "datasets"
 CONTROL_ROOT = DATA_ROOT / "control"
 INDEX_DB = DATA_ROOT / "mining_index.sqlite"
+MODEL_EVALUATION_ROOT = REPO_ROOT / "data" / "model_evaluation"
+MODEL_EVALUATION_RUNS_ROOT = MODEL_EVALUATION_ROOT / "runs"
 
 SHARED_HF_HUB_CACHE_DIR = Path(os.environ.get("PUTPOCKET_HF_HUB_CACHE_DIR", "/data/shared/hf_cache/hub"))
 DEFAULT_MODEL_ID = "Qwen/Qwen3.5-9B"
+GLM52_08B_MODEL_ID = "inference-optimization/GLM-5.2-0.8B-A0.8B"
 
 ALLOWED_CUDA_DEVICES = (4, 5, 6, 7)
 DISALLOWED_CUDA_DEVICES = (0, 1, 2, 3)
@@ -42,3 +45,7 @@ FINAL_STATUSES = {"accepted", "rejected", "failed_infra", "uncertain"}
 def ensure_data_dirs() -> None:
     for path in (DATA_ROOT, RUNS_ROOT, DATASETS_ROOT, CONTROL_ROOT):
         path.mkdir(parents=True, exist_ok=True)
+
+
+def ensure_model_evaluation_dirs() -> None:
+    MODEL_EVALUATION_RUNS_ROOT.mkdir(parents=True, exist_ok=True)

@@ -13,8 +13,9 @@
 - Upstream: `origin/blackwell`
 - Base commit before Blackwell changes: `09906fc63f71bfc950a33b506b0c9441e25ae6df`
 - Initial branch push: completed before implementation.
-- Final source/report commit: pending at report write time; this file is included in that commit, so the immutable final commit hash is reported after commit/push.
-- Pushed status for final source/report commit: pending at report write time.
+- Source/config/report commit: `e043f774fdf6385baacd4c1badfdfb93c6067a2b`
+- Pushed status for source/config/report commit: pushed to `origin/blackwell`.
+- Report metadata update commit: this report line is part of a follow-up commit; final branch HEAD is reported in the assistant handoff after push.
 
 ## Hardware Detected
 - GPUs:

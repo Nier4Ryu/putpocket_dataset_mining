@@ -229,6 +229,33 @@ sudo -n apt-get -y install uidmap
 ```
 
   - Exact package-install failure: `sudo: a password is required`
+- Docker install continuation retry after user reported Docker was installed:
+  - Branch/state checked: `blackwell` at local commit `297cf1c3f08c4f26c41ca1deb794793095d0b5d1`, with `origin/blackwell` still at `e827fc575afcfe91e12e1909cc91c108cc12d5d0`.
+  - `which docker`, `docker --version`, and `docker info` still fail with `docker: command not found`.
+  - No Docker daemon or user service was visible:
+
+```bash
+systemctl --user status docker
+systemctl status docker
+ps -ef | rg -i 'dockerd|containerd|rootlesskit|slirp4netns|docker'
+```
+
+  - No Docker binary/socket was found in standard locations:
+
+```bash
+find /usr /opt /snap /var/lib/snapd -type f \( -name docker -o -name dockerd -o -name containerd \)
+find / -maxdepth 4 \( -name docker.sock -o -name 'docker*.sock' \)
+```
+
+  - `newuidmap` and `newgidmap` are still missing.
+  - Rootless installer retry command:
+
+```bash
+sh /tmp/docker-rootless-install.sh
+```
+
+  - Retry log: `/home/dyryu/putpocket_dataset_mining/logs/docker_install/rootless_install_retry_20260722T173403Z.log`
+  - Retry result: still blocked by missing host `uidmap`; installer again requested `sudo apt-get -y install uidmap`.
 - Smallest next action: an administrator must install the host `uidmap` package, or provide passwordless/interactive sudo for user `dyryu` long enough to run `sudo apt-get -y install uidmap`. Then rerun the rootless installer and Docker validation:
 
 ```bash

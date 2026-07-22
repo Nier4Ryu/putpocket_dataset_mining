@@ -11,10 +11,12 @@ repositories and the default Docker image, then run setup smoke checks.
 Options:
   --doctor-only           Do not install/build/checkout; only activate and validate the existing env.
   --skip-vllm-build       Skip editable vLLM build/install.
+  --skip-deepgemm-build   Skip DeepGEMM build/install.
   --skip-lmcache-build    Skip editable LMCache build/install.
   --skip-externals        Skip external repository checkout/update.
   --skip-docker           Skip Dockerfile/image checks.
   --force-vllm-build      Run editable vLLM install even if import already works.
+  --force-deepgemm-build  Run DeepGEMM install even if import already works.
   --force-lmcache-build   Run editable LMCache install even if import already works.
   --force-docker-build    Rebuild the default Docker image even if it already exists.
   --help                  Show this help.
@@ -27,6 +29,7 @@ Environment overrides:
   TORCH_SPEC                    Default: torch==${TORCH_VERSION}+${TORCH_CUDA_TAG}
   TORCH_INDEX_URL               Default: https://download.pytorch.org/whl/${TORCH_CUDA_TAG}
   RAY_VERSION                   Default: 2.55.1
+  DEEPGEMM_CUDA_VERSION         Default: 12.9
   PUTPOCKET_BUILD_THREADS       Default: 16
   MAX_JOBS                      Default: 16
   CMAKE_BUILD_PARALLEL_LEVEL    Default: 16
@@ -37,10 +40,12 @@ EOF
 
 DOCTOR_ONLY=0
 SKIP_VLLM_BUILD=0
+SKIP_DEEPGEMM_BUILD=0
 SKIP_LMCACHE_BUILD=0
 SKIP_EXTERNALS=0
 SKIP_DOCKER=0
 FORCE_VLLM_BUILD=0
+FORCE_DEEPGEMM_BUILD=0
 FORCE_LMCACHE_BUILD=0
 FORCE_DOCKER_BUILD=0
 
@@ -48,10 +53,12 @@ while (($#)); do
   case "$1" in
     --doctor-only) DOCTOR_ONLY=1 ;;
     --skip-vllm-build) SKIP_VLLM_BUILD=1 ;;
+    --skip-deepgemm-build) SKIP_DEEPGEMM_BUILD=1 ;;
     --skip-lmcache-build) SKIP_LMCACHE_BUILD=1 ;;
     --skip-externals) SKIP_EXTERNALS=1 ;;
     --skip-docker) SKIP_DOCKER=1 ;;
     --force-vllm-build) FORCE_VLLM_BUILD=1 ;;
+    --force-deepgemm-build) FORCE_DEEPGEMM_BUILD=1 ;;
     --force-lmcache-build) FORCE_LMCACHE_BUILD=1 ;;
     --force-docker-build) FORCE_DOCKER_BUILD=1 ;;
     --help)
@@ -92,6 +99,7 @@ export TORCH_CUDA_TAG="${TORCH_CUDA_TAG:-cu129}"
 export TORCH_SPEC="${TORCH_SPEC:-torch==${TORCH_VERSION}+${TORCH_CUDA_TAG}}"
 export TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/${TORCH_CUDA_TAG}}"
 export RAY_VERSION="${RAY_VERSION:-2.55.1}"
+export DEEPGEMM_CUDA_VERSION="${DEEPGEMM_CUDA_VERSION:-12.9}"
 export PUTPOCKET_PIP_INDEX_URL="${PUTPOCKET_PIP_INDEX_URL:-${TORCH_INDEX_URL}}"
 export PUTPOCKET_PIP_EXTRA_INDEX_URL="${PUTPOCKET_PIP_EXTRA_INDEX_URL:-https://pypi.org/simple}"
 export PUTPOCKET_TORCH_CONSTRAINT_FILE="${PUTPOCKET_TORCH_CONSTRAINT_FILE:-${TORCH_CONSTRAINT_FILE}}"
@@ -481,6 +489,26 @@ install_vllm_with_retry() {
   done
 }
 
+install_deepgemm_if_needed() {
+  local installer="${REPO_ROOT}/externals/vllm/tools/install_deepgemm.sh"
+  if [[ ! -x "${installer}" ]]; then
+    echo "Missing executable DeepGEMM installer: ${installer}" >&2
+    return 2
+  fi
+  if [[ "${FORCE_DEEPGEMM_BUILD}" -eq 0 ]] && module_import_ok deep_gemm; then
+    echo "deep_gemm import already works; skipping DeepGEMM install."
+    return 0
+  fi
+
+  set_build_threads "${PUTPOCKET_BUILD_THREADS:-16}"
+  "${installer}" --cuda-version "${DEEPGEMM_CUDA_VERSION}"
+  "${VENV_PYTHON}" - <<'PY'
+import deep_gemm
+
+print("deep_gemm", getattr(deep_gemm, "__version__", "unknown"))
+PY
+}
+
 install_lmcache_if_needed() {
   if [[ ! -d "${REPO_ROOT}/externals/lmcache" ]]; then
     echo "Missing externals/lmcache. Run without --skip-externals first." >&2
@@ -622,6 +650,12 @@ PY
     "${VENV_PYTHON}" -c "import vllm; print('vllm import ok')"
   fi
 
+  if [[ "${SKIP_DEEPGEMM_BUILD}" -eq 1 ]]; then
+    module_import_ok deep_gemm && echo "deep_gemm import ok" || echo "warning: deep_gemm import failed after --skip-deepgemm-build"
+  else
+    "${VENV_PYTHON}" -c "import deep_gemm; print('deep_gemm', getattr(deep_gemm, '__version__', 'unknown'))"
+  fi
+
   if [[ "${SKIP_LMCACHE_BUILD}" -eq 1 ]]; then
     module_import_ok lmcache && echo "lmcache import ok" || echo "warning: lmcache import failed after --skip-lmcache-build"
   else
@@ -672,6 +706,7 @@ write_summary() {
     echo "latest_log=${LOG_ROOT}/latest"
   } >"${summary_file}"
   "${VENV_PYTHON}" - "${summary_json}" "${VLLM_RETRY_SUMMARY}" <<'PY'
+import importlib
 import json
 import os
 import sys
@@ -711,6 +746,19 @@ payload = {
     },
     "vllm_build_retry_summary": attempts,
 }
+try:
+    deep_gemm = importlib.import_module("deep_gemm")
+except Exception as exc:
+    payload["deep_gemm"] = {
+        "available": False,
+        "error": f"{type(exc).__name__}: {exc}",
+    }
+else:
+    payload["deep_gemm"] = {
+        "available": True,
+        "version": getattr(deep_gemm, "__version__", "unknown"),
+        "file": getattr(deep_gemm, "__file__", ""),
+    }
 summary_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
   cat "${summary_file}"
@@ -750,6 +798,13 @@ if [[ "${SKIP_VLLM_BUILD}" -eq 0 ]]; then
 else
   echo "[stage] install-vllm-editable"
   echo "  skipped by --skip-vllm-build"
+fi
+
+if [[ "${SKIP_DEEPGEMM_BUILD}" -eq 0 ]]; then
+  run_stage "install-deepgemm" install_deepgemm_if_needed
+else
+  echo "[stage] install-deepgemm"
+  echo "  skipped by --skip-deepgemm-build"
 fi
 
 if [[ "${SKIP_LMCACHE_BUILD}" -eq 0 ]]; then

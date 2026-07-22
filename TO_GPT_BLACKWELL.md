@@ -1,21 +1,20 @@
 # Blackwell Env + GLM Evaluation Report
 
 ## Executive Summary
-- Branch `blackwell` was created from `09906fc63f71bfc950a33b506b0c9441e25ae6df` and pushed to `origin/blackwell` before source changes.
-- Environment setup code was updated for Blackwell defaults: GPUs `0,1,2`, CUDA `/usr/local/cuda-12.9`, Python 3.13, PyTorch `2.10.0+cu129`, and build cap `16`.
-- A real bootstrap run built the environment, installed torch/Ray/repo deps, checked out externals, built vLLM editable with retry fallback, and built LMCache editable. It failed only at Docker image setup because the `docker` command is missing.
-- vLLM build retry worked as required: `16` failed OOM-like, `12` failed OOM-like, `8` passed.
-- A skip-Docker idempotent bootstrap pass completed successfully and validated torch CUDA, vLLM, LMCache, repo import, doctor, and tests.
-- GLM smoke was attempted on GPU `0`; it failed before model load/sample execution because Docker is missing. Full GLM evaluation was not attempted because smoke did not pass.
+- Environment setup for the Blackwell server is implemented on branch `blackwell`.
+- The repo-local `Putpocket_env` is built and usable with Python `3.13.14`, CUDA `/usr/local/cuda-12.9`, PyTorch `2.10.0+cu129`, Ray `2.55.1`, editable vLLM, editable LMCache, and DeepGEMM `2.3.0`.
+- Docker is installed and usable through a refreshed group shell via `sg docker`; the repo Docker image exists.
+- GLM smoke was attempted on GPU `0` before and after DeepGEMM install. After DeepGEMM, model loading still fails in vLLM sparse MLA attention backend selection for this SM 12.0 RTX Blackwell device and GLM config.
+- Full GLM evaluation was not run because the one-sample smoke did not pass.
 
 ## Branch / Git
 - Branch name: `blackwell`
 - Upstream: `origin/blackwell`
 - Base commit before Blackwell changes: `09906fc63f71bfc950a33b506b0c9441e25ae6df`
-- Initial branch push: completed before implementation.
-- Source/config/report commit: `e043f774fdf6385baacd4c1badfdfb93c6067a2b`
-- Pushed status for source/config/report commit: pushed to `origin/blackwell`.
-- Report metadata update commit: this report line is part of a follow-up commit; final branch HEAD is reported in the assistant handoff after push.
+- Source/config/report commit pushed earlier: `e043f774fdf6385baacd4c1badfdfb93c6067a2b`
+- Last pushed commit currently known on `origin/blackwell`: `e827fc575afcfe91e12e1909cc91c108cc12d5d0`
+- Local branch before this report/source update: `b28c4cdd96dded67a17ec05c9f58d2b3e90a5601`, ahead of `origin/blackwell` by 3 commits
+- Current report/source updates are pending commit at the time this file is written; final push status is reported in the assistant handoff.
 
 ## Hardware Detected
 - GPUs:
@@ -26,10 +25,7 @@
 - CUDA version: `12.9`, `nvcc` release `12.9`, `V12.9.41`
 - CPU cores: `64`
 - CPU RAM: `62Gi`
-- Preflight notes:
-  - `nvcc` was not initially on PATH, but `/usr/local/cuda-12.9/bin/nvcc` exists and env activation exports it.
-  - `python3.13` was not initially on PATH; bootstrap installed/found Python 3.13 through repo-local uv tooling.
-  - `docker` is missing.
+- Python 3.13 was provided by uv-managed Python under the repo-local environment.
 
 ## Env Setup Changes
 - Modified environment/bootstrap files:
@@ -54,6 +50,7 @@
 - Ray: `2.55.1`
 - vLLM: `0.1.dev15375+gb65d39ddb`
 - LMCache: `0.1.dev1451`, imported with `lmcache.c_ops`
+- DeepGEMM: `2.3.0`, installed from the vLLM-pinned commit `477618cd51baffca09c4b0b87e97c03fe827ef03`
 - Build cap defaults confirmed:
   - `PUTPOCKET_BUILD_THREADS=16`
   - `MAX_JOBS=16`
@@ -82,18 +79,25 @@
 ./scripts/env/bootstrap_env.sh
 ```
 
-- This real run failed at Docker only:
+- The original real run failed at Docker before Docker was installed:
   - Failed stage: `ensure-docker-image`
   - Failing command: `ensure_docker_image`
   - Log path: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T105947Z/ensure-docker-image.log`
-  - Error: `docker command is missing. Install Docker or rerun with --skip-docker.`
-- Idempotent validation command after Docker blocker:
+- Successful idempotent validation before Docker:
 
 ```bash
 ./scripts/env/bootstrap_env.sh --skip-docker --skip-vllm-build --skip-lmcache-build
 ```
 
 - Successful skip-Docker log root: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T122119Z`
+- DeepGEMM install is now integrated into bootstrap as `install-deepgemm`.
+- Successful DeepGEMM-stage validation command:
+
+```bash
+./scripts/env/bootstrap_env.sh --skip-externals --skip-vllm-build --skip-lmcache-build --skip-docker
+```
+
+- Successful DeepGEMM-stage validation log root: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T180715Z`
 - Activation command:
 
 ```bash
@@ -102,209 +106,42 @@ source scripts/env/env_activate.sh
 
 ## Validation Commands Run
 - `bash -n scripts/env/bootstrap_env.sh scripts/env/env_activate.sh scripts/env/env_activate_ref.sh`: pass
-- `./scripts/env/bootstrap_env.sh`: failed only at Docker image setup after env/vLLM/LMCache succeeded
+- `./scripts/env/bootstrap_env.sh`: env/vLLM/LMCache build passed; failed only at Docker before Docker was installed
 - `./scripts/env/bootstrap_env.sh --skip-docker --skip-vllm-build --skip-lmcache-build`: pass
-- `source scripts/env/env_activate.sh && python -V`: pass, `Python 3.13.14`
-- `source scripts/env/env_activate.sh && python` executable assertion contains `Putpocket_env`: pass
+- `./scripts/env/bootstrap_env.sh --doctor-only --skip-docker`: pass
+  - Log root: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T180645Z`
+- `./scripts/env/bootstrap_env.sh --skip-externals --skip-vllm-build --skip-lmcache-build --skip-docker`: pass
+  - Log root: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T180715Z`
 - torch/Ray/datasets/transformers import check: pass
 - repo package import check: pass
 - vLLM/LMCache import check: pass
-- `putpocket-dataset-mining doctor --json`: pass, with `docker: null`
+- DeepGEMM import check: pass
+- `putpocket-dataset-mining doctor --json`: pass
 - `python -m compileall src tests`: pass
 - `python -m unittest discover -s tests -v`: pass, `13` tests
-- `putpocket-dataset-mining docker ensure-image`: fail, exit `2`, `docker command is missing. Install Docker or rerun with --skip-docker where supported.`
+- Docker image build through refreshed group shell:
+
+```bash
+sg docker -c 'cd /home/dyryu/putpocket_dataset_mining && bash -lc "source scripts/env/env_activate.sh >/tmp/putpocket_activate_check.log && putpocket-dataset-mining docker ensure-image"'
+```
+
+  - Result: pass
+  - Image: `putpocket-default-python:ubuntu22.04-py313-v1`, image id `1ea08521b3c6`, disk usage `1.19GB`
 
 ## Dataset Found
 - Dataset version: `mbpp_stateful_working_v0`
 - Accepted count: `20`
 - Accepted path: `/home/dyryu/putpocket_dataset_mining/data/dataset_mining/datasets/mbpp_stateful_working_v0/accepted.jsonl`
 - Artifact paths resolve: yes, `0` missing paths across accepted rows.
+- Original copied mined dataset was not modified.
 
 ## GLM Evaluation Code Status
 - GLM evaluation code exists and was updated for Blackwell defaults.
 - Main CLI module: `src/putpocket_dataset_mining/model_evaluation/glm_eval.py`
-- Added config: `configs/model_evaluation/glm52_08b_blackwell.yaml`
-- CLI help command passed:
+- Config: `configs/model_evaluation/glm52_08b_blackwell.yaml`
+- CLI command form:
 
 ```bash
-source scripts/env/env_activate.sh
-python -m putpocket_dataset_mining.model_evaluation.glm_eval --help
-```
-
-- Smoke command used:
-
-```bash
-CUDA_VISIBLE_DEVICES=0 python -m putpocket_dataset_mining.model_evaluation.glm_eval \
-  --dataset-version mbpp_stateful_working_v0 \
-  --model-id inference-optimization/GLM-5.2-0.8B-A0.8B \
-  --eval-name eval_glm52_08b_on_mbpp_stateful_working_v0 \
-  --profile smoke \
-  --workers 1 \
-  --gpu-slots 0 \
-  --run-id eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_blackwell_20260722T122033Z
-```
-
-## GLM Smoke Result
-- Status: failed before model load/sample execution due missing Docker.
-- Output path: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/runs/eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_blackwell_20260722T122033Z`
-- Log path: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/logs/glm_smoke_blackwell_20260722T122033Z.log`
-- Files produced:
-  - `eval_config.yaml`
-  - `dataset_audit.json`
-  - empty `results.jsonl`
-- Final error:
-
-```json
-{
-  "error": "InfraError: docker command is missing. Install Docker or rerun with --skip-docker where supported.",
-  "status": "failed"
-}
-```
-
-## GLM Full Evaluation Result
-- Status: not attempted because smoke failed before model load/sample execution.
-- Pending command after Docker is installed and smoke passes:
-
-```bash
-CUDA_VISIBLE_DEVICES=0,1,2 python -m putpocket_dataset_mining.model_evaluation.glm_eval \
-  --dataset-version mbpp_stateful_working_v0 \
-  --model-id inference-optimization/GLM-5.2-0.8B-A0.8B \
-  --eval-name eval_glm52_08b_on_mbpp_stateful_working_v0 \
-  --profile full \
-  --workers 3 \
-  --gpu-slots 0,1,2
-```
-
-- Number of samples planned: `20`
-- accepted/rejected/failed_infra/uncertain: unavailable for this run because full evaluation did not start.
-- Failure stage histogram: unavailable for this run because smoke stopped before sample execution.
-
-## Logs
-- Preflight log dir: `/home/dyryu/putpocket_dataset_mining/logs/blackwell_preflight`
-- Real bootstrap log dir: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T105947Z`
-- Successful skip-Docker bootstrap log dir: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T122119Z`
-- vLLM retry summary: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T105947Z/vllm_build_retry_summary.tsv`
-- Docker failure log: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T105947Z/ensure-docker-image.log`
-- GLM smoke log: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/logs/glm_smoke_blackwell_20260722T122033Z.log`
-- GLM smoke run path: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/runs/eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_blackwell_20260722T122033Z`
-
-## Known Blockers
-- Docker is missing on the host.
-  - Failing bootstrap command: `./scripts/env/bootstrap_env.sh`
-  - Failed stage: `ensure-docker-image`
-  - Failing stage command: `ensure_docker_image`
-  - Log path: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T105947Z/ensure-docker-image.log`
-  - Error: `docker command is missing. Install Docker or rerun with --skip-docker.`
-- Docker image validation also fails:
-  - Failing command: `source scripts/env/env_activate.sh && putpocket-dataset-mining docker ensure-image`
-  - Exit code: `2`
-  - Error: `docker command is missing. Install Docker or rerun with --skip-docker where supported.`
-- GLM smoke is blocked by the same missing Docker dependency:
-  - Failing command: see `## GLM Smoke Result`
-  - Log path: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/logs/glm_smoke_blackwell_20260722T122033Z.log`
-- Docker install continuation attempt on 2026-07-23:
-  - Checked branch/state: `blackwell` at `e827fc575afcfe91e12e1909cc91c108cc12d5d0`, clean before this report update.
-  - System install check: `sudo -n true` failed with `sudo: a password is required`.
-  - Host OS: Ubuntu 22.04.3 LTS.
-  - Rootless prerequisites present: `/etc/subuid` and `/etc/subgid` each contain `dyryu:558752:65536`; unprivileged user namespaces are enabled.
-  - Rootless prerequisites missing: `newuidmap` and `newgidmap`.
-  - Official rootless installer command attempted:
-
-```bash
-curl -fsSL https://get.docker.com/rootless -o /tmp/docker-rootless-install.sh
-sh /tmp/docker-rootless-install.sh
-```
-
-  - Rootless installer log: `/home/dyryu/putpocket_dataset_mining/logs/docker_install/rootless_install_20260722T172904Z.log`
-  - Rootless installer result: blocked by missing host `uidmap` package; installer requested:
-
-```bash
-sudo apt-get -y install uidmap
-```
-
-  - Exact package-install command attempted:
-
-```bash
-sudo -n apt-get -y install uidmap
-```
-
-  - Exact package-install failure: `sudo: a password is required`
-- Docker install continuation retry after user reported Docker was installed:
-  - Branch/state checked: `blackwell` at local commit `297cf1c3f08c4f26c41ca1deb794793095d0b5d1`, with `origin/blackwell` still at `e827fc575afcfe91e12e1909cc91c108cc12d5d0`.
-  - `which docker`, `docker --version`, and `docker info` still fail with `docker: command not found`.
-  - No Docker daemon or user service was visible:
-
-```bash
-systemctl --user status docker
-systemctl status docker
-ps -ef | rg -i 'dockerd|containerd|rootlesskit|slirp4netns|docker'
-```
-
-  - No Docker binary/socket was found in standard locations:
-
-```bash
-find /usr /opt /snap /var/lib/snapd -type f \( -name docker -o -name dockerd -o -name containerd \)
-find / -maxdepth 4 \( -name docker.sock -o -name 'docker*.sock' \)
-```
-
-  - `newuidmap` and `newgidmap` are still missing.
-  - Rootless installer retry command:
-
-```bash
-sh /tmp/docker-rootless-install.sh
-```
-
-  - Retry log: `/home/dyryu/putpocket_dataset_mining/logs/docker_install/rootless_install_retry_20260722T173403Z.log`
-  - Retry result: still blocked by missing host `uidmap`; installer again requested `sudo apt-get -y install uidmap`.
-- Docker verification after rootful Docker package install:
-  - Docker CLI is present: `/usr/bin/docker`, version `29.6.2`.
-  - Docker daemon is active: `docker.service` running with `/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock`.
-  - Docker socket exists at `/var/run/docker.sock` with owner/group `root:docker`.
-  - User `dyryu` is not in the `docker` group:
-
-```bash
-id
-getent group docker
-```
-
-  - Exact Docker access test:
-
-```bash
-docker image ls
-```
-
-  - Exact Docker access failure: `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`
-  - Exact repo Docker validation command:
-
-```bash
-source scripts/env/env_activate.sh
-putpocket-dataset-mining docker ensure-image
-```
-
-  - Exact repo Docker validation failure: `Docker image build failed: ERROR: permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`
-- Smallest next action: an administrator must add `dyryu` to the `docker` group and refresh the login session, or install host `uidmap` so rootless Docker can be used instead. For rootful Docker access:
-
-```bash
-sudo usermod -aG docker dyryu
-```
-
-Then start a new login shell/session for `dyryu` and validate:
-
-```bash
-id
-docker info
-source scripts/env/env_activate.sh
-putpocket-dataset-mining docker ensure-image
-```
-
-For rootless Docker instead, install the host `uidmap` package, rerun the rootless installer, and validate:
-
-```bash
-sh /tmp/docker-rootless-install.sh
-export PATH="$HOME/bin:$PATH"
-export DOCKER_HOST="unix:///run/user/1007/docker.sock"
-source scripts/env/env_activate.sh
-putpocket-dataset-mining docker ensure-image
 CUDA_VISIBLE_DEVICES=0 python -m putpocket_dataset_mining.model_evaluation.glm_eval \
   --dataset-version mbpp_stateful_working_v0 \
   --model-id inference-optimization/GLM-5.2-0.8B-A0.8B \
@@ -314,5 +151,104 @@ CUDA_VISIBLE_DEVICES=0 python -m putpocket_dataset_mining.model_evaluation.glm_e
   --gpu-slots 0
 ```
 
+## GLM Smoke Result
+- Pre-DeepGEMM smoke status: blocked at vLLM model initialization because `deep_gemm` was missing.
+  - Log: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/logs/glm_smoke_blackwell_20260722T175830Z.log`
+  - Run path: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/runs/eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_blackwell_20260722T175830Z`
+- DeepGEMM install command:
+
+```bash
+source scripts/env/env_activate.sh
+PUTPOCKET_BUILD_THREADS=16 MAX_JOBS=16 CMAKE_BUILD_PARALLEL_LEVEL=16 CARGO_BUILD_JOBS=16 NVCC_THREADS=1 \
+  CUDA_VISIBLE_DEVICES=0 bash externals/vllm/tools/install_deepgemm.sh --cuda-version 12.9
+```
+
+  - Result: pass
+  - Log: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/logs/install_deepgemm_blackwell_20260722T180144Z.log`
+- Post-DeepGEMM smoke command:
+
+```bash
+sg docker -c 'cd /home/dyryu/putpocket_dataset_mining && bash -lc '"'"'source scripts/env/env_activate.sh >/tmp/putpocket_activate_check.log
+CUDA_VISIBLE_DEVICES=0 python -m putpocket_dataset_mining.model_evaluation.glm_eval \
+  --dataset-version mbpp_stateful_working_v0 \
+  --model-id inference-optimization/GLM-5.2-0.8B-A0.8B \
+  --eval-name eval_glm52_08b_on_mbpp_stateful_working_v0 \
+  --profile smoke \
+  --workers 1 \
+  --gpu-slots 0 \
+  --run-id eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_after_deepgemm_blackwell_20260722T180327Z'"'"''
+```
+
+- Post-DeepGEMM smoke status: blocked
+- Output path: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/runs/eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_after_deepgemm_blackwell_20260722T180327Z`
+- Log path: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/logs/glm_smoke_blackwell_after_deepgemm_20260722T180327Z.log`
+- Selected samples: `1`
+- Counts:
+  - `failed_infra=1`
+  - `history1_status.failed_infra=1`
+  - `history2_status.skipped=1`
+  - `judge_decision.not_run=1`
+- Root failure:
+
+```text
+ValueError: No valid attention backend found for cuda with AttentionSelectorConfig(head_size=192, dtype=torch.bfloat16, kv_cache_dtype=auto, block_size=None, use_mla=True, has_sink=False, use_sparse=True, use_mm_prefix=False, use_per_head_quant_scales=False, attn_type=AttentionType.DECODER).
+```
+
+- vLLM backend reasons included `head_size not supported`, `sparse not supported`, `compute capability not supported`, and `FLASHMLA_SPARSE: [head_size not supported, compute capability not supported]`.
+- Local vLLM inspection:
+  - Device capability: `DeviceCapability(major=12, minor=0)`
+  - `has_deep_gemm`: `True`
+  - `current_platform.support_deep_gemm()`: `False`
+  - `is_deep_gemm_supported()`: `False`
+  - `FlashInferMLASparseBackend.get_supported_head_sizes()`: `[576]`
+  - `FlashMLASparseBackend.get_supported_head_sizes()`: `[576]`
+  - The GLM model path passes `head_size = kv_lora_rank + qk_rope_head_dim = 192`.
+
+## GLM Full Evaluation Result
+- Status: not run because smoke remained blocked after DeepGEMM installation.
+- Planned command:
+
+```bash
+sg docker -c 'cd /home/dyryu/putpocket_dataset_mining && bash -lc '"'"'source scripts/env/env_activate.sh >/tmp/putpocket_activate_check.log
+CUDA_VISIBLE_DEVICES=0,1,2 python -m putpocket_dataset_mining.model_evaluation.glm_eval \
+  --dataset-version mbpp_stateful_working_v0 \
+  --model-id inference-optimization/GLM-5.2-0.8B-A0.8B \
+  --eval-name eval_glm52_08b_on_mbpp_stateful_working_v0 \
+  --profile full \
+  --workers 3 \
+  --gpu-slots 0,1,2'"'"''
+```
+
+- Number of samples planned: `20`
+- accepted/rejected/failed_infra/uncertain: unavailable because full evaluation did not start.
+- Failure stage histogram: unavailable for full evaluation because smoke failed first.
+
+## Logs
+- Preflight log dir: `/home/dyryu/putpocket_dataset_mining/logs/blackwell_preflight`
+- Real bootstrap log dir: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T105947Z`
+- Successful skip-Docker bootstrap log dir: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T122119Z`
+- Doctor-only validation log dir: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T180645Z`
+- DeepGEMM-stage validation log dir: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T180715Z`
+- vLLM retry summary: `/home/dyryu/putpocket_dataset_mining/logs/env_setup/20260722T105947Z/vllm_build_retry_summary.tsv`
+- DeepGEMM install log: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/logs/install_deepgemm_blackwell_20260722T180144Z.log`
+- GLM post-DeepGEMM smoke log: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/logs/glm_smoke_blackwell_after_deepgemm_20260722T180327Z.log`
+- GLM post-DeepGEMM smoke run path: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/runs/eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_after_deepgemm_blackwell_20260722T180327Z`
+
+## Known Blockers
+- GLM-5.2-0.8B local vLLM engine cannot initialize on this current vLLM checkout and SM 12.0 RTX Blackwell device.
+  - Failing operation: vLLM local engine initialization for `inference-optimization/GLM-5.2-0.8B-A0.8B`
+  - Failing command: the post-DeepGEMM smoke command in `## GLM Smoke Result`
+  - Log path: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/logs/glm_smoke_blackwell_after_deepgemm_20260722T180327Z.log`
+  - Root error: no valid CUDA attention backend for sparse MLA with `head_size=192`, `use_sparse=True`, and compute capability `12.0`
+  - Smallest next action: update the local vLLM branch to a version that explicitly supports GLM sparse MLA for RTX Blackwell SM 12.0 and this `head_size=192` GLM layout, or obtain an upstream-supported backend/config for this model. Do not bypass the backend validation gates without a kernel-level compatibility check.
+- Docker is installed but the current non-login shell does not have the refreshed `docker` supplemental group.
+  - Direct `docker info` in this shell still fails with permission denied.
+  - `sg docker -c 'docker info'` works and was used for Docker image setup and GLM smoke.
+  - Smallest next action for direct Docker access: start a new login session for `dyryu`, then validate `id` and `docker info`.
+- Git push may still be blocked by repository authentication.
+  - Previous failing command: `git push -u origin blackwell`
+  - Previous error: missing or invalid credentials for `https://github.com/Nier4Ryu/putpocket_dataset_mining.git/`
+  - Smallest next action: refresh GitHub credentials for this host/session, or push from a shell with valid GitHub authentication.
+
 ## Next Recommended Action
-Grant `dyryu` access to the installed rootful Docker daemon by adding the user to the `docker` group and starting a fresh login session, or install host `uidmap` so rootless Docker can be configured. Then rerun Docker image setup and the GLM smoke command. If smoke passes, run the pending full evaluation with GPUs `0,1,2`.
+Update or replace the local vLLM branch with explicit support for GLM sparse MLA on RTX Blackwell SM 12.0, then rerun the post-DeepGEMM smoke command on GPU `0`. If that smoke passes, run the planned full evaluation on GPUs `0,1,2`.

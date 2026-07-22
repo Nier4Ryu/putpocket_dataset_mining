@@ -17,8 +17,9 @@ Useful options:
 ```bash
 ./scripts/env/bootstrap_env.sh --doctor-only
 ./scripts/env/bootstrap_env.sh --skip-docker
-./scripts/env/bootstrap_env.sh --skip-vllm-build --skip-lmcache-build
+./scripts/env/bootstrap_env.sh --skip-vllm-build --skip-deepgemm-build --skip-lmcache-build
 ./scripts/env/bootstrap_env.sh --force-vllm-build
+./scripts/env/bootstrap_env.sh --force-deepgemm-build
 ./scripts/env/bootstrap_env.sh --force-lmcache-build
 ./scripts/env/bootstrap_env.sh --force-docker-build
 ```
@@ -53,6 +54,12 @@ available but `uv` can be installed, bootstrap installs a repo-local `uv` under
 Editable vLLM builds start at 16 build threads. If the build log shows an
 OOM-like failure, bootstrap retries with 12 threads and then 8 threads, writing
 logs such as `logs/env_setup/<timestamp>/vllm_build_threads_16.log`.
+
+After vLLM is available, bootstrap installs the vLLM-pinned DeepGEMM package
+when `deep_gemm` is not already importable. GLM sparse MLA model loading needs
+that package before vLLM can reach backend selection. Use
+`--skip-deepgemm-build` only for dependency inspection or when DeepGEMM is known
+to be unavailable on the host.
 
 The activation script does not set `CUDA_VISIBLE_DEVICES`; GPU selection belongs
 to runtime configs or per-command environment variables.

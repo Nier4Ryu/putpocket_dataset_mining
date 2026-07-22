@@ -202,9 +202,39 @@ CUDA_VISIBLE_DEVICES=0,1,2 python -m putpocket_dataset_mining.model_evaluation.g
 - GLM smoke is blocked by the same missing Docker dependency:
   - Failing command: see `## GLM Smoke Result`
   - Log path: `/home/dyryu/putpocket_dataset_mining/data/model_evaluation/logs/glm_smoke_blackwell_20260722T122033Z.log`
-- Smallest next action: install Docker CLI/daemon or make Docker available in PATH for this user, then run:
+- Docker install continuation attempt on 2026-07-23:
+  - Checked branch/state: `blackwell` at `e827fc575afcfe91e12e1909cc91c108cc12d5d0`, clean before this report update.
+  - System install check: `sudo -n true` failed with `sudo: a password is required`.
+  - Host OS: Ubuntu 22.04.3 LTS.
+  - Rootless prerequisites present: `/etc/subuid` and `/etc/subgid` each contain `dyryu:558752:65536`; unprivileged user namespaces are enabled.
+  - Rootless prerequisites missing: `newuidmap` and `newgidmap`.
+  - Official rootless installer command attempted:
 
 ```bash
+curl -fsSL https://get.docker.com/rootless -o /tmp/docker-rootless-install.sh
+sh /tmp/docker-rootless-install.sh
+```
+
+  - Rootless installer log: `/home/dyryu/putpocket_dataset_mining/logs/docker_install/rootless_install_20260722T172904Z.log`
+  - Rootless installer result: blocked by missing host `uidmap` package; installer requested:
+
+```bash
+sudo apt-get -y install uidmap
+```
+
+  - Exact package-install command attempted:
+
+```bash
+sudo -n apt-get -y install uidmap
+```
+
+  - Exact package-install failure: `sudo: a password is required`
+- Smallest next action: an administrator must install the host `uidmap` package, or provide passwordless/interactive sudo for user `dyryu` long enough to run `sudo apt-get -y install uidmap`. Then rerun the rootless installer and Docker validation:
+
+```bash
+sh /tmp/docker-rootless-install.sh
+export PATH="$HOME/bin:$PATH"
+export DOCKER_HOST="unix:///run/user/1007/docker.sock"
 source scripts/env/env_activate.sh
 putpocket-dataset-mining docker ensure-image
 CUDA_VISIBLE_DEVICES=0 python -m putpocket_dataset_mining.model_evaluation.glm_eval \
@@ -217,4 +247,4 @@ CUDA_VISIBLE_DEVICES=0 python -m putpocket_dataset_mining.model_evaluation.glm_e
 ```
 
 ## Next Recommended Action
-Install/enable Docker on the Blackwell server for user `dyryu`, rerun Docker image setup, then rerun the GLM smoke command. If smoke passes, run the pending full evaluation with GPUs `0,1,2`.
+Install host `uidmap` for user `dyryu` so rootless Docker can be installed without rootful daemon access, or install/enable a rootful Docker daemon for this user. Then rerun Docker image setup and the GLM smoke command. If smoke passes, run the pending full evaluation with GPUs `0,1,2`.

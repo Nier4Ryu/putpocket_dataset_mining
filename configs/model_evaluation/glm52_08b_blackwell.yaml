@@ -6,9 +6,11 @@ eval:
   model_id: inference-optimization/GLM-5.2-0.8B-A0.8B
   mode: full_two_turn_glm_rerun
   backend: local_vllm_python_engine
+  serving_stack: glm52_vllm023_blackwell
 
 runtime:
   cuda_home: /usr/local/cuda-12.9
+  activation: scripts/env/env_activate_glm52.sh
   tensor_parallel_size: 1
   pipeline_parallel_size: 1
   max_model_len: 8192
@@ -34,11 +36,14 @@ profiles:
       - [2]
 
 build:
-  default_parallelism: 16
-  vllm_retry_threads: [16, 12, 8]
+  default_parallelism: 8
+  vllm_source_path: externals/vllm_glm52
+  vllm_ref: v0.23.0
+  vllm_retry_threads: []
   env:
-    PUTPOCKET_BUILD_THREADS: "16"
-    MAX_JOBS: "16"
-    CMAKE_BUILD_PARALLEL_LEVEL: "16"
-    CARGO_BUILD_JOBS: "16"
+    PUTPOCKET_BUILD_THREADS: "8"
+    MAX_JOBS: "8"
+    CMAKE_BUILD_PARALLEL_LEVEL: "8"
+    CARGO_BUILD_JOBS: "8"
     NVCC_THREADS: "1"
+    TORCH_CUDA_ARCH_LIST: "12.0"

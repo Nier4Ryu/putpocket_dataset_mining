@@ -20,7 +20,10 @@ from putpocket_dataset_mining.constants import (
     DEFAULT_DOCKERFILE,
     DEFAULT_DOCKER_IMAGE,
     GLM52_08B_MODEL_ID,
+    GLM52_VLLM023_BUILD_ENV_OVERRIDES,
+    GLM52_VLLM023_SERVING_STACK,
     MODEL_EVALUATION_RUNS_ROOT,
+    PUTPOCKET_VLLM019_SERVING_STACK,
     REPO_ROOT,
     ensure_model_evaluation_dirs,
 )
@@ -310,6 +313,7 @@ class GLMSampleEvaluator:
             "source_dataset_row_number": sample.row_number,
             "source_artifact_path": str(sample.source_artifact_path),
             "target_model": self.run_config["model_id"],
+            "serving_stack": self.run_config["serving_stack"],
             "evaluation_mode": EVALUATION_MODE,
             "history1_status": "not_started",
             "history1_failure_class": None,
@@ -367,6 +371,7 @@ class GLMSampleEvaluator:
             "dataset_version": sample.dataset_version,
             "model_id": self.run_config["model_id"],
             "backend": "local_vllm_python_engine",
+            "serving_stack": self.run_config["serving_stack"],
             "evaluation_mode": EVALUATION_MODE,
             "evaluation_seed": self.run_config["evaluation_seed"],
             "gpu_slot": self.gpu_slot,
@@ -620,8 +625,14 @@ def validate_eval_gpu_slots(slots: list[list[int]], workers: int) -> list[list[i
     return slots
 
 
-def apply_build_env_overrides() -> None:
-    for key, value in BUILD_ENV_OVERRIDES.items():
+def build_env_overrides_for_serving_stack(serving_stack: str) -> dict[str, str]:
+    if serving_stack == GLM52_VLLM023_SERVING_STACK:
+        return GLM52_VLLM023_BUILD_ENV_OVERRIDES
+    return BUILD_ENV_OVERRIDES
+
+
+def apply_build_env_overrides(serving_stack: str = PUTPOCKET_VLLM019_SERVING_STACK) -> None:
+    for key, value in build_env_overrides_for_serving_stack(serving_stack).items():
         os.environ[key] = value
 
 
@@ -632,7 +643,7 @@ def _worker_main(
     job_queue: mp.Queue,
     result_queue: mp.Queue,
 ) -> None:
-    apply_build_env_overrides()
+    apply_build_env_overrides(str(run_config.get("serving_stack", PUTPOCKET_VLLM019_SERVING_STACK)))
     os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str(device) for device in gpu_slot)
     engine = LocalVLLMEngine(
         model_id=str(run_config["model_id"]),
@@ -663,6 +674,7 @@ def _worker_main(
                 "source_dataset_version": sample.dataset_version,
                 "source_artifact_path": str(sample.source_artifact_path),
                 "target_model": run_config["model_id"],
+                "serving_stack": run_config.get("serving_stack", PUTPOCKET_VLLM019_SERVING_STACK),
                 "evaluation_mode": EVALUATION_MODE,
                 "history1_status": "failed_infra",
                 "history1_failure_class": "infra.worker_error",
@@ -684,7 +696,7 @@ def _worker_main(
 
 
 def run_evaluation(args: argparse.Namespace) -> dict[str, Any]:
-    apply_build_env_overrides()
+    apply_build_env_overrides(args.serving_stack)
     ensure_model_evaluation_dirs()
     timestamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     run_id = args.run_id or f"{args.eval_name}_{timestamp}"
@@ -830,6 +842,7 @@ def build_run_config(
         "selected_sample_ids": [sample.sample_id for sample in selected_samples],
         "model_id": args.model_id,
         "backend": "local_vllm_python_engine",
+        "serving_stack": args.serving_stack,
         "workers": len(slots),
         "gpu_slots": slots,
         "tensor_parallel_size": int(args.tensor_parallel_size),
@@ -864,7 +877,7 @@ def build_run_config(
         },
         "single_config_path": str(single_config_path),
         "single_config": single_config,
-        "build_env_overrides": BUILD_ENV_OVERRIDES,
+        "build_env_overrides": build_env_overrides_for_serving_stack(args.serving_stack),
     }
 
 
@@ -917,6 +930,7 @@ def write_summary(run_root: Path, run_config: dict[str, Any], results: list[dict
         "selected_count": len(results),
         "target_model": run_config["model_id"],
         "backend": run_config["backend"],
+        "serving_stack": run_config.get("serving_stack", PUTPOCKET_VLLM019_SERVING_STACK),
         "status": run_status,
         "results_path": str(run_root / "results.jsonl"),
         "summary_json_path": str(run_root / "summary.json"),
@@ -944,6 +958,7 @@ def render_summary_md(summary: dict[str, Any]) -> str:
         f"- Dataset: {summary['dataset_version']}",
         f"- Target model: {summary['target_model']}",
         f"- Backend: {summary['backend']}",
+        f"- Serving stack: {summary.get('serving_stack', PUTPOCKET_VLLM019_SERVING_STACK)}",
         f"- Samples evaluated: {summary['selected_count']} of {summary['accepted_count']} accepted rows",
         "",
         "## Final Status Counts",
@@ -967,6 +982,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dataset-version", default="mbpp_stateful_working_v0")
     parser.add_argument("--model-id", default=GLM52_08B_MODEL_ID)
     parser.add_argument("--eval-name", default="eval_glm52_08b_on_mbpp_stateful_working_v0")
+    parser.add_argument(
+        "--serving-stack",
+        choices=[PUTPOCKET_VLLM019_SERVING_STACK, GLM52_VLLM023_SERVING_STACK],
+        default=PUTPOCKET_VLLM019_SERVING_STACK,
+    )
     parser.add_argument("--profile", choices=["smoke", "full"], default="smoke")
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--single-config", default="configs/dataset_mining/mbpp_stateful_single.yaml")

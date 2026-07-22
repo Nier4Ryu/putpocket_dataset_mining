@@ -42,9 +42,17 @@ class DockerImageManager:
     def from_default(cls) -> "DockerImageManager":
         return cls(DEFAULT_DOCKER_IMAGE, DEFAULT_DOCKERFILE)
 
+    @staticmethod
+    def _docker_cmd() -> str:
+        docker = shutil.which("docker")
+        if docker is None:
+            raise InfraError("docker command is missing. Install Docker or rerun with --skip-docker where supported.")
+        return docker
+
     def image_exists(self) -> bool:
+        docker = self._docker_cmd()
         result = subprocess.run(
-            ["docker", "image", "inspect", self.image],
+            [docker, "image", "inspect", self.image],
             text=True,
             capture_output=True,
         )
@@ -57,10 +65,11 @@ class DockerImageManager:
             raise InfraError(f"Docker image is missing and build_if_missing=false: {self.image}")
         if not self.dockerfile.exists():
             raise InfraError(f"Dockerfile is missing: {self.dockerfile}")
-        python_build_jobs = os.environ.get("PUTPOCKET_BUILD_THREADS", "32")
+        python_build_jobs = os.environ.get("PUTPOCKET_BUILD_THREADS", "16")
+        docker = self._docker_cmd()
         result = subprocess.run(
             [
-                "docker",
+                docker,
                 "build",
                 "--build-arg",
                 f"PYTHON_BUILD_JOBS={python_build_jobs}",

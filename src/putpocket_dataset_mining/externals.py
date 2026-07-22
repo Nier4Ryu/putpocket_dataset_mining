@@ -113,10 +113,19 @@ def checkout_external(name: str) -> ExternalRepo:
 def editable_install(repo: ExternalRepo, python: str = "python") -> None:
     if not repo.path.exists():
         raise InfraError(f"External path is missing: {repo.path}")
+    env = build_env()
+    command = [python, "-m", "pip", "install", "--no-build-isolation"]
+    if env.get("PUTPOCKET_PIP_INDEX_URL"):
+        command.extend(["--index-url", str(env["PUTPOCKET_PIP_INDEX_URL"])])
+    if env.get("PUTPOCKET_PIP_EXTRA_INDEX_URL"):
+        command.extend(["--extra-index-url", str(env["PUTPOCKET_PIP_EXTRA_INDEX_URL"])])
+    if env.get("PUTPOCKET_TORCH_CONSTRAINT_FILE"):
+        command.extend(["-c", str(env["PUTPOCKET_TORCH_CONSTRAINT_FILE"])])
+    command.extend(["-e", str(repo.path)])
     result = subprocess.run(
-        [python, "-m", "pip", "install", "--no-build-isolation", "-e", str(repo.path)],
+        command,
         cwd=str(REPO_ROOT),
-        env=build_env(),
+        env=env,
         text=True,
         capture_output=True,
     )

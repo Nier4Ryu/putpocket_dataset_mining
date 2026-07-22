@@ -14,7 +14,7 @@ Implement in phases. Do not skip to a fake completed state.
 
 - external checkout helpers for vLLM, LMCache, Cline
 - editable install path
-- vLLM build must cap CPU build threads at 32 via MAX_JOBS/CMAKE_BUILD_PARALLEL_LEVEL/CARGO_BUILD_JOBS/NVCC_THREADS
+- vLLM build must cap CPU build threads at 16 via MAX_JOBS/CMAKE_BUILD_PARALLEL_LEVEL/CARGO_BUILD_JOBS/NVCC_THREADS
 - import smoke
 
 ## Phase 2 — Docker default Python image
@@ -73,7 +73,7 @@ Implement in phases. Do not skip to a fake completed state.
 ## Phase 9 — Multi-sample master-worker
 
 - master process
-- GPU slot preflight restricted to CUDA devices 4,5,6,7
+- GPU slot preflight restricted to CUDA devices 0,1,2
 - worker pool
 - lazy job allocation
 - stop interfaces

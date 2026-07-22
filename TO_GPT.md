@@ -17,11 +17,11 @@ status: blocked
 - Initial smoke evaluation:
   - `source scripts/env/env_activate.sh && python -m putpocket_dataset_mining.model_evaluation.glm_eval --dataset-version mbpp_stateful_working_v0 --model-id inference-optimization/GLM-5.2-0.8B-A0.8B --eval-name eval_glm52_08b_on_mbpp_stateful_working_v0 --profile smoke --gpu-slots 4 --workers 1 --run-id eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_20260721T000000Z 2>&1 | tee data/model_evaluation/logs/eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_20260721T000000Z.log`
 - Dependency remediation attempt:
-  - `source scripts/env/env_activate.sh && PUTPOCKET_BUILD_THREADS=32 MAX_JOBS=32 CMAKE_BUILD_PARALLEL_LEVEL=32 CARGO_BUILD_JOBS=32 NVCC_THREADS=1 CUDA_VISIBLE_DEVICES=4 bash externals/vllm/tools/install_deepgemm.sh 2>&1 | tee data/model_evaluation/logs/install_deepgemm_20260721T000000Z.log`
+  - `source scripts/env/env_activate.sh && PUTPOCKET_BUILD_THREADS=16 MAX_JOBS=16 CMAKE_BUILD_PARALLEL_LEVEL=16 CARGO_BUILD_JOBS=16 NVCC_THREADS=1 CUDA_VISIBLE_DEVICES=0 bash externals/vllm/tools/install_deepgemm.sh 2>&1 | tee data/model_evaluation/logs/install_deepgemm_20260721T000000Z.log`
 - Smoke evaluation after DeepGEMM install:
   - `source scripts/env/env_activate.sh && python -m putpocket_dataset_mining.model_evaluation.glm_eval --dataset-version mbpp_stateful_working_v0 --model-id inference-optimization/GLM-5.2-0.8B-A0.8B --eval-name eval_glm52_08b_on_mbpp_stateful_working_v0 --profile smoke --gpu-slots 4 --workers 1 --run-id eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_after_deepgemm_20260721T000000Z 2>&1 | tee data/model_evaluation/logs/eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_after_deepgemm_20260721T000000Z.log`
 - Full evaluation attempt:
-  - `source scripts/env/env_activate.sh && python -m putpocket_dataset_mining.model_evaluation.glm_eval --dataset-version mbpp_stateful_working_v0 --model-id inference-optimization/GLM-5.2-0.8B-A0.8B --eval-name eval_glm52_08b_on_mbpp_stateful_working_v0 --profile full --gpu-slots 4,5,6,7 --workers 4 --run-id eval_glm52_08b_on_mbpp_stateful_working_v0_full_20260721T000000Z 2>&1 | tee data/model_evaluation/logs/eval_glm52_08b_on_mbpp_stateful_working_v0_full_20260721T000000Z.log`
+  - `source scripts/env/env_activate.sh && python -m putpocket_dataset_mining.model_evaluation.glm_eval --dataset-version mbpp_stateful_working_v0 --model-id inference-optimization/GLM-5.2-0.8B-A0.8B --eval-name eval_glm52_08b_on_mbpp_stateful_working_v0 --profile full --gpu-slots 0,1,2 --workers 3 --run-id eval_glm52_08b_on_mbpp_stateful_working_v0_full_20260721T000000Z 2>&1 | tee data/model_evaluation/logs/eval_glm52_08b_on_mbpp_stateful_working_v0_full_20260721T000000Z.log`
 - Summary regeneration after status-classification patch:
   - `source scripts/env/env_activate.sh && python - <<'PY' ... write_summary(...) ... PY`
 
@@ -38,7 +38,7 @@ status: blocked
 - Backend: local vLLM Python engine only
 - GPU config:
   - Smoke: GPU 4
-  - Full: GPUs 4,5,6,7 with 4 workers, `tp=1`, `pp=1`
+  - Full: GPUs 0,1,2 with 3 workers, `tp=1`, `pp=1`
   - Hardware observed: NVIDIA GeForce RTX 3090, compute capability 8.6
 - Decoding config: deterministic greedy, `temperature=0.0`, `top_p=1.0`, `n=1`, `evaluation_seed=20260721`
 - Chat-template rendering policy: semantic messages were rendered with the GLM tokenizer via `AutoTokenizer.apply_chat_template`; Qwen-rendered prompts were not used.
@@ -62,7 +62,7 @@ status: blocked
 - Smoke after DeepGEMM still failed before generation:
   - Failure: no valid CUDA sparse MLA attention backend on compute capability 8.6.
   - Log: `data/model_evaluation/logs/eval_glm52_08b_on_mbpp_stateful_working_v0_smoke_after_deepgemm_20260721T000000Z.log`
-- Full run was attempted across all 20 accepted samples with 4 workers.
+- Full run was attempted across all 20 accepted samples with 3 workers.
   - Full run status: blocked by backend initialization.
   - Run root: `data/model_evaluation/runs/eval_glm52_08b_on_mbpp_stateful_working_v0_full_20260721T000000Z`
   - Log: `data/model_evaluation/logs/eval_glm52_08b_on_mbpp_stateful_working_v0_full_20260721T000000Z.log`

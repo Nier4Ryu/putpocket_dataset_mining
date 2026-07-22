@@ -45,8 +45,8 @@ env:
   venv_path: Putpocket_env
   activation_script: scripts/env/env_activate.sh
   python: "3.13"
-  cuda_home: /usr/local/cuda-12.8
-  torch: 2.10.0+cu128
+  cuda_home: /usr/local/cuda-12.9
+  torch: 2.10.0+cu129
   ray: 2.55.1
   externals:
     vllm:
@@ -61,22 +61,23 @@ env:
       path: externals/cline
       role: read_only_reference_for_prompt_and_tool_format
   build_resource_limits:
-    reason: server_shared_with_other_users
-    vllm_build_max_cpu_threads: 32
+    reason: blackwell_server_cpu_ram_limit
+    vllm_build_max_cpu_threads: 16
+    vllm_build_retry_threads: [16, 12, 8]
     required_env_overrides:
-      PUTPOCKET_BUILD_THREADS: "32"
-      MAX_JOBS: "32"
-      CMAKE_BUILD_PARALLEL_LEVEL: "32"
-      CARGO_BUILD_JOBS: "32"
+      PUTPOCKET_BUILD_THREADS: "16"
+      MAX_JOBS: "16"
+      CMAKE_BUILD_PARALLEL_LEVEL: "16"
+      CARGO_BUILD_JOBS: "16"
       NVCC_THREADS: "1"
     note: >
-      vLLM and CUDA extension builds must not exceed 32 CPU build threads.
-      Do not auto-detect and use all host CPU threads.
+      vLLM and CUDA extension builds must not exceed 16 CPU build threads
+      by default. Retry vLLM only on OOM-like failures at 12 and 8 threads.
   runtime_gpu_limits:
-    allowed_cuda_devices: [4, 5, 6, 7]
-    disallowed_cuda_devices: [0, 1, 2, 3]
+    allowed_cuda_devices: [0, 1, 2]
+    disallowed_cuda_devices: []
     note: >
-      This shared server only grants this mining repo GPUs 4,5,6,7.
+      The Blackwell server grants this mining repo GPUs 0,1,2.
       Preflight must fail if a profile tries to allocate GPUs outside this set.
 
 model:
@@ -341,8 +342,8 @@ multi_sample:
       max_attempts: 10
       dataset_version: mbpp_stateful_parallel_smoke_v0
     full_server:
-      purpose: real mining on shared server GPUs 4,5,6,7
-      num_workers: 4
+      purpose: real mining on Blackwell server GPUs 0,1,2
+      num_workers: 3
       target_accepted: 20
       max_attempts: 100
       dataset_version: mbpp_stateful_working_v0
@@ -351,12 +352,11 @@ multi_sample:
     preflight_required: true
     tensor_parallel_size: 1
     pipeline_parallel_size: 1
-    allowed_devices: [4, 5, 6, 7]
+    allowed_devices: [0, 1, 2]
     full_server_slots:
-      - [4]
-      - [5]
-      - [6]
-      - [7]
+      - [0]
+      - [1]
+      - [2]
   serving:
     vllm_engine_lifetime: worker
     reuse_engine_across_attempts: true

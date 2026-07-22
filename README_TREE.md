@@ -82,11 +82,11 @@ Do not create a portable package/export as a required deliverable.
 The goal is to finish dataset mining under this repo and document the generated dataset structure.
 
 
-## Shared server constraints in v0.5
+## Blackwell server constraints in v0.5
 
-- vLLM/CUDA extension builds must use at most 32 CPU build threads.
-- Runtime dataset-mining workers may use only GPUs 4,5,6,7.
-- `full_server` profile therefore uses 4 workers, not 8.
+- vLLM/CUDA extension builds must use at most 16 CPU build threads by default.
+- Runtime dataset-mining workers may use only GPUs 0,1,2.
+- `full_server` profile therefore uses 3 workers.
 
 ## How to place this feed in the repo
 

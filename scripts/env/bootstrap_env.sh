@@ -21,11 +21,16 @@ Options:
 
 Environment overrides:
   PYTHON_BIN                    Python 3.13 executable to use.
-  CUDA_HOME                     Default: /usr/local/cuda-12.8
-  PUTPOCKET_BUILD_THREADS       Default: 32
-  MAX_JOBS                      Default: 32
-  CMAKE_BUILD_PARALLEL_LEVEL    Default: 32
-  CARGO_BUILD_JOBS              Default: 32
+  CUDA_HOME                     Default: /usr/local/cuda-12.9
+  TORCH_VERSION                 Default: 2.10.0
+  TORCH_CUDA_TAG                Default: cu129
+  TORCH_SPEC                    Default: torch==${TORCH_VERSION}+${TORCH_CUDA_TAG}
+  TORCH_INDEX_URL               Default: https://download.pytorch.org/whl/${TORCH_CUDA_TAG}
+  RAY_VERSION                   Default: 2.55.1
+  PUTPOCKET_BUILD_THREADS       Default: 16
+  MAX_JOBS                      Default: 16
+  CMAKE_BUILD_PARALLEL_LEVEL    Default: 16
+  CARGO_BUILD_JOBS              Default: 16
   NVCC_THREADS                  Default: 1
 EOF
 }
@@ -64,6 +69,7 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+export REPO_ROOT
 VENV_DIR="${REPO_ROOT}/Putpocket_env"
 DOCKERFILE="${REPO_ROOT}/docker/default_python/Dockerfile"
 DOCKER_CONTEXT="${REPO_ROOT}/docker"
@@ -73,15 +79,26 @@ LOG_ROOT="${REPO_ROOT}/logs/env_setup"
 RUN_TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG_DIR="${LOG_ROOT}/${RUN_TIMESTAMP}"
 COMMAND_LOG="${LOG_DIR}/commands.log"
+VLLM_RETRY_SUMMARY="${LOG_DIR}/vllm_build_retry_summary.tsv"
+TORCH_CONSTRAINT_FILE="${LOG_DIR}/torch_cuda_constraints.txt"
 mkdir -p "${LOG_DIR}"
 ln -sfn "${RUN_TIMESTAMP}" "${LOG_ROOT}/latest"
 : >"${COMMAND_LOG}"
+: >"${VLLM_RETRY_SUMMARY}"
 
-export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.8}"
-export PUTPOCKET_BUILD_THREADS="${PUTPOCKET_BUILD_THREADS:-32}"
-export MAX_JOBS="${MAX_JOBS:-32}"
-export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-32}"
-export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-32}"
+export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.9}"
+export TORCH_VERSION="${TORCH_VERSION:-2.10.0}"
+export TORCH_CUDA_TAG="${TORCH_CUDA_TAG:-cu129}"
+export TORCH_SPEC="${TORCH_SPEC:-torch==${TORCH_VERSION}+${TORCH_CUDA_TAG}}"
+export TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/${TORCH_CUDA_TAG}}"
+export RAY_VERSION="${RAY_VERSION:-2.55.1}"
+export PUTPOCKET_PIP_INDEX_URL="${PUTPOCKET_PIP_INDEX_URL:-${TORCH_INDEX_URL}}"
+export PUTPOCKET_PIP_EXTRA_INDEX_URL="${PUTPOCKET_PIP_EXTRA_INDEX_URL:-https://pypi.org/simple}"
+export PUTPOCKET_TORCH_CONSTRAINT_FILE="${PUTPOCKET_TORCH_CONSTRAINT_FILE:-${TORCH_CONSTRAINT_FILE}}"
+export PUTPOCKET_BUILD_THREADS="${PUTPOCKET_BUILD_THREADS:-16}"
+export MAX_JOBS="${MAX_JOBS:-16}"
+export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-16}"
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-16}"
 export NVCC_THREADS="${NVCC_THREADS:-1}"
 export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
 export TZ="${TZ:-Asia/Seoul}"
@@ -97,8 +114,13 @@ fi
 if [[ -d "${CUDA_HOME}/lib64" ]]; then
   export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
 fi
+if [[ -d "${REPO_ROOT}/.local_python/bin" ]]; then
+  export PATH="${REPO_ROOT}/.local_python/bin:${PATH}"
+fi
+printf "%s\n" "${TORCH_SPEC}" >"${TORCH_CONSTRAINT_FILE}"
 
 PYTHON13_BIN=""
+UV_BIN=""
 VENV_PYTHON="${VENV_DIR}/bin/python"
 VENV_CLI="${VENV_DIR}/bin/putpocket-dataset-mining"
 
@@ -190,6 +212,42 @@ raise SystemExit(0 if sys.version_info[:2] == (3, 13) else 1)
 PY
 }
 
+resolve_uv() {
+  local candidate=""
+  if command -v uv >/dev/null 2>&1; then
+    UV_BIN="$(command -v uv)"
+    echo "Using uv from PATH: ${UV_BIN}"
+    return 0
+  fi
+
+  candidate="${REPO_ROOT}/.local_python/bin/uv"
+  if [[ -x "${candidate}" ]]; then
+    UV_BIN="${candidate}"
+    export PATH="$(dirname "${candidate}"):${PATH}"
+    echo "Using repo-local uv: ${UV_BIN}"
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "uv is missing and curl is unavailable; cannot install repo-local uv." >&2
+    return 2
+  fi
+
+  echo "Installing repo-local uv under ${REPO_ROOT}/.local_python/bin."
+  mkdir -p "${REPO_ROOT}/.local_python/bin"
+  export UV_INSTALL_DIR="${REPO_ROOT}/.local_python/bin"
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  if [[ -x "${candidate}" ]]; then
+    UV_BIN="${candidate}"
+    export PATH="$(dirname "${candidate}"):${PATH}"
+    echo "Using newly installed repo-local uv: ${UV_BIN}"
+    return 0
+  fi
+
+  echo "uv installation finished but ${candidate} was not found." >&2
+  return 2
+}
+
 resolve_python13() {
   local candidate="${PYTHON_BIN:-}"
   if [[ -n "${candidate}" ]]; then
@@ -215,15 +273,16 @@ resolve_python13() {
     return 0
   fi
 
-  if command -v uv >/dev/null 2>&1; then
-    if candidate="$(uv python find 3.13 2>/dev/null)" && [[ -n "${candidate}" ]] && validate_python13 "${candidate}"; then
+  resolve_uv
+  if [[ -n "${UV_BIN}" ]]; then
+    if candidate="$("${UV_BIN}" python find 3.13 2>/dev/null)" && [[ -n "${candidate}" ]] && validate_python13 "${candidate}"; then
       PYTHON13_BIN="${candidate}"
       echo "Using uv-managed Python: ${PYTHON13_BIN}"
       return 0
     fi
     echo "Python 3.13 not found; asking uv to install Python 3.13."
-    uv python install 3.13
-    candidate="$(uv python find 3.13)"
+    "${UV_BIN}" python install 3.13
+    candidate="$("${UV_BIN}" python find 3.13)"
     if [[ -n "${candidate}" ]] && validate_python13 "${candidate}"; then
       PYTHON13_BIN="${candidate}"
       echo "Using newly installed uv Python: ${PYTHON13_BIN}"
@@ -273,11 +332,27 @@ activate_for_bootstrap() {
 install_dependencies() {
   "${VENV_PYTHON}" -m pip install --upgrade pip setuptools wheel setuptools_scm packaging cmake ninja
   "${VENV_PYTHON}" -m pip install \
-    --index-url https://download.pytorch.org/whl/cu128 \
+    --index-url "${TORCH_INDEX_URL}" \
     --extra-index-url https://pypi.org/simple \
-    "torch==2.10.0+cu128"
-  "${VENV_PYTHON}" -m pip install "ray==2.55.1" datasets transformers pyyaml pytest
+    "${TORCH_SPEC}"
+  "${VENV_PYTHON}" -m pip install "ray==${RAY_VERSION}" datasets transformers pyyaml pytest
   "${VENV_PYTHON}" -m pip install -e "${REPO_ROOT}[dev]"
+}
+
+verify_torch_cuda() {
+  "${VENV_PYTHON}" - <<'PY'
+import sys
+import torch
+
+print("torch", torch.__version__)
+print("torch.cuda", torch.version.cuda)
+print("cuda available", torch.cuda.is_available())
+print("cuda count", torch.cuda.device_count())
+if not torch.cuda.is_available():
+    raise SystemExit("torch.cuda.is_available() is false; refusing to continue with a CPU-only runtime")
+if torch.version.cuda != "12.9":
+    raise SystemExit(f"expected torch.version.cuda == 12.9, got {torch.version.cuda!r}")
+PY
 }
 
 checkout_externals() {
@@ -304,6 +379,108 @@ install_vllm_if_needed() {
   "${VENV_CLI}" externals install-editable vllm --python "${VENV_PYTHON}"
 }
 
+set_build_threads() {
+  local threads="$1"
+  export PUTPOCKET_BUILD_THREADS="${threads}"
+  export MAX_JOBS="${threads}"
+  export CMAKE_BUILD_PARALLEL_LEVEL="${threads}"
+  export CARGO_BUILD_JOBS="${threads}"
+  export NVCC_THREADS=1
+}
+
+is_oom_like_log() {
+  local log_file="$1"
+  grep -Eiq \
+    "Killed|Out of memory|out of memory|OOM|Cannot allocate memory|exit code 137|ninja.*killed|compiler process killed|process killed during build" \
+    "${log_file}"
+}
+
+clean_vllm_build_artifacts() {
+  local log_file="$1"
+  {
+    echo "[cleanup] removing local vLLM build artifacts before retry"
+    echo "rm -rf ${REPO_ROOT}/externals/vllm/build ${REPO_ROOT}/externals/vllm/*.egg-info"
+  } >>"${log_file}"
+  rm -rf "${REPO_ROOT}/externals/vllm/build" "${REPO_ROOT}"/externals/vllm/*.egg-info
+}
+
+install_vllm_with_retry() {
+  if [[ ! -d "${REPO_ROOT}/externals/vllm" ]]; then
+    echo "Missing externals/vllm. Run without --skip-externals first." >&2
+    return 2
+  fi
+  if [[ "${FORCE_VLLM_BUILD}" -eq 0 ]] && module_import_ok vllm; then
+    echo "[stage] install-vllm-editable"
+    echo "  vllm import already works; skipping editable install."
+    printf "skipped\t0\tpass\t%s\t%s\n" "already importable" "" >>"${VLLM_RETRY_SUMMARY}"
+    return 0
+  fi
+
+  echo "[stage] install-vllm-editable"
+  local attempts=(16 12 8)
+  local attempt_index=0
+  local threads
+  for threads in "${attempts[@]}"; do
+    attempt_index=$((attempt_index + 1))
+    local log_file="${LOG_DIR}/vllm_build_threads_${threads}.log"
+    local cmd_display
+    cmd_display="$(quote_command env PUTPOCKET_BUILD_THREADS="${threads}" MAX_JOBS="${threads}" CMAKE_BUILD_PARALLEL_LEVEL="${threads}" CARGO_BUILD_JOBS="${threads}" NVCC_THREADS=1 "${VENV_PYTHON}" -m pip install --no-build-isolation --index-url "${TORCH_INDEX_URL}" --extra-index-url https://pypi.org/simple -c "${TORCH_CONSTRAINT_FILE}" -e "${REPO_ROOT}/externals/vllm")"
+
+    echo "  attempt ${attempt_index}/${#attempts[@]} with ${threads} build threads"
+    echo "  command: ${cmd_display}"
+    echo "  log: ${log_file}"
+    printf "%s\t%s\t%s\n" "install-vllm-editable-threads-${threads}" "${cmd_display}" "${log_file}" >>"${COMMAND_LOG}"
+
+    if [[ "${attempt_index}" -gt 1 ]]; then
+      clean_vllm_build_artifacts "${log_file}"
+    fi
+
+    set +e
+    (
+      set -Eeuo pipefail
+      set_build_threads "${threads}"
+      printf "$ %s\n" "${cmd_display}"
+      "${VENV_PYTHON}" -m pip install \
+        --no-build-isolation \
+        --index-url "${TORCH_INDEX_URL}" \
+        --extra-index-url https://pypi.org/simple \
+        -c "${TORCH_CONSTRAINT_FILE}" \
+        -e "${REPO_ROOT}/externals/vllm"
+    ) >>"${log_file}" 2>&1
+    local status=$?
+    set -e
+
+    if [[ "${status}" -eq 0 ]]; then
+      echo "  success with ${threads} build threads"
+      printf "%s\t%s\tpass\t%s\t%s\n" "attempt" "${threads}" "${log_file}" "" >>"${VLLM_RETRY_SUMMARY}"
+      set_build_threads 16
+      return 0
+    fi
+
+    if is_oom_like_log "${log_file}"; then
+      printf "%s\t%s\tfail_oom\t%s\t%s\n" "attempt" "${threads}" "${log_file}" "OOM-like failure; retry lower if available" >>"${VLLM_RETRY_SUMMARY}"
+      echo "  failed with OOM-like signature at ${threads} threads"
+      if [[ "${threads}" -ne 8 ]]; then
+        echo "  retrying with lower build parallelism"
+        continue
+      fi
+      echo "vLLM editable build failed at 8 threads with OOM-like failure." >&2
+    else
+      printf "%s\t%s\tfail_non_oom\t%s\t%s\n" "attempt" "${threads}" "${log_file}" "non-OOM failure; not retrying" >>"${VLLM_RETRY_SUMMARY}"
+      echo "vLLM editable build failed with a non-OOM error; not retrying blindly." >&2
+    fi
+
+    echo "Failing command: ${cmd_display}" >&2
+    echo "Thread count: ${threads}" >&2
+    echo "Relevant log: ${log_file}" >&2
+    echo "Last relevant error lines:" >&2
+    tail -80 "${log_file}" >&2 || true
+    echo "Suggested next action: inspect ${log_file} and rerun ./scripts/env/bootstrap_env.sh --force-vllm-build after resolving the build failure." >&2
+    set_build_threads 16
+    return "${status}"
+  done
+}
+
 install_lmcache_if_needed() {
   if [[ ! -d "${REPO_ROOT}/externals/lmcache" ]]; then
     echo "Missing externals/lmcache. Run without --skip-externals first." >&2
@@ -328,7 +505,7 @@ FROM ubuntu:22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG PYTHON_VERSION=3.13.1
-ARG PYTHON_BUILD_JOBS=32
+ARG PYTHON_BUILD_JOBS=16
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
@@ -481,16 +658,63 @@ PY
 
 write_summary() {
   local summary_file="${LOG_DIR}/summary.txt"
+  local summary_json="${LOG_DIR}/setup_summary.json"
   {
     echo "Putpocket env bootstrap completed"
     echo "repo_root=${REPO_ROOT}"
     echo "venv=${VENV_DIR}"
     echo "python=${VENV_PYTHON}"
+    echo "cuda_home=${CUDA_HOME}"
+    echo "torch_spec=${TORCH_SPEC}"
+    echo "torch_index_url=${TORCH_INDEX_URL}"
     echo "docker_image=${DOCKER_IMAGE}"
     echo "log_dir=${LOG_DIR}"
     echo "latest_log=${LOG_ROOT}/latest"
   } >"${summary_file}"
+  "${VENV_PYTHON}" - "${summary_json}" "${VLLM_RETRY_SUMMARY}" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+summary_path = Path(sys.argv[1])
+retry_path = Path(sys.argv[2])
+attempts = []
+if retry_path.exists():
+    for line in retry_path.read_text(encoding="utf-8").splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 5:
+            attempts.append(
+                {
+                    "kind": parts[0],
+                    "threads": None if parts[1] == "" else int(parts[1]),
+                    "status": parts[2],
+                    "log_path": parts[3],
+                    "note": parts[4],
+                }
+            )
+
+payload = {
+    "repo_root": os.environ.get("REPO_ROOT", ""),
+    "venv": os.environ.get("VIRTUAL_ENV", ""),
+    "python": sys.executable,
+    "cuda_home": os.environ.get("CUDA_HOME", ""),
+    "torch_spec": os.environ.get("TORCH_SPEC", ""),
+    "torch_index_url": os.environ.get("TORCH_INDEX_URL", ""),
+    "ray_version": os.environ.get("RAY_VERSION", ""),
+    "build_env": {
+        "PUTPOCKET_BUILD_THREADS": os.environ.get("PUTPOCKET_BUILD_THREADS", ""),
+        "MAX_JOBS": os.environ.get("MAX_JOBS", ""),
+        "CMAKE_BUILD_PARALLEL_LEVEL": os.environ.get("CMAKE_BUILD_PARALLEL_LEVEL", ""),
+        "CARGO_BUILD_JOBS": os.environ.get("CARGO_BUILD_JOBS", ""),
+        "NVCC_THREADS": os.environ.get("NVCC_THREADS", ""),
+    },
+    "vllm_build_retry_summary": attempts,
+}
+summary_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
   cat "${summary_file}"
+  echo "setup_summary_json=${summary_json}"
 }
 
 echo "Putpocket env bootstrap"
@@ -512,6 +736,7 @@ run_stage_current_shell "resolve-python" resolve_python13
 run_stage "ensure-venv" ensure_venv
 run_stage_current_shell "activate-env" activate_for_bootstrap
 run_stage "install-core-dependencies" install_dependencies
+run_stage "verify-torch-cuda" verify_torch_cuda
 
 if [[ "${SKIP_EXTERNALS}" -eq 0 ]]; then
   run_stage "checkout-externals" checkout_externals
@@ -521,7 +746,7 @@ else
 fi
 
 if [[ "${SKIP_VLLM_BUILD}" -eq 0 ]]; then
-  run_stage "install-vllm-editable" install_vllm_if_needed
+  install_vllm_with_retry
 else
   echo "[stage] install-vllm-editable"
   echo "  skipped by --skip-vllm-build"

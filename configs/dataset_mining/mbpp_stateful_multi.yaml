@@ -6,14 +6,14 @@ run:
   index_db: data/dataset_mining/mining_index.sqlite
 
 build_resources:
-  vllm_build_max_cpu_threads: 32
+  vllm_build_max_cpu_threads: 16
   env_overrides:
-    PUTPOCKET_BUILD_THREADS: "32"
-    MAX_JOBS: "32"
-    CMAKE_BUILD_PARALLEL_LEVEL: "32"
-    CARGO_BUILD_JOBS: "32"
+    PUTPOCKET_BUILD_THREADS: "16"
+    MAX_JOBS: "16"
+    CMAKE_BUILD_PARALLEL_LEVEL: "16"
+    CARGO_BUILD_JOBS: "16"
     NVCC_THREADS: "1"
-  note: "This shared server build must not use more than 32 CPU threads."
+  note: "This Blackwell server build must not use more than 16 CPU threads by default."
 
 profiles:
   debug:
@@ -27,7 +27,7 @@ profiles:
     max_attempts: 10
     dataset_version: mbpp_stateful_parallel_smoke_v0
   full_server:
-    num_workers: 4
+    num_workers: 3
     target_accepted: 20
     max_attempts: 100
     dataset_version: mbpp_stateful_working_v0
@@ -35,19 +35,18 @@ profiles:
 gpu:
   preflight_required: true
   default_model: Qwen/Qwen3.5-9B
-  allowed_cuda_devices: [4, 5, 6, 7]
+  allowed_cuda_devices: [0, 1, 2]
   tensor_parallel_size: 1
   pipeline_parallel_size: 1
   debug_slots:
-    - [4]
+    - [0]
   first_parallel_slots:
-    - [4]
-    - [5]
+    - [0]
+    - [1]
   full_server_slots:
-    - [4]
-    - [5]
-    - [6]
-    - [7]
+    - [0]
+    - [1]
+    - [2]
 
 worker:
   vllm_engine_lifetime: worker

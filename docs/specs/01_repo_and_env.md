@@ -19,8 +19,8 @@ data/dataset_mining/
 ## Env versions
 
 - Python 3.13
-- CUDA `/usr/local/cuda-12.8`
-- PyTorch `2.10.0+cu128`
+- CUDA `/usr/local/cuda-12.9`
+- PyTorch `2.10.0+cu129`
 - Ray `2.55.1`
 - vLLM branch `Putpocket-v0.19.1` under `externals/vllm`
 - LMCache branch `Putpocket-v0.4.4` under `externals/lmcache`
@@ -50,19 +50,20 @@ Do not mutate global HF env vars.
 
 ## Shared server resource limits
 
-This empty dataset-mining repo is sharing the server with other users.
+This dataset-mining repo is running on the Blackwell server.
 
-vLLM / CUDA extension builds must be capped at 32 CPU build threads. The implementation must set or respect:
+vLLM / CUDA extension builds must be capped at 16 CPU build threads by default. The implementation must set or respect:
 
 ```bash
-export PUTPOCKET_BUILD_THREADS=32
-export MAX_JOBS=32
-export CMAKE_BUILD_PARALLEL_LEVEL=32
-export CARGO_BUILD_JOBS=32
+export PUTPOCKET_BUILD_THREADS=16
+export MAX_JOBS=16
+export CMAKE_BUILD_PARALLEL_LEVEL=16
+export CARGO_BUILD_JOBS=16
 export NVCC_THREADS=1
 ```
 
-Do not auto-detect all CPU threads for vLLM builds.
+Do not auto-detect all CPU threads for vLLM builds. Retry vLLM only on
+OOM-like build failures with 12 and then 8 threads.
 
 Runtime GPU allocation is also restricted. Dataset mining workers may use only:
 

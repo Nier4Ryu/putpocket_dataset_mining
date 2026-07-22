@@ -591,7 +591,7 @@ def collect_trajectory_metrics(attempt_dir: Path) -> dict[str, Any]:
 
 def parse_gpu_slots(raw: str | None, workers: int, profile: str) -> list[list[int]]:
     if raw is None:
-        raw = "4" if profile == "smoke" else "4,5,6,7"
+        raw = "0" if profile == "smoke" else "0,1,2"
     normalized = raw.replace(";", ",")
     devices = [int(item.strip()) for item in normalized.split(",") if item.strip()]
     if not devices:
@@ -602,8 +602,8 @@ def parse_gpu_slots(raw: str | None, workers: int, profile: str) -> list[list[in
 
 
 def validate_eval_gpu_slots(slots: list[list[int]], workers: int) -> list[list[int]]:
-    if workers < 1 or workers > 4:
-        raise ConfigError("Evaluation workers must be between 1 and 4.")
+    if workers < 1 or workers > 3:
+        raise ConfigError("Evaluation workers must be between 1 and 3 on the Blackwell branch.")
     if len(slots) != workers:
         raise ConfigError(f"Worker count must match GPU slot count: workers={workers}, slots={slots}")
     allowed = set(ALLOWED_CUDA_DEVICES)
@@ -697,7 +697,7 @@ def run_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     single_config = load_yaml(single_config_path)
     samples = load_accepted_samples(args.dataset_version)
     selected_samples = select_samples(samples, args.profile, args.sample_id, args.max_samples)
-    workers = int(args.workers or (1 if args.profile == "smoke" else min(4, len(selected_samples))))
+    workers = int(args.workers or (1 if args.profile == "smoke" else min(3, len(selected_samples))))
     workers = min(workers, max(1, len(selected_samples)))
     slots = validate_eval_gpu_slots(parse_gpu_slots(args.gpu_slots, workers, args.profile), workers)
     if int(args.tensor_parallel_size) != 1 or int(args.pipeline_parallel_size) != 1:
@@ -970,7 +970,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile", choices=["smoke", "full"], default="smoke")
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--single-config", default="configs/dataset_mining/mbpp_stateful_single.yaml")
-    parser.add_argument("--gpu-slots", default=None, help="Comma-separated physical GPU ids, e.g. 4,5,6,7.")
+    parser.add_argument("--gpu-slots", default=None, help="Comma-separated physical GPU ids, e.g. 0,1,2.")
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--sample-id", action="append", default=None)
     parser.add_argument("--max-samples", type=int, default=None)

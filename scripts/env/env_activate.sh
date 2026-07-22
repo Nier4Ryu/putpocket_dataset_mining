@@ -43,7 +43,7 @@ _putpocket_prepend_var_path() {
   esac
 }
 
-export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.8}"
+export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.9}"
 export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-${_putpocket_venv}}"
 export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
 export TZ="${TZ:-Asia/Seoul}"
@@ -55,10 +55,10 @@ else
 fi
 
 export RANDOM_SEED="${RANDOM_SEED:-42}"
-export PUTPOCKET_BUILD_THREADS="${PUTPOCKET_BUILD_THREADS:-32}"
-export MAX_JOBS="${MAX_JOBS:-32}"
-export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-32}"
-export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-32}"
+export PUTPOCKET_BUILD_THREADS="${PUTPOCKET_BUILD_THREADS:-16}"
+export MAX_JOBS="${MAX_JOBS:-16}"
+export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-16}"
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-16}"
 export NVCC_THREADS="${NVCC_THREADS:-1}"
 
 _putpocket_prepend_path "${CUDA_HOME}/bin"

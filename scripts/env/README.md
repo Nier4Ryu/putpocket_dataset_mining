@@ -33,7 +33,8 @@ source scripts/env/env_activate.sh
 runtime/build environment variables. It does not install packages, build
 extensions, clone repositories, run Docker, or start mining jobs.
 
-Build parallelism defaults to 32 jobs and can be overridden before activation:
+Blackwell build parallelism defaults to 16 jobs and can be overridden before
+activation:
 
 ```bash
 export PUTPOCKET_BUILD_THREADS=16
@@ -42,6 +43,16 @@ export CMAKE_BUILD_PARALLEL_LEVEL=16
 export CARGO_BUILD_JOBS=16
 source scripts/env/env_activate.sh
 ```
+
+`bootstrap_env.sh` defaults to `CUDA_HOME=/usr/local/cuda-12.9` and installs
+the CUDA 12.9 PyTorch wheel set (`cu129`) unless `TORCH_SPEC`,
+`TORCH_CUDA_TAG`, or `TORCH_INDEX_URL` are overridden. If `python3.13` is not
+available but `uv` can be installed, bootstrap installs a repo-local `uv` under
+`.local_python/bin` and asks it for Python 3.13.
+
+Editable vLLM builds start at 16 build threads. If the build log shows an
+OOM-like failure, bootstrap retries with 12 threads and then 8 threads, writing
+logs such as `logs/env_setup/<timestamp>/vllm_build_threads_16.log`.
 
 The activation script does not set `CUDA_VISIBLE_DEVICES`; GPU selection belongs
 to runtime configs or per-command environment variables.

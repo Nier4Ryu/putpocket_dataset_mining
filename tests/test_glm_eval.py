@@ -62,10 +62,10 @@ class GLMEvalTests(unittest.TestCase):
 
     def test_gpu_slot_validation_rejects_disallowed_gpu(self) -> None:
         with self.assertRaises(ConfigError):
-            validate_eval_gpu_slots([[0]], workers=1)
+            validate_eval_gpu_slots([[3]], workers=1)
 
     def test_parse_gpu_slots_assigns_one_gpu_per_worker(self) -> None:
-        self.assertEqual(parse_gpu_slots("4,5,6,7", workers=2, profile="full"), [[4], [5]])
+        self.assertEqual(parse_gpu_slots("0,1,2", workers=2, profile="full"), [[0], [1]])
 
     def test_write_summary_counts_results(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

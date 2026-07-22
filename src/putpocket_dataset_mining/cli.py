@@ -5,6 +5,7 @@ import json
 import sys
 
 from .doctor import collect_doctor_report, format_doctor_report
+from .errors import InfraError
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -60,7 +61,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "docker":
         from .docker_workspace import DockerImageManager
 
-        DockerImageManager.from_default().ensure_image()
+        try:
+            DockerImageManager.from_default().ensure_image()
+        except InfraError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
         return 0
 
     if args.command == "externals":

@@ -41,7 +41,7 @@ first_parallel:
   dataset_version: mbpp_stateful_parallel_smoke_v0
 
 full_server:
-  num_workers: 4
+  num_workers: 3
   target_accepted: 20
   max_attempts: 100
   dataset_version: mbpp_stateful_working_v0
@@ -53,7 +53,7 @@ Initial Qwen3.5-9B policy:
 
 - TP=1
 - PP=1
-- 4 workers on GPUs 4,5,6,7 for full_server
+- 3 workers on GPUs 0,1,2 for full_server
 
 Preflight must verify the config is assignable before spawning workers.
 
@@ -71,23 +71,22 @@ Hard stop deletes partial trajectories, workspace snapshots, and serving logs, w
 
 ## Shared server GPU policy
 
-This repo can only use GPUs 4,5,6,7. Full-server mining therefore means four parallel workers, not eight.
+This repo can only use GPUs 0,1,2 on the Blackwell branch. Full-server mining therefore means three parallel workers.
 
 ```yaml
 full_server:
-  num_workers: 4
+  num_workers: 3
   target_accepted: 20
   max_attempts: 100
 
 gpu:
-  allowed_cuda_devices: [4, 5, 6, 7]
+  allowed_cuda_devices: [0, 1, 2]
   tensor_parallel_size: 1
   pipeline_parallel_size: 1
   full_server_slots:
-    - [4]
-    - [5]
-    - [6]
-    - [7]
+    - [0]
+    - [1]
+    - [2]
 ```
 
-Preflight must reject any config that tries to allocate GPU 0,1,2,3 or that assigns overlapping GPU slots.
+Preflight must reject any config that tries to allocate GPUs outside 0,1,2 or that assigns overlapping GPU slots.

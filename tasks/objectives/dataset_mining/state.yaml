@@ -37,9 +37,9 @@ decisions:
     - parallel_master_worker_multi_sample
     - debug_first_parallel_full_server_profiles
     - local_materialized_dataset_view_not_cross_repo_export
-    - shared_server_vllm_build_cpu_cap_32
-    - runtime_gpu_devices_restricted_to_4_5_6_7
-    - full_server_profile_uses_4_workers_not_8
+    - blackwell_vllm_build_cpu_cap_16_with_oom_retries
+    - runtime_gpu_devices_restricted_to_0_1_2
+    - full_server_profile_uses_3_workers
   remaining_human_decisions: []
 
 next_action_after_unlock: implement_dataset_mining_objective_v0_5
@@ -68,18 +68,18 @@ implementation_progress:
       - externals/vllm checked out at Putpocket-v0.19.1 and installed editable
       - externals/lmcache checked out at Putpocket-v0.4.4 and installed editable
       - externals/cline checked out
-      - build CPU cap enforced with PUTPOCKET_BUILD_THREADS=32, MAX_JOBS=32, CMAKE_BUILD_PARALLEL_LEVEL=32, CARGO_BUILD_JOBS=32, NVCC_THREADS=1
-      - runtime mining restricted to CUDA_VISIBLE_DEVICES=4,5,6,7
+      - build CPU cap enforced with PUTPOCKET_BUILD_THREADS=16, MAX_JOBS=16, CMAKE_BUILD_PARALLEL_LEVEL=16, CARGO_BUILD_JOBS=16, NVCC_THREADS=1
+      - runtime mining restricted to CUDA_VISIBLE_DEVICES=0,1,2
       - Docker image putpocket-default-python:ubuntu22.04-py313-v1 built
     commands:
       - source scripts/env/env_activate.sh && putpocket-dataset-mining doctor --json
       - source scripts/env/env_activate.sh && python -m compileall src tests
       - source scripts/env/env_activate.sh && python -m unittest discover -s tests -v
       - source scripts/env/env_activate.sh && python -c "import datasets, transformers, vllm, lmcache, putpocket_dataset_mining"
-      - CUDA_VISIBLE_DEVICES=4 putpocket-dataset-mining single --config configs/dataset_mining/mbpp_stateful_single.yaml --run-id single_validation_path_20260707T175646Z
-      - CUDA_VISIBLE_DEVICES=4 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile debug --run-id debug_validation_20260707T175646Z
-      - CUDA_VISIBLE_DEVICES=4,5 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile first_parallel --run-id first_parallel_validation_20260707T175646Z
-      - CUDA_VISIBLE_DEVICES=4,5,6,7 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile full_server --run-id full_server_validation_20260707T175646Z
+      - CUDA_VISIBLE_DEVICES=0 putpocket-dataset-mining single --config configs/dataset_mining/mbpp_stateful_single.yaml --run-id single_validation_path_20260707T175646Z
+      - CUDA_VISIBLE_DEVICES=0 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile debug --run-id debug_validation_20260707T175646Z
+      - CUDA_VISIBLE_DEVICES=0,1 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile first_parallel --run-id first_parallel_validation_20260707T175646Z
+      - CUDA_VISIBLE_DEVICES=0,1,2 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile full_server --run-id full_server_validation_20260707T175646Z
     artifacts:
       debug_dataset: data/dataset_mining/datasets/mbpp_stateful_debug_v0
       first_parallel_dataset: data/dataset_mining/datasets/mbpp_stateful_parallel_smoke_v0

@@ -55,8 +55,8 @@ def validate_gpu_slots(config: dict[str, Any], profile_name: str) -> list[list[i
         raise ConfigError(f"Missing GPU slot config: gpu.{key}")
     if len(slots) != int(profile.get("num_workers", 0)):
         raise ConfigError(f"Profile {profile_name} num_workers must match gpu.{key} length.")
-    if profile_name == "full_server" and int(profile.get("num_workers", 0)) != 4:
-        raise ConfigError("full_server profile must use exactly 4 workers.")
+    if profile_name == "full_server" and int(profile.get("num_workers", 0)) != 3:
+        raise ConfigError("full_server profile must use exactly 3 workers on the Blackwell branch.")
 
     seen: set[int] = set()
     normalized: list[list[int]] = []

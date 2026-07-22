@@ -55,7 +55,7 @@ Multi-sample mining must be a parallel master-worker controller:
 
 - one master process,
 - multiple worker processes,
-- full_server uses exactly 4 workers on GPU slots 4,5,6,7,
+- full_server uses exactly 3 workers on GPU slots 0,1,2,
 - each worker owns a GPU slot and a long-lived local vLLM Python engine,
 - each worker mines one single-sample attempt at a time,
 - master is the only SQLite DB writer,
@@ -79,8 +79,8 @@ Multi-sample mining must be a parallel master-worker controller:
 - Generation defaults to greedy deterministic decoding with `temperature=0.0`.
 - `mining_seed` is separate from `RANDOM_SEED`; both default to 42.
 - Docker base is Ubuntu 22.04 with Python 3.13 installed into the image.
-- vLLM build must be capped to 32 CPU build threads on this shared server.
-- Dataset mining workers may use only GPUs 4,5,6,7; GPUs 0,1,2,3 are unavailable.
+- vLLM build must be capped to 16 CPU build threads on this Blackwell server by default.
+- Dataset mining workers may use only GPUs 0,1,2.
 - Docker workspace is `/workspace` and host-mounted with host UID/GID to avoid permission problems.
 - Cross-repo dataset packaging/import is out of scope.
 
@@ -93,7 +93,7 @@ The implementation is complete only when the repo can:
 - run a single-sample mining attempt end-to-end,
 - run the debug multi-sample profile,
 - run the first_parallel profile,
-- define the full_server profile with 4 workers on GPUs 4,5,6,7,
+- define the full_server profile with 3 workers on GPUs 0,1,2,
 - write `data/dataset_mining/mining_index.sqlite`,
 - materialize local datasets under `data/dataset_mining/datasets/`,
 - and document the generated dataset structure.

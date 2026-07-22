@@ -4,6 +4,7 @@ externals/
 
 data
 codex_runs/
+logs/
 logs/env_setup/
 
 __pycache__/

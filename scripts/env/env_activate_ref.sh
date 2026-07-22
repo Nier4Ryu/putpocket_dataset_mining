@@ -4,7 +4,7 @@ _putpocket_env_script="${BASH_SOURCE[0]}"
 _putpocket_env_dir="$(cd "$(dirname "${_putpocket_env_script}")" && pwd)"
 export PUTPOCKET_DATASET_MINING_ROOT="$(cd "${_putpocket_env_dir}/../.." && pwd)"
 
-export CUDA_HOME="/usr/local/cuda-12.8"
+export CUDA_HOME="/usr/local/cuda-12.9"
 export PATH="${CUDA_HOME}/bin:${PUTPOCKET_DATASET_MINING_ROOT}/Putpocket_env/bin:${PUTPOCKET_DATASET_MINING_ROOT}/.local_python/bin:${PATH}"
 export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
 export PYTHONPATH="${PUTPOCKET_DATASET_MINING_ROOT}/src:${PYTHONPATH:-}"
@@ -15,10 +15,10 @@ else
 fi
 
 export RANDOM_SEED="${RANDOM_SEED:-42}"
-export PUTPOCKET_BUILD_THREADS="${PUTPOCKET_BUILD_THREADS:-32}"
-export MAX_JOBS="${MAX_JOBS:-32}"
-export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-32}"
-export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-32}"
+export PUTPOCKET_BUILD_THREADS="${PUTPOCKET_BUILD_THREADS:-16}"
+export MAX_JOBS="${MAX_JOBS:-16}"
+export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-16}"
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-16}"
 export NVCC_THREADS="${NVCC_THREADS:-1}"
 
 if [[ -f "${PUTPOCKET_DATASET_MINING_ROOT}/Putpocket_env/bin/activate" ]]; then

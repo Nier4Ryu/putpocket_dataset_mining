@@ -1,0 +1,44 @@
+# GLM-5.2-0.8B model evaluation defaults for the Blackwell branch.
+
+eval:
+  name: eval_glm52_08b_on_mbpp_stateful_working_v0
+  dataset_version: mbpp_stateful_working_v0
+  model_id: inference-optimization/GLM-5.2-0.8B-A0.8B
+  mode: full_two_turn_glm_rerun
+  backend: local_vllm_python_engine
+
+runtime:
+  cuda_home: /usr/local/cuda-12.9
+  tensor_parallel_size: 1
+  pipeline_parallel_size: 1
+  max_model_len: 8192
+  gpu_memory_utilization: 0.85
+  max_tokens: 2048
+  decoding:
+    temperature: 0.0
+    top_p: 1.0
+    n: 1
+    mode: greedy
+
+profiles:
+  smoke:
+    workers: 1
+    gpu_slots:
+      - [0]
+    max_samples: 1
+  full:
+    workers: 3
+    gpu_slots:
+      - [0]
+      - [1]
+      - [2]
+
+build:
+  default_parallelism: 16
+  vllm_retry_threads: [16, 12, 8]
+  env:
+    PUTPOCKET_BUILD_THREADS: "16"
+    MAX_JOBS: "16"
+    CMAKE_BUILD_PARALLEL_LEVEL: "16"
+    CARGO_BUILD_JOBS: "16"
+    NVCC_THREADS: "1"

@@ -26,8 +26,8 @@
 - Multi-sample mining is master-worker parallel controller, not a sequential loop.
 - Master is the only SQLite DB writer.
 - Multi-sample profiles are debug, first_parallel, full_server.
-- vLLM builds are capped at 32 CPU build threads because the server is shared.
-- Runtime workers may use only GPUs 4,5,6,7; `full_server` uses 4 workers, not 8.
+- vLLM builds are capped at 16 CPU build threads by default on the Blackwell server.
+- Runtime workers may use only GPUs 0,1,2; `full_server` uses 3 workers.
 - Local materialized dataset views are under `data/dataset_mining/datasets/`.
 - Cross-repo dataset import/export is out of scope.
 

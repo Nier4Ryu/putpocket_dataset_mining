@@ -31,4 +31,4 @@ implementation_lock:
 then implementation is locked and you must not implement.
 
 
-Additional review focus: verify that vLLM builds are capped at 32 CPU threads and full_server runtime workers use only GPUs 4,5,6,7.
+Additional review focus: verify that vLLM builds are capped at 16 CPU threads by default and full_server runtime workers use only GPUs 0,1,2.

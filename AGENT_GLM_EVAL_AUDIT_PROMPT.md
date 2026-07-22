@@ -99,7 +99,7 @@ artifact paths,
 whether each accepted row has enough data for evaluation.
 GPU policy
 
-Use only GPUs 4,5,6,7.
+Use only GPUs 0,1,2.
 
 Do not use GPUs 0,1,2,3.
 

@@ -166,13 +166,13 @@ This server is shared.
 Build CPU cap:
 
 ```text
-32 CPU build jobs max
+16 CPU build jobs max
 ```
 
 Use only these GPUs:
 
 ```text
-4,5,6,7
+0,1,2
 ```
 
 Do not use GPUs:
@@ -184,10 +184,10 @@ Do not use GPUs:
 For vLLM/external build steps, enforce:
 
 ```bash
-PUTPOCKET_BUILD_THREADS=32
-MAX_JOBS=32
-CMAKE_BUILD_PARALLEL_LEVEL=32
-CARGO_BUILD_JOBS=32
+PUTPOCKET_BUILD_THREADS=16
+MAX_JOBS=16
+CMAKE_BUILD_PARALLEL_LEVEL=16
+CARGO_BUILD_JOBS=16
 NVCC_THREADS=1
 ```
 
@@ -198,7 +198,7 @@ smoke/debug:
   1 worker on GPU 4
 
 full evaluation:
-  up to 4 workers on GPUs 4,5,6,7
+  up to 3 workers on GPUs 0,1,2
   tp=1
   pp=1
 ```
@@ -490,8 +490,8 @@ python -m putpocket_dataset_mining.model_evaluation.glm_eval \
   --model-id inference-optimization/GLM-5.2-0.8B-A0.8B \
   --eval-name eval_glm52_08b_on_mbpp_stateful_working_v0 \
   --profile full \
-  --gpu-slots 4,5,6,7 \
-  --workers 4
+  --gpu-slots 0,1,2 \
+  --workers 3
 ```
 
 If the repo uses a different CLI style, adapt to the existing style and document the actual commands in `TO_GPT.md`.

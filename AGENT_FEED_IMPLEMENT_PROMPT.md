@@ -51,8 +51,8 @@ Required operating behavior:
 - Use local vLLM Python engine only.
 - Use Codex CLI only for judge, in read-only/approval-never mode.
 - Implement local dataset materialization under `data/dataset_mining/datasets/`; cross-repo import/export is out of scope.
-- Cap vLLM/CUDA extension builds to 32 CPU build threads.
-- Restrict runtime GPU workers to CUDA devices 4,5,6,7.
+- Cap vLLM/CUDA extension builds to 16 CPU build threads by default.
+- Restrict runtime GPU workers to CUDA devices 0,1,2.
 
 Update `tasks/objectives/dataset_mining/state.yaml` as implementation progresses.
 If blocked, record the exact blocker in `state.yaml` and stop.

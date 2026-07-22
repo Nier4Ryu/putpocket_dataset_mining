@@ -7,7 +7,7 @@ Implemented the canonical repo-local environment flow:
 - First-time setup or repair: `./scripts/env/bootstrap_env.sh`
 - Every shell session: `source scripts/env/env_activate.sh`
 
-Validation passed on the existing server/env using `--doctor-only`: Python 3.13.13, torch 2.10.0+cu128, Ray 2.55.1, datasets, transformers, vLLM, LMCache with `lmcache.c_ops`, repo import, CLI doctor, compileall, unittest discovery, CUDA visibility, and Docker image inspection all passed. A full destructive/reinstall bootstrap was not run because `Putpocket_env`, externals, and Docker image already existed; the accepted validation path for an existing env was run.
+Validation passed on the existing server/env using `--doctor-only`: Python 3.13.13, torch 2.10.0+cu129, Ray 2.55.1, datasets, transformers, vLLM, LMCache with `lmcache.c_ops`, repo import, CLI doctor, compileall, unittest discovery, CUDA visibility, and Docker image inspection all passed. A full destructive/reinstall bootstrap was not run because `Putpocket_env`, externals, and Docker image already existed; the accepted validation path for an existing env was run.
 
 ## Files Changed
 
@@ -18,7 +18,7 @@ Validation passed on the existing server/env using `--doctor-only`: Python 3.13.
 | `scripts/env/README.md` | Short operator docs for bootstrap vs activation behavior. |
 | `docker/default_python/Dockerfile` | Docker Python build job default changed to 32 to match repo build policy. |
 | `src/putpocket_dataset_mining/externals.py` | External checkout is now idempotent: verifies existing git checkouts, fetches/switches/fast-forwards configured branches, records current branch/commit/remote in doctor status, and respects user build env overrides. |
-| `src/putpocket_dataset_mining/docker_workspace.py` | Docker image builds pass `PYTHON_BUILD_JOBS=${PUTPOCKET_BUILD_THREADS:-32}`. |
+| `src/putpocket_dataset_mining/docker_workspace.py` | Docker image builds pass `PYTHON_BUILD_JOBS=${PUTPOCKET_BUILD_THREADS:-16}`. |
 | `src/putpocket_dataset_mining/doctor.py` | Doctor now checks `torch`, `ray`, and `lmcache` module availability in addition to existing modules. |
 | `.gitignore` | Ignores generated `logs/env_setup/` bootstrap logs. |
 
@@ -59,7 +59,7 @@ Useful repair/validation variants:
 | Resolve Python 3.13 | Yes | Uses `PYTHON_BIN`, `python3.13`, `.local_python/bin/python3.13`, then `uv python find/install 3.13`; refuses Python 3.10/3.11. |
 | Create/reuse `Putpocket_env` | Yes | Reuses existing Python 3.13 env; fails clearly if existing env is not Python 3.13. |
 | Activate env for bootstrap | Yes | Sources `scripts/env/env_activate.sh` in the current shell so later stages use the venv. |
-| Install dependencies | Yes | Upgrades pip/setuptools/wheel/build helpers; installs torch 2.10.0+cu128, Ray 2.55.1, datasets, transformers, pyyaml, pytest, and editable repo `[dev]`. |
+| Install dependencies | Yes | Upgrades pip/setuptools/wheel/build helpers; installs torch 2.10.0+cu129, Ray 2.55.1, datasets, transformers, pyyaml, pytest, and editable repo `[dev]`. |
 | Checkout externals | Yes | Ensures vLLM, LMCache, and Cline paths; existing git checkouts are verified/fetched/fast-forwarded. |
 | Install vLLM editable | Yes | Uses `putpocket-dataset-mining externals install-editable vllm --python <venv python>` with no build isolation; skips if import works unless forced. |
 | Install LMCache editable | Yes | Uses same editable external install path; skips if import works unless forced. |
@@ -83,7 +83,7 @@ When sourced, it:
 - checks `Putpocket_env/bin/activate` exists,
 - tells the user to run `./scripts/env/bootstrap_env.sh first` if missing,
 - activates `Putpocket_env`,
-- exports `CUDA_HOME=/usr/local/cuda-12.8` unless already set,
+- exports `CUDA_HOME=/usr/local/cuda-12.9` unless already set,
 - adds CUDA bin/lib64 and `src` to runtime paths when those paths exist,
 - exports `UV_PROJECT_ENVIRONMENT` to repo-local `Putpocket_env` unless already set,
 - exports `PYTHONNOUSERSITE=1`,
@@ -99,10 +99,10 @@ It does not install packages, build vLLM/LMCache, checkout externals, run Docker
 Default build settings:
 
 ```bash
-PUTPOCKET_BUILD_THREADS=32
-MAX_JOBS=32
-CMAKE_BUILD_PARALLEL_LEVEL=32
-CARGO_BUILD_JOBS=32
+PUTPOCKET_BUILD_THREADS=16
+MAX_JOBS=16
+CMAKE_BUILD_PARALLEL_LEVEL=16
+CARGO_BUILD_JOBS=16
 NVCC_THREADS=1
 ```
 
@@ -233,7 +233,7 @@ One early `python -m compileall ...` command failed because bare `python` is not
 | User build override precedence | Pass | `PUTPOCKET_BUILD_THREADS=16` remained 16 after activation. |
 | `CUDA_VISIBLE_DEVICES` safety | Pass | Activation did not set it. |
 | Python version | Pass | Python 3.13.13. |
-| torch/Ray/import smoke | Pass | torch 2.10.0+cu128, CUDA 12.8, CUDA available true, 8 GPUs visible; Ray 2.55.1. |
+| torch/Ray/import smoke | Pass | torch 2.10.0+cu129, CUDA 12.9, CUDA available true, 3 GPUs visible; Ray 2.55.1. |
 | datasets/transformers import | Pass | datasets 5.0.0, transformers 5.12.1. |
 | vLLM import | Pass | `vllm import ok`. |
 | LMCache import | Pass | `lmcache import ok`, backend `lmcache.c_ops`. |
@@ -293,11 +293,11 @@ If neither Python 3.13 nor `uv` is available, install one of them, then rerun:
 Optional Blackwell/server-specific overrides before bootstrap:
 
 ```bash
-export CUDA_HOME=/usr/local/cuda-12.8
-export PUTPOCKET_BUILD_THREADS=32
-export MAX_JOBS=32
-export CMAKE_BUILD_PARALLEL_LEVEL=32
-export CARGO_BUILD_JOBS=32
+export CUDA_HOME=/usr/local/cuda-12.9
+export PUTPOCKET_BUILD_THREADS=16
+export MAX_JOBS=16
+export CMAKE_BUILD_PARALLEL_LEVEL=16
+export CARGO_BUILD_JOBS=16
 export NVCC_THREADS=1
 ./scripts/env/bootstrap_env.sh
 ```
@@ -313,20 +313,19 @@ GPU runtime slots are not controlled by activation. Current mining runtime slots
 
 ```yaml
 gpu:
-  allowed_cuda_devices: [4, 5, 6, 7]
+  allowed_cuda_devices: [0, 1, 2]
   debug_slots:
-    - [4]
+    - [0]
   first_parallel_slots:
-    - [4]
-    - [5]
+    - [0]
+    - [1]
   full_server_slots:
-    - [4]
-    - [5]
-    - [6]
-    - [7]
+    - [0]
+    - [1]
+    - [2]
 ```
 
-The code-level guard is `ALLOWED_CUDA_DEVICES = (4, 5, 6, 7)` in `src/putpocket_dataset_mining/constants.py`, with runtime validation in `src/putpocket_dataset_mining/multi.py` and model-evaluation GPU validation in `src/putpocket_dataset_mining/model_evaluation/glm_eval.py`. Adapt those runtime configs/code guards for a different Blackwell GPU layout; do not put GPU IDs in `env_activate.sh`.
+The code-level guard is `ALLOWED_CUDA_DEVICES = (0, 1, 2)` in `src/putpocket_dataset_mining/constants.py`, with runtime validation in `src/putpocket_dataset_mining/multi.py` and model-evaluation GPU validation in `src/putpocket_dataset_mining/model_evaluation/glm_eval.py`. Adapt those runtime configs/code guards for a different Blackwell GPU layout; do not put GPU IDs in `env_activate.sh`.
 
 ## Known Blockers / Remaining Work
 
@@ -335,10 +334,10 @@ No blocker remains for the implemented env bootstrap/activation flow on this ser
 Remaining Blackwell-specific checks to do on the actual Blackwell host:
 
 - Run the full first-time command: `./scripts/env/bootstrap_env.sh`
-- Confirm PyTorch 2.10.0+cu128 supports that host/driver stack.
+- Confirm PyTorch 2.10.0+cu129 supports that host/driver stack.
 - Confirm the Putpocket vLLM branch builds and loads on Blackwell.
 - Confirm LMCache builds with CUDA ops on Blackwell.
-- Update runtime GPU slot config/code guard if Blackwell GPU IDs differ from `[4,5,6,7]`.
+- Update runtime GPU slot config/code guard if Blackwell GPU IDs differ from `[0,1,2]`.
 - Run a lightweight GLM/vLLM smoke later, not as part of env bootstrap:
   `source scripts/env/env_activate.sh` then the repo's GLM evaluation smoke command once model download/GPU allocation is approved.
 

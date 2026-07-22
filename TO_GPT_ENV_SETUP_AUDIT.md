@@ -11,7 +11,7 @@ The repo already has:
 - Docker image management through `putpocket-dataset-mining docker ensure-image`
 - setup validation through `putpocket-dataset-mining doctor`
 
-What is missing: a single script or lockfile that installs the exact full runtime stack from scratch, especially `torch==2.10.0+cu128`, `ray==2.55.1`, editable vLLM, editable LMCache, and any Blackwell/GLM sparse-MLA/DeepGEMM-specific checks.
+What is missing: a single script or lockfile that installs the exact full runtime stack from scratch, especially `torch==2.10.0+cu129`, `ray==2.55.1`, editable vLLM, editable LMCache, and any Blackwell/GLM sparse-MLA/DeepGEMM-specific checks.
 
 ## Repo Context
 
@@ -28,7 +28,7 @@ What is missing: a single script or lockfile that installs the exact full runtim
 | Purpose | Path | Exists? | Notes |
 |---|---:|---:|---|
 | Env bootstrap | `scripts/env/bootstrap_env.sh` | yes | Creates `Putpocket_env`, sources activation, upgrades pip tooling, installs repo editable with `[dev]`. |
-| Env activation | `scripts/env/env_activate.sh` | yes | Exports repo root, CUDA 12.8 paths, `PYTHONPATH`, HF cache env, seed, and build caps; sources `Putpocket_env/bin/activate` if present. |
+| Env activation | `scripts/env/env_activate.sh` | yes | Exports repo root, CUDA 12.9 paths, `PYTHONPATH`, HF cache env, seed, and build caps; sources `Putpocket_env/bin/activate` if present. |
 | External checkout wrapper | `scripts/externals/checkout_externals.sh` | yes | Sources activation and runs `putpocket-dataset-mining externals checkout all`. |
 | External metadata/install logic | `src/putpocket_dataset_mining/externals.py` | yes | Defines vLLM/LMCache/Cline URLs, branches, paths, checkout, and editable install with `--no-build-isolation`. |
 | CLI setup commands | `src/putpocket_dataset_mining/cli.py` | yes | Provides `doctor`, `docker ensure-image`, `externals checkout`, `externals install-editable`. |
@@ -36,8 +36,8 @@ What is missing: a single script or lockfile that installs the exact full runtim
 | Python package config | `pyproject.toml` | yes | Requires Python `>=3.13`; dependencies: `datasets`, `pyyaml`, `transformers`; optional `dev`, `vllm`. |
 | Dataset mining configs | `configs/dataset_mining/*.yaml` | yes | Holds model id, Docker image, GPU slots, profiles, build-resource env overrides. |
 | Dockerfile | `docker/default_python/Dockerfile` | yes | Ubuntu 22.04 image that builds Python 3.13.1 and installs pytest. |
-| Objective/spec source | `tasks/objectives/dataset_mining/objective.yaml` | yes | Records intended env policy including Python 3.13, CUDA 12.8, Torch 2.10.0+cu128, Ray 2.55.1. |
-| Runtime validation state | `tasks/objectives/dataset_mining/state.yaml` | yes | Records this server as validated with `Putpocket_env`, editable vLLM/LMCache, Docker image, GPUs 4,5,6,7. |
+| Objective/spec source | `tasks/objectives/dataset_mining/objective.yaml` | yes | Records intended env policy including Python 3.13, CUDA 12.9, Torch 2.10.0+cu129, Ray 2.55.1. |
+| Runtime validation state | `tasks/objectives/dataset_mining/state.yaml` | yes | Records this server as validated with `Putpocket_env`, editable vLLM/LMCache, Docker image, GPUs 0,1,2. |
 | Env spec docs | `docs/specs/01_repo_and_env.md` | yes | Documents required layout and shared-server CPU/GPU limits. |
 | Makefile | `Makefile` | no | No Make targets found. |
 | Requirements files | `requirements*.txt` | no | No repo-level requirements files found. |
@@ -53,7 +53,7 @@ The intended setup order is reconstructible, but split across shell scripts, CLI
 1. Provide Python 3.13.
 2. Create repo-local `Putpocket_env` with `scripts/env/bootstrap_env.sh`.
 3. Activate with `source scripts/env/env_activate.sh`.
-4. Install missing runtime packages not covered by `pyproject.toml` bootstrap, notably Torch 2.10.0+cu128 and Ray 2.55.1.
+4. Install missing runtime packages not covered by `pyproject.toml` bootstrap, notably Torch 2.10.0+cu129 and Ray 2.55.1.
 5. Checkout externals with `scripts/externals/checkout_externals.sh` or `putpocket-dataset-mining externals checkout all`.
 6. Editable-install vLLM and LMCache using `putpocket-dataset-mining externals install-editable ...`.
 7. Verify Python imports with doctor/import smoke.
@@ -77,16 +77,16 @@ python -m pip install -e "${repo_root}[dev]"
 From `scripts/env/env_activate.sh`:
 
 ```bash
-export CUDA_HOME="/usr/local/cuda-12.8"
+export CUDA_HOME="/usr/local/cuda-12.9"
 export PATH="${CUDA_HOME}/bin:${PUTPOCKET_DATASET_MINING_ROOT}/Putpocket_env/bin:${PUTPOCKET_DATASET_MINING_ROOT}/.local_python/bin:${PATH}"
 export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
 export PYTHONPATH="${PUTPOCKET_DATASET_MINING_ROOT}/src:${PYTHONPATH:-}"
 export PUTPOCKET_HF_HUB_CACHE_DIR="${PUTPOCKET_HF_HUB_CACHE_DIR:-/data/shared/hf_cache/hub}" # if present, otherwise HOME cache
 export RANDOM_SEED="${RANDOM_SEED:-42}"
-export PUTPOCKET_BUILD_THREADS="${PUTPOCKET_BUILD_THREADS:-32}"
-export MAX_JOBS="${MAX_JOBS:-32}"
-export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-32}"
-export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-32}"
+export PUTPOCKET_BUILD_THREADS="${PUTPOCKET_BUILD_THREADS:-16}"
+export MAX_JOBS="${MAX_JOBS:-16}"
+export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-16}"
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-16}"
 export NVCC_THREADS="${NVCC_THREADS:-1}"
 source "${PUTPOCKET_DATASET_MINING_ROOT}/Putpocket_env/bin/activate"
 ```
@@ -137,10 +137,10 @@ source scripts/env/env_activate.sh && putpocket-dataset-mining doctor --json
 source scripts/env/env_activate.sh && python -m compileall src tests
 source scripts/env/env_activate.sh && python -m unittest discover -s tests -v
 source scripts/env/env_activate.sh && python -c "import datasets, transformers, vllm, lmcache, putpocket_dataset_mining"
-CUDA_VISIBLE_DEVICES=4 putpocket-dataset-mining single --config configs/dataset_mining/mbpp_stateful_single.yaml --run-id single_validation_path_20260707T175646Z
-CUDA_VISIBLE_DEVICES=4 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile debug --run-id debug_validation_20260707T175646Z
-CUDA_VISIBLE_DEVICES=4,5 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile first_parallel --run-id first_parallel_validation_20260707T175646Z
-CUDA_VISIBLE_DEVICES=4,5,6,7 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile full_server --run-id full_server_validation_20260707T175646Z
+CUDA_VISIBLE_DEVICES=0 putpocket-dataset-mining single --config configs/dataset_mining/mbpp_stateful_single.yaml --run-id single_validation_path_20260707T175646Z
+CUDA_VISIBLE_DEVICES=0 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile debug --run-id debug_validation_20260707T175646Z
+CUDA_VISIBLE_DEVICES=0,1 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile first_parallel --run-id first_parallel_validation_20260707T175646Z
+CUDA_VISIBLE_DEVICES=0,1,2 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile full_server --run-id full_server_validation_20260707T175646Z
 ```
 
 ## Externals / Branches
@@ -167,20 +167,20 @@ Build parallelism is configured in four places:
 Current defaults:
 
 ```bash
-PUTPOCKET_BUILD_THREADS=32
-MAX_JOBS=32
-CMAKE_BUILD_PARALLEL_LEVEL=32
-CARGO_BUILD_JOBS=32
+PUTPOCKET_BUILD_THREADS=16
+MAX_JOBS=16
+CMAKE_BUILD_PARALLEL_LEVEL=16
+CARGO_BUILD_JOBS=16
 NVCC_THREADS=1
 ```
 
 How to set CPU cap to 32 manually:
 
 ```bash
-export PUTPOCKET_BUILD_THREADS=32
-export MAX_JOBS=32
-export CMAKE_BUILD_PARALLEL_LEVEL=32
-export CARGO_BUILD_JOBS=32
+export PUTPOCKET_BUILD_THREADS=16
+export MAX_JOBS=16
+export CMAKE_BUILD_PARALLEL_LEVEL=16
+export CARGO_BUILD_JOBS=16
 export NVCC_THREADS=1
 ```
 
@@ -191,25 +191,25 @@ Important Blackwell note: `env_activate.sh` respects preexisting values through 
 GPU policy is configured in:
 
 - `src/putpocket_dataset_mining/constants.py`
-  - `ALLOWED_CUDA_DEVICES = (4, 5, 6, 7)`
-  - `DISALLOWED_CUDA_DEVICES = (0, 1, 2, 3)`
+  - `ALLOWED_CUDA_DEVICES = (0, 1, 2)`
+  - `DISALLOWED_CUDA_DEVICES = ()`
 - `configs/dataset_mining/mbpp_stateful_multi.yaml`
-  - `allowed_cuda_devices: [4, 5, 6, 7]`
-  - `debug_slots: [[4]]`
-  - `first_parallel_slots: [[4], [5]]`
-  - `full_server_slots: [[4], [5], [6], [7]]`
+  - `allowed_cuda_devices: [0, 1, 2]`
+  - `debug_slots: [[0]]`
+  - `first_parallel_slots: [[0], [1]]`
+  - `full_server_slots: [[0], [1], [2]]`
   - `tensor_parallel_size: 1`
   - `pipeline_parallel_size: 1`
 - `src/putpocket_dataset_mining/multi.py`
   - validates the YAML allowed set against `ALLOWED_CUDA_DEVICES`
   - exports `CUDA_VISIBLE_DEVICES` per worker
 - `src/putpocket_dataset_mining/model_evaluation/glm_eval.py`
-  - defaults smoke to GPU `4`, full to `4,5,6,7`
+  - defaults smoke to GPU `4`, full to `0,1,2`
   - validates each eval worker has one allowed GPU
 
-To adapt from old GPUs `4,5,6,7` to the Blackwell server:
+To adapt from old GPUs `0,1,2` to the Blackwell server:
 
-1. If Blackwell should also use physical GPU ids `4,5,6,7`, no code/config change is needed.
+1. If Blackwell should also use physical GPU ids `0,1,2`, no code/config change is needed.
 2. If Blackwell should use different ids, update both `ALLOWED_CUDA_DEVICES` in `constants.py` and the YAML slots in `configs/dataset_mining/mbpp_stateful_multi.yaml`.
 3. Update model-evaluation CLI usage with `--gpu-slots <ids>`; note that validation still uses `ALLOWED_CUDA_DEVICES`.
 4. Keep `tp=1`, `pp=1` unless the runner is extended; GLM eval currently rejects other TP/PP values.
@@ -261,7 +261,7 @@ vllm = ["vllm"]
 
 Notably absent from `pyproject.toml`:
 
-- `torch==2.10.0+cu128`
+- `torch==2.10.0+cu129`
 - `ray==2.55.1`
 - pinned vLLM/LMCache packages
 - CUDA/Blackwell-specific build dependencies
@@ -269,9 +269,9 @@ Notably absent from `pyproject.toml`:
 Current original server env inspection:
 
 - Python: `3.13.13`
-- Torch: `2.10.0+cu128`
+- Torch: `2.10.0+cu129`
 - Ray: `2.55.1`
-- vLLM: `0.1.dev15375+gb65d39ddb.cu128`, editable from `externals/vllm`
+- vLLM: `0.1.dev15375+gb65d39ddb.cu129`, editable from `externals/vllm`
 - LMCache: `0.1.dev1451`, editable from `externals/lmcache`
 - datasets: `5.0.0`
 - transformers: `5.12.1`
@@ -326,8 +326,8 @@ Observed current `doctor --json` result on this server:
 Existing runtime smoke commands recorded in state/README, to run only after env and Docker are ready:
 
 ```bash
-CUDA_VISIBLE_DEVICES=4 putpocket-dataset-mining single --config configs/dataset_mining/mbpp_stateful_single.yaml --sample-index 0
-CUDA_VISIBLE_DEVICES=4 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile debug
+CUDA_VISIBLE_DEVICES=0 putpocket-dataset-mining single --config configs/dataset_mining/mbpp_stateful_single.yaml --sample-index 0
+CUDA_VISIBLE_DEVICES=0 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile debug
 ```
 
 Existing GLM eval readiness commands found in repo artifacts/code:
@@ -350,8 +350,8 @@ python -m putpocket_dataset_mining.model_evaluation.glm_eval \
   --model-id inference-optimization/GLM-5.2-0.8B-A0.8B \
   --eval-name eval_glm52_08b_on_mbpp_stateful_working_v0 \
   --profile full \
-  --gpu-slots 4,5,6,7 \
-  --workers 4
+  --gpu-slots 0,1,2 \
+  --workers 3
 ```
 
 On the original RTX 3090 server, `TO_GPT.md` reports GLM was blocked by sparse MLA CUDA backend support even after DeepGEMM install. The smallest Blackwell readiness check is therefore a GLM smoke run after vLLM/LMCache setup, not a full mining run.
@@ -401,7 +401,7 @@ source scripts/env/env_activate.sh
 # Install runtime packages missing from pyproject bootstrap.
 # Verify the exact PyTorch index/wheel availability on the Blackwell server.
 python -m pip install --upgrade pip setuptools wheel
-python -m pip install --index-url https://download.pytorch.org/whl/cu128 --extra-index-url https://pypi.org/simple "torch==2.10.0+cu128"
+python -m pip install --index-url https://download.pytorch.org/whl/cu129 --extra-index-url https://pypi.org/simple "torch==2.10.0+cu129"
 python -m pip install "ray==2.55.1"
 
 # Repo core deps are handled by bootstrap, but this is safe if rerun:
@@ -409,13 +409,13 @@ python -m pip install -e ".[dev]"
 
 # Checkout and build editable externals with the current CPU cap.
 putpocket-dataset-mining externals checkout all
-PUTPOCKET_BUILD_THREADS=32 MAX_JOBS=32 CMAKE_BUILD_PARALLEL_LEVEL=32 CARGO_BUILD_JOBS=32 NVCC_THREADS=1 \
+PUTPOCKET_BUILD_THREADS=16 MAX_JOBS=16 CMAKE_BUILD_PARALLEL_LEVEL=16 CARGO_BUILD_JOBS=16 NVCC_THREADS=1 \
   putpocket-dataset-mining externals install-editable vllm --python python
-PUTPOCKET_BUILD_THREADS=32 MAX_JOBS=32 CMAKE_BUILD_PARALLEL_LEVEL=32 CARGO_BUILD_JOBS=32 NVCC_THREADS=1 \
+PUTPOCKET_BUILD_THREADS=16 MAX_JOBS=16 CMAKE_BUILD_PARALLEL_LEVEL=16 CARGO_BUILD_JOBS=16 NVCC_THREADS=1 \
   putpocket-dataset-mining externals install-editable lmcache --python python
 
 # Optional/conditional for GLM sparse MLA if smoke says DeepGEMM is missing.
-PUTPOCKET_BUILD_THREADS=32 MAX_JOBS=32 CMAKE_BUILD_PARALLEL_LEVEL=32 CARGO_BUILD_JOBS=32 NVCC_THREADS=1 CUDA_VISIBLE_DEVICES=<blackwell_gpu_id> \
+PUTPOCKET_BUILD_THREADS=16 MAX_JOBS=16 CMAKE_BUILD_PARALLEL_LEVEL=16 CARGO_BUILD_JOBS=16 NVCC_THREADS=1 CUDA_VISIBLE_DEVICES=<blackwell_gpu_id> \
   bash externals/vllm/tools/install_deepgemm.sh
 
 # Validate.
@@ -439,17 +439,17 @@ python -m putpocket_dataset_mining.model_evaluation.glm_eval \
 
 ### Blackwell-specific config choices
 
-- If Blackwell GPU ids are not `4,5,6,7`, update `ALLOWED_CUDA_DEVICES`, mining YAML slots, and GLM eval command slots before running.
-- If Blackwell is dedicated and can use more than 32 CPU build jobs, update `BUILD_ENV_OVERRIDES` in `constants.py` and `build_resources.env_overrides` in `configs/dataset_mining/mbpp_stateful_multi.yaml`; CLI editable installs currently force the constants values.
+- If Blackwell GPU ids are not `0,1,2`, update `ALLOWED_CUDA_DEVICES`, mining YAML slots, and GLM eval command slots before running.
+- If Blackwell is dedicated and can use more than 16 CPU build jobs, update `BUILD_ENV_OVERRIDES` in `constants.py` and `build_resources.env_overrides` in `configs/dataset_mining/mbpp_stateful_multi.yaml`; CLI editable installs currently force the constants values.
 - If `/data/shared/hf_cache/hub` does not exist, either create/mount it or set `PUTPOCKET_HF_HUB_CACHE_DIR` explicitly before activation.
 
 ## Missing / Unclear Items
 
 - No single end-to-end Blackwell setup script.
 - No repo-level `requirements.txt`, `constraints.txt`, `uv.lock`, or lock manifest.
-- No recorded exact pip command for installing `torch==2.10.0+cu128`.
+- No recorded exact pip command for installing `torch==2.10.0+cu129`.
 - No recorded exact pip command for installing `ray==2.55.1`.
-- No explicit Blackwell GPU id policy; old code assumes allowed ids `4,5,6,7`.
+- No explicit Blackwell GPU id policy; old code assumes allowed ids `0,1,2`.
 - Build CPU cap is partly configurable in shell but hardcoded for CLI external installs through `BUILD_ENV_OVERRIDES`.
 - No explicit Blackwell sparse MLA / DeepGEMM smoke script; only the prior GLM report and vLLM tool script indicate the likely check.
 - No `.gitmodules`; externals are cloned directories managed by helper code and ignored by the main repo.
@@ -462,7 +462,7 @@ python -m putpocket_dataset_mining.model_evaluation.glm_eval \
 Smallest next action for the human:
 
 1. On the Blackwell server, clone the repo and run `scripts/env/bootstrap_env.sh`.
-2. Install the missing pinned runtime packages `torch==2.10.0+cu128` and `ray==2.55.1`.
+2. Install the missing pinned runtime packages `torch==2.10.0+cu129` and `ray==2.55.1`.
 3. Run external checkout/editable installs for vLLM and LMCache.
 4. Run:
 
@@ -529,6 +529,6 @@ git -C externals/cline remote -v
 sed -n '1,80p' Putpocket_env/pyvenv.cfg
 Putpocket_env/bin/python --version
 Putpocket_env/bin/python -m pip show torch ray vllm lmcache datasets transformers pyyaml pytest
-/usr/local/cuda-12.8/bin/nvcc --version
+/usr/local/cuda-12.9/bin/nvcc --version
 bash -lc 'source scripts/env/env_activate.sh && putpocket-dataset-mining doctor --json'
 ```

@@ -12,9 +12,13 @@
 - Upstream: `origin/blackwell`
 - Base commit before Blackwell changes: `09906fc63f71bfc950a33b506b0c9441e25ae6df`
 - Source/config/report commit pushed earlier: `e043f774fdf6385baacd4c1badfdfb93c6067a2b`
-- Last pushed commit currently known on `origin/blackwell`: `e827fc575afcfe91e12e1909cc91c108cc12d5d0`
-- Local branch before this report/source update: `b28c4cdd96dded67a17ec05c9f58d2b3e90a5601`, ahead of `origin/blackwell` by 3 commits
-- Current report/source updates are pending commit at the time this file is written; final push status is reported in the assistant handoff.
+- Source/report continuation commits:
+  - `297cf1c3f08c4f26c41ca1deb794793095d0b5d1`
+  - `74f05513bfd8b8e70d523760763ee4688bcbc02b`
+  - `b28c4cdd96dded67a17ec05c9f58d2b3e90a5601`
+  - `adee93cb71309352847749ed3c37f8e9d8318b28`
+- Pushed status: `git push -u origin blackwell` succeeded through `adee93cb71309352847749ed3c37f8e9d8318b28`.
+- This final status edit is report-only; the final assistant handoff reports the final branch HEAD after it is committed and pushed.
 
 ## Hardware Detected
 - GPUs:
@@ -245,10 +249,9 @@ CUDA_VISIBLE_DEVICES=0,1,2 python -m putpocket_dataset_mining.model_evaluation.g
   - Direct `docker info` in this shell still fails with permission denied.
   - `sg docker -c 'docker info'` works and was used for Docker image setup and GLM smoke.
   - Smallest next action for direct Docker access: start a new login session for `dyryu`, then validate `id` and `docker info`.
-- Git push may still be blocked by repository authentication.
-  - Previous failing command: `git push -u origin blackwell`
-  - Previous error: missing or invalid credentials for `https://github.com/Nier4Ryu/putpocket_dataset_mining.git/`
-  - Smallest next action: refresh GitHub credentials for this host/session, or push from a shell with valid GitHub authentication.
+- Git push blocker is cleared for the latest source/report commit:
+  - Command: `git push -u origin blackwell`
+  - Result: pass through `adee93cb71309352847749ed3c37f8e9d8318b28`
 
 ## Next Recommended Action
 Update or replace the local vLLM branch with explicit support for GLM sparse MLA on RTX Blackwell SM 12.0, then rerun the post-DeepGEMM smoke command on GPU `0`. If that smoke passes, run the planned full evaluation on GPUs `0,1,2`.

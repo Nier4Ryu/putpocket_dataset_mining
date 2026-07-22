@@ -45,18 +45,65 @@ EXTERNALS = {
 
 def build_env() -> dict[str, str]:
     env = os.environ.copy()
-    env.update(BUILD_ENV_OVERRIDES)
+    for name, value in BUILD_ENV_OVERRIDES.items():
+        env.setdefault(name, value)
     return env
+
+
+def _run_git(path: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(
+        ["git", "-C", str(path), *args],
+        cwd=str(REPO_ROOT),
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        command = " ".join(["git", "-C", str(path), *args])
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise InfraError(f"Git command failed for {path}: {command}\n{detail}")
+    return result
+
+
+def _has_tracked_changes(path: Path) -> bool:
+    unstaged = subprocess.run(
+        ["git", "-C", str(path), "diff", "--quiet"],
+        cwd=str(REPO_ROOT),
+        text=True,
+        capture_output=True,
+    )
+    staged = subprocess.run(
+        ["git", "-C", str(path), "diff", "--cached", "--quiet"],
+        cwd=str(REPO_ROOT),
+        text=True,
+        capture_output=True,
+    )
+    return unstaged.returncode == 1 or staged.returncode == 1
 
 
 def checkout_external(name: str) -> ExternalRepo:
     repo = EXTERNALS[name]
     repo.path.parent.mkdir(parents=True, exist_ok=True)
     if repo.path.exists():
+        if not (repo.path / ".git").exists():
+            raise InfraError(f"External path exists but is not a git checkout: {repo.path}")
+        if _has_tracked_changes(repo.path):
+            raise InfraError(f"External checkout has tracked local changes; refusing to switch/update: {repo.path}")
+        if repo.branch:
+            _run_git(repo.path, ["fetch", "origin", repo.branch])
+            current_branch = _run_git(repo.path, ["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
+            if current_branch != repo.branch:
+                local_branch = _run_git(repo.path, ["branch", "--list", repo.branch]).stdout.strip()
+                if local_branch:
+                    _run_git(repo.path, ["switch", repo.branch])
+                else:
+                    _run_git(repo.path, ["switch", "-c", repo.branch, "--track", f"origin/{repo.branch}"])
+            _run_git(repo.path, ["merge", "--ff-only", f"origin/{repo.branch}"])
+        else:
+            _run_git(repo.path, ["fetch", "origin"])
         return repo
     cmd = ["git", "clone", repo.url, str(repo.path)]
     if repo.branch:
-        cmd = ["git", "clone", "--branch", repo.branch, repo.url, str(repo.path)]
+        cmd = ["git", "clone", "--branch", repo.branch, "--single-branch", repo.url, str(repo.path)]
     result = subprocess.run(cmd, cwd=str(REPO_ROOT), text=True, capture_output=True)
     if result.returncode != 0:
         raise InfraError(f"Failed to clone {name}: {result.stderr.strip()}")
@@ -80,12 +127,40 @@ def editable_install(repo: ExternalRepo, python: str = "python") -> None:
 def externals_status() -> list[dict[str, str | bool]]:
     rows: list[dict[str, str | bool]] = []
     for repo in EXTERNALS.values():
+        current_branch = ""
+        current_commit = ""
+        remote_url = ""
+        if (repo.path / ".git").exists():
+            current_branch = (
+                subprocess.run(
+                    ["git", "-C", str(repo.path), "rev-parse", "--abbrev-ref", "HEAD"],
+                    text=True,
+                    capture_output=True,
+                ).stdout.strip()
+            )
+            current_commit = (
+                subprocess.run(
+                    ["git", "-C", str(repo.path), "rev-parse", "HEAD"],
+                    text=True,
+                    capture_output=True,
+                ).stdout.strip()
+            )
+            remote_url = (
+                subprocess.run(
+                    ["git", "-C", str(repo.path), "remote", "get-url", "origin"],
+                    text=True,
+                    capture_output=True,
+                ).stdout.strip()
+            )
         rows.append(
             {
                 "name": repo.name,
                 "path": str(repo.path),
                 "exists": repo.path.exists(),
                 "branch": repo.branch or "",
+                "current_branch": current_branch,
+                "current_commit": current_commit,
+                "remote_url": remote_url,
                 "role": repo.role,
             }
         )

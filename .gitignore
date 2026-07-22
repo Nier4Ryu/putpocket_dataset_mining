@@ -4,6 +4,7 @@ externals/
 
 data
 codex_runs/
+logs/env_setup/
 
 __pycache__/
 *.py[cod]

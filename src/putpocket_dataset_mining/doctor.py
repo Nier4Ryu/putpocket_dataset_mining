@@ -20,7 +20,10 @@ def collect_doctor_report() -> dict[str, Any]:
         "yaml": importlib.util.find_spec("yaml") is not None,
         "datasets": importlib.util.find_spec("datasets") is not None,
         "transformers": importlib.util.find_spec("transformers") is not None,
+        "torch": importlib.util.find_spec("torch") is not None,
+        "ray": importlib.util.find_spec("ray") is not None,
         "vllm": importlib.util.find_spec("vllm") is not None,
+        "lmcache": importlib.util.find_spec("lmcache") is not None,
     }
     required_paths = {
         "repo_root": str(REPO_ROOT),

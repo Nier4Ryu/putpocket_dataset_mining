@@ -1,7 +1,7 @@
 FROM ubuntu:22.04
 
 ARG PYTHON_VERSION=3.13.1
-ARG PYTHON_BUILD_JOBS=8
+ARG PYTHON_BUILD_JOBS=32
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

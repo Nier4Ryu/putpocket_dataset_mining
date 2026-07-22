@@ -57,8 +57,19 @@ class DockerImageManager:
             raise InfraError(f"Docker image is missing and build_if_missing=false: {self.image}")
         if not self.dockerfile.exists():
             raise InfraError(f"Dockerfile is missing: {self.dockerfile}")
+        python_build_jobs = os.environ.get("PUTPOCKET_BUILD_THREADS", "32")
         result = subprocess.run(
-            ["docker", "build", "-t", self.image, "-f", str(self.dockerfile), str(self.dockerfile.parents[1])],
+            [
+                "docker",
+                "build",
+                "--build-arg",
+                f"PYTHON_BUILD_JOBS={python_build_jobs}",
+                "-t",
+                self.image,
+                "-f",
+                str(self.dockerfile),
+                str(self.dockerfile.parents[1]),
+            ],
             text=True,
             capture_output=True,
             timeout=timeout_sec,

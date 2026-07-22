@@ -1,0 +1,40 @@
+# GLM-5.2 serving stack for local vLLM 0.25.x source builds on Blackwell.
+
+serving_stack: glm52_vllm025_blackwell
+
+env:
+  path: Putpocket_env_glm52_v025
+  activation: scripts/env/env_activate_glm52_v025.sh
+  bootstrap: scripts/env/bootstrap_glm52_v025_env.sh
+
+vllm:
+  source_path: externals/vllm_glm52_v025
+  remote: https://github.com/vllm-project/vllm.git
+  ref: v0.25.1
+  commit: 752a3a504485790a2e8491cacbb35c137339ad34
+  install_mode: editable_source
+  target_device: cuda
+
+runtime:
+  cuda_home: /usr/local/cuda-12.9
+  torch_cuda_tag: cu129
+  tensor_parallel_size: 1
+  pipeline_parallel_size: 1
+  gpus: [0, 1, 2]
+  smoke_gpu_slots:
+    - [0]
+  full_gpu_slots:
+    - [0]
+    - [1]
+    - [2]
+
+build:
+  default_parallelism: 8
+  retry_policy: none
+  env:
+    PUTPOCKET_BUILD_THREADS: "8"
+    MAX_JOBS: "8"
+    CMAKE_BUILD_PARALLEL_LEVEL: "8"
+    CARGO_BUILD_JOBS: "8"
+    NVCC_THREADS: "1"
+    TORCH_CUDA_ARCH_LIST: "12.0"

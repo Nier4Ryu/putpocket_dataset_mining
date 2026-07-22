@@ -22,6 +22,8 @@ from putpocket_dataset_mining.constants import (
     GLM52_08B_MODEL_ID,
     GLM52_VLLM023_BUILD_ENV_OVERRIDES,
     GLM52_VLLM023_SERVING_STACK,
+    GLM52_VLLM025_BUILD_ENV_OVERRIDES,
+    GLM52_VLLM025_SERVING_STACK,
     MODEL_EVALUATION_RUNS_ROOT,
     PUTPOCKET_VLLM019_SERVING_STACK,
     REPO_ROOT,
@@ -325,6 +327,8 @@ class GLMSampleEvaluator:
             "failure_stage": None,
             "history1_turns": 0,
             "history2_turns": 0,
+            "parse_failure_count": 0,
+            "malformed_tool_call_count": 0,
             "prompt_token_counts": {"history1": [], "history2": [], "total": 0},
             "completion_token_counts": {"history1": [], "history2": [], "total": 0},
             "latency": {"history1_sec": 0.0, "history2_sec": 0.0, "total_generation_sec": 0.0, "sample_wall_sec": 0.0},
@@ -525,6 +529,8 @@ class GLMSampleEvaluator:
         metrics = collect_trajectory_metrics(attempt_dir)
         result["prompt_token_counts"] = metrics["prompt_token_counts"]
         result["completion_token_counts"] = metrics["completion_token_counts"]
+        result["parse_failure_count"] = metrics["parse_failure_count"]
+        result["malformed_tool_call_count"] = metrics["malformed_tool_call_count"]
         result["latency"] = metrics["latency"]
         result["latency"]["sample_wall_sec"] = time.time() - started
         result["completed_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -557,6 +563,7 @@ class GLMSampleEvaluator:
 def collect_trajectory_metrics(attempt_dir: Path) -> dict[str, Any]:
     prompt_counts: dict[str, list[int]] = {"history1": [], "history2": []}
     completion_counts: dict[str, list[int]] = {"history1": [], "history2": []}
+    parse_failure_counts: dict[str, int] = {"history1": 0, "history2": 0}
     latency: dict[str, float] = {"history1_sec": 0.0, "history2_sec": 0.0, "total_generation_sec": 0.0}
     for history in ["history1", "history2"]:
         trajectory = attempt_dir / "trajectories" / f"{history}_trajectory.jsonl"
@@ -567,6 +574,9 @@ def collect_trajectory_metrics(attempt_dir: Path) -> dict[str, Any]:
                 if not line.strip():
                     continue
                 event = json.loads(line)
+                if event.get("event") == "parse_failure":
+                    parse_failure_counts[history] += 1
+                    continue
                 if event.get("event") != "model_response":
                     continue
                 prompt_meta = event.get("prompt_metadata") or {}
@@ -590,6 +600,8 @@ def collect_trajectory_metrics(attempt_dir: Path) -> dict[str, Any]:
             "history2": completion_counts["history2"],
             "total": sum(completion_counts["history1"]) + sum(completion_counts["history2"]),
         },
+        "parse_failure_count": parse_failure_counts["history1"] + parse_failure_counts["history2"],
+        "malformed_tool_call_count": parse_failure_counts["history1"] + parse_failure_counts["history2"],
         "latency": latency,
     }
 
@@ -628,6 +640,8 @@ def validate_eval_gpu_slots(slots: list[list[int]], workers: int) -> list[list[i
 def build_env_overrides_for_serving_stack(serving_stack: str) -> dict[str, str]:
     if serving_stack == GLM52_VLLM023_SERVING_STACK:
         return GLM52_VLLM023_BUILD_ENV_OVERRIDES
+    if serving_stack == GLM52_VLLM025_SERVING_STACK:
+        return GLM52_VLLM025_BUILD_ENV_OVERRIDES
     return BUILD_ENV_OVERRIDES
 
 
@@ -685,6 +699,8 @@ def _worker_main(
                 "failure_stage": "infra",
                 "history1_turns": 0,
                 "history2_turns": 0,
+                "parse_failure_count": 0,
+                "malformed_tool_call_count": 0,
                 "prompt_token_counts": {"history1": [], "history2": [], "total": 0},
                 "completion_token_counts": {"history1": [], "history2": [], "total": 0},
                 "latency": {"history1_sec": 0.0, "history2_sec": 0.0, "total_generation_sec": 0.0, "sample_wall_sec": 0.0},
@@ -984,7 +1000,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--eval-name", default="eval_glm52_08b_on_mbpp_stateful_working_v0")
     parser.add_argument(
         "--serving-stack",
-        choices=[PUTPOCKET_VLLM019_SERVING_STACK, GLM52_VLLM023_SERVING_STACK],
+        choices=[PUTPOCKET_VLLM019_SERVING_STACK, GLM52_VLLM023_SERVING_STACK, GLM52_VLLM025_SERVING_STACK],
         default=PUTPOCKET_VLLM019_SERVING_STACK,
     )
     parser.add_argument("--profile", choices=["smoke", "full"], default="smoke")
@@ -993,7 +1009,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gpu-slots", default=None, help="Comma-separated physical GPU ids, e.g. 0,1,2.")
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--sample-id", action="append", default=None)
-    parser.add_argument("--max-samples", type=int, default=None)
+    parser.add_argument("--max-samples", "--limit", type=int, default=None)
     parser.add_argument("--evaluation-seed", type=int, default=20260721)
     parser.add_argument("--prompt-profile", choices=["compact", "full"], default="compact")
     parser.add_argument("--max-tokens", type=int, default=2048)

@@ -256,7 +256,48 @@ sh /tmp/docker-rootless-install.sh
 
   - Retry log: `/home/dyryu/putpocket_dataset_mining/logs/docker_install/rootless_install_retry_20260722T173403Z.log`
   - Retry result: still blocked by missing host `uidmap`; installer again requested `sudo apt-get -y install uidmap`.
-- Smallest next action: an administrator must install the host `uidmap` package, or provide passwordless/interactive sudo for user `dyryu` long enough to run `sudo apt-get -y install uidmap`. Then rerun the rootless installer and Docker validation:
+- Docker verification after rootful Docker package install:
+  - Docker CLI is present: `/usr/bin/docker`, version `29.6.2`.
+  - Docker daemon is active: `docker.service` running with `/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock`.
+  - Docker socket exists at `/var/run/docker.sock` with owner/group `root:docker`.
+  - User `dyryu` is not in the `docker` group:
+
+```bash
+id
+getent group docker
+```
+
+  - Exact Docker access test:
+
+```bash
+docker image ls
+```
+
+  - Exact Docker access failure: `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`
+  - Exact repo Docker validation command:
+
+```bash
+source scripts/env/env_activate.sh
+putpocket-dataset-mining docker ensure-image
+```
+
+  - Exact repo Docker validation failure: `Docker image build failed: ERROR: permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`
+- Smallest next action: an administrator must add `dyryu` to the `docker` group and refresh the login session, or install host `uidmap` so rootless Docker can be used instead. For rootful Docker access:
+
+```bash
+sudo usermod -aG docker dyryu
+```
+
+Then start a new login shell/session for `dyryu` and validate:
+
+```bash
+id
+docker info
+source scripts/env/env_activate.sh
+putpocket-dataset-mining docker ensure-image
+```
+
+For rootless Docker instead, install the host `uidmap` package, rerun the rootless installer, and validate:
 
 ```bash
 sh /tmp/docker-rootless-install.sh
@@ -274,4 +315,4 @@ CUDA_VISIBLE_DEVICES=0 python -m putpocket_dataset_mining.model_evaluation.glm_e
 ```
 
 ## Next Recommended Action
-Install host `uidmap` for user `dyryu` so rootless Docker can be installed without rootful daemon access, or install/enable a rootful Docker daemon for this user. Then rerun Docker image setup and the GLM smoke command. If smoke passes, run the pending full evaluation with GPUs `0,1,2`.
+Grant `dyryu` access to the installed rootful Docker daemon by adding the user to the `docker` group and starting a fresh login session, or install host `uidmap` so rootless Docker can be configured. Then rerun Docker image setup and the GLM smoke command. If smoke passes, run the pending full evaluation with GPUs `0,1,2`.

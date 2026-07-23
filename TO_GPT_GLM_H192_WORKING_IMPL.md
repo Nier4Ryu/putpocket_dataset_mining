@@ -18,9 +18,9 @@ What was not completed:
 ## Branch / Git
 
 - Branch: `blackwell`
-- Local HEAD: `f8065c6efafccfd3b4fccd722c6ab7e8d35415df`
-- Status while writing: branch ahead of `origin/blackwell` by 2 commits.
-- Push status: previous push failed because the remote requires GitHub authentication for `https://github.com/Nier4Ryu/putpocket_dataset_mining.git/`.
+- Local HEAD after this work: `43710ddbcec92a728b1df975633c2489bf51cf63`
+- Pushed status: pushed to `origin/blackwell`.
+- Remaining unrelated untracked files: `TO_GPT_USE_SPARSE_AUDIT.md`, `test_glm.py`.
 
 ## Starting Point
 
@@ -203,4 +203,3 @@ Secondary blocker after model backend:
 ## Next Recommended Action
 
 Implement `FLASHINFER_MLA_SPARSE_SM120_H192` or equivalent as a separate vLLM backend in `externals/vllm_glm52_v025`, using the validated Triton h192/v128 math as the reference. Start with decode-only paged-cache support for one-token generation, then validate coherent text before adding prefill/full evaluation support.
-

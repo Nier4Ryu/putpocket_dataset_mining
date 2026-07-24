@@ -1,0 +1,340 @@
+diff --git a/csrc/libtorch_stable/cache_kernels.cu b/csrc/libtorch_stable/cache_kernels.cu
+index a1ac81cb1..4bf632e88 100644
+--- a/csrc/libtorch_stable/cache_kernels.cu
++++ b/csrc/libtorch_stable/cache_kernels.cu
+@@ -470,6 +470,8 @@ __global__ void concat_and_cache_ds_mla_kernel(
+   const int64_t dst_idx_start =
+       block_idx * block_stride + block_offset * entry_stride;
+ 
++  const int packed_nope_dim = 512;
++
+   // For the NoPE part, each tile of 128 elements is handled by half of one warp
+   // (16 threads). There are 4 total tiles, so 2 warps (64 threads).
+   // Lanes 0 and 16 of each warp write the scale values for that warp's tiles.
+@@ -489,7 +491,7 @@ __global__ void concat_and_cache_ds_mla_kernel(
+     const int32_t vals = *reinterpret_cast<const int32_t*>(&k_pe[src_idx]);
+     // RoPE values start after the packed 8-bit NoPE values and the
+     // 32-bit scales
+-    const int64_t dst_idx = kv_lora_rank / 2 + 8 + pe_idx_start;
++    const int64_t dst_idx = packed_nope_dim / 2 + 8 + pe_idx_start;
+     // Vectorized store of two 16-bit values, performed as one 32-bit store
+     *reinterpret_cast<int32_t*>(&kv_cache_16bit[dst_idx]) = vals;
+     return;
+@@ -502,9 +504,13 @@ __global__ void concat_and_cache_ds_mla_kernel(
+ 
+   // Each thread handles 8 elements of NoPE
+   // Load the NoPE elements for this thread into registers
+-  const int64_t src_idx_start = token_idx * kv_c_stride + (threadIdx.x * 8);
++  const int64_t element_idx_start = threadIdx.x * 8;
++  const int64_t src_idx_start = token_idx * kv_c_stride + element_idx_start;
+   // Vectorized load of eight 16-bit values, performed as an int4 load
+-  const int4 vals_i4 = *reinterpret_cast<const int4*>(&kv_c[src_idx_start]);
++  int4 vals_i4 = make_int4(0, 0, 0, 0);
++  if (element_idx_start < kv_lora_rank) {
++    vals_i4 = *reinterpret_cast<const int4*>(&kv_c[src_idx_start]);
++  }
+   const scalar_t* vals = reinterpret_cast<const scalar_t*>(&vals_i4);
+ 
+   // Max absolute value of this thread's elements
+@@ -525,13 +531,13 @@ __global__ void concat_and_cache_ds_mla_kernel(
+   // The first lane of each half-warp writes the scale to kv_cache
+   if ((lane_idx == 0) || (lane_idx == 16)) {
+     float* kv_cache_32bit = reinterpret_cast<float*>(&kv_cache[dst_idx_start]);
+-    const uint64_t dst_idx = kv_lora_rank / 4 + tile_idx;
++    const uint64_t dst_idx = packed_nope_dim / 4 + tile_idx;
+     kv_cache_32bit[dst_idx] = tile_scale;
+   }
+ 
+   // Now all threads in the block scale and write their elements
+   // NoPE data is packed in the first kv_lora_rank/2 bytes (first 256 bytes)
+-  const int64_t dst_idx_base = dst_idx_start + (threadIdx.x * 8);
++  const int64_t dst_idx_base = dst_idx_start + element_idx_start;
+ 
+   uint8_t result[8];
+ #pragma unroll
+@@ -862,8 +868,9 @@ void concat_and_cache_mla(
+   int block_size = kv_cache.size(1);
+ 
+   if (kv_cache_dtype == "fp8_ds_mla") {
+-    STD_TORCH_CHECK(kv_lora_rank == 512,
+-                    "kv_lora_rank must be 512 for fp8_ds_mla");
++    STD_TORCH_CHECK(
++        kv_lora_rank == 512 || kv_lora_rank == 128,
++        "kv_lora_rank must be 512 or 128 for fp8_ds_mla");
+     STD_TORCH_CHECK(pe_dim == 64, "pe_dim must be 64 for fp8_ds_mla");
+     STD_TORCH_CHECK(kv_cache.size(2) == 656 / kv_cache.element_size(),
+                     "kv_cache.size(2) must be 656 bytes for fp8_ds_mla");
+diff --git a/vllm/compilation/passes/fusion/mla_rope_kvcache_cat_fusion.py b/vllm/compilation/passes/fusion/mla_rope_kvcache_cat_fusion.py
+index 5a493149a..2dd69071f 100644
+--- a/vllm/compilation/passes/fusion/mla_rope_kvcache_cat_fusion.py
++++ b/vllm/compilation/passes/fusion/mla_rope_kvcache_cat_fusion.py
+@@ -244,6 +244,12 @@ class MLARoPEKVCacheCatFusionPass(VllmFusionPatternMatcherPass):
+         attn_layers = get_layers_from_vllm_config(config, MLAAttention)
+ 
+         for _, layer in attn_layers.items():
++            if layer.kv_cache_dtype == "fp8_ds_mla" and layer.kv_lora_rank == 128:
++                logger.info_once(
++                    "Skipping MLA RoPE/KV-cache fusion for GLM h192 "
++                    "fp8_ds_mla cache experiment."
++                )
++                continue
+             for is_neox in [False, True]:
+                 for use_deepseek_scaling in [False, True]:
+                     if RotaryEmbedding.enabled():
+diff --git a/vllm/model_executor/models/deepseek_v2.py b/vllm/model_executor/models/deepseek_v2.py
+index 3ea66495d..c241e5526 100644
+--- a/vllm/model_executor/models/deepseek_v2.py
++++ b/vllm/model_executor/models/deepseek_v2.py
+@@ -686,7 +686,15 @@ class Indexer(nn.Module):
+         self.softmax_scale = self.head_dim**-0.5
+ 
+         self.scale_fmt = "ue8m0"
+-        self.quant_block_size = 128  # TODO: get from config
++        if self.head_dim % 128 == 0:
++            self.quant_block_size = 128
++        elif self.head_dim in (32, 64):
++            self.quant_block_size = self.head_dim
++        else:
++            raise ValueError(
++                "Sparse indexer head_dim must be divisible by 128 or be "
++                f"a supported tiny-GLM head_dim; got {self.head_dim}."
++            )
+         self.topk_indices_buffer = topk_indices_buffer
+ 
+         # NOTE: (zyongye) we use fp8 naive cache,
+diff --git a/vllm/utils/deep_gemm.py b/vllm/utils/deep_gemm.py
+index 0a1644bcc..f391f6850 100644
+--- a/vllm/utils/deep_gemm.py
++++ b/vllm/utils/deep_gemm.py
+@@ -531,6 +531,7 @@ def fp8_fp4_mqa_logits(
+     _lazy_init()
+     if _fp8_fp4_mqa_logits_impl is None:
+         return _missing()
++    q, weights = _pad_tiny_glm_indexer_heads(q, weights)
+     return _fp8_fp4_mqa_logits_impl(
+         q,
+         kv,
+@@ -603,6 +604,7 @@ def fp8_fp4_paged_mqa_logits(
+     _lazy_init()
+     if _fp8_fp4_paged_mqa_logits_impl is None:
+         return _missing()
++    q, weights = _pad_tiny_glm_indexer_heads(q, weights)
+     return _fp8_fp4_paged_mqa_logits_impl(
+         q,
+         kv_cache,
+@@ -615,6 +617,36 @@ def fp8_fp4_paged_mqa_logits(
+     )
+ 
+ 
++def _pad_tiny_glm_indexer_heads(
++    q: tuple[torch.Tensor, torch.Tensor | None],
++    weights: torch.Tensor,
++) -> tuple[tuple[torch.Tensor, torch.Tensor | None], torch.Tensor]:
++    q_values, q_scale = q
++    if q_values.shape[-2] != 8:
++        return q, weights
++
++    pad_shape = list(q_values.shape)
++    pad_shape[-2] = 8
++    q_values = torch.cat(
++        [q_values, q_values.new_zeros(pad_shape)],
++        dim=-2,
++    )
++
++    if q_scale is not None:
++        scale_pad_shape = list(q_scale.shape)
++        scale_pad_shape[-1] = 8
++        q_scale = torch.cat(
++            [q_scale, q_scale.new_zeros(scale_pad_shape)],
++            dim=-1,
++        )
++
++    weights = torch.cat(
++        [weights, weights.new_zeros((*weights.shape[:-1], 8))],
++        dim=-1,
++    )
++    return (q_values, q_scale), weights
++
++
+ def tf32_hc_prenorm_gemm(
+     x: torch.Tensor,
+     fn: torch.Tensor,
+diff --git a/vllm/v1/attention/backends/mla/flashinfer_mla_sparse.py b/vllm/v1/attention/backends/mla/flashinfer_mla_sparse.py
+index 97778dfea..3733e8b42 100644
+--- a/vllm/v1/attention/backends/mla/flashinfer_mla_sparse.py
++++ b/vllm/v1/attention/backends/mla/flashinfer_mla_sparse.py
+@@ -3,6 +3,7 @@
+ """FlashInfer sparse MLA attention backend."""
+ 
+ from dataclasses import dataclass
++import importlib.util
+ from typing import TYPE_CHECKING, ClassVar
+ 
+ import numpy as np
+@@ -157,6 +158,12 @@ class FlashInferMLASparseSM120Backend(_FlashInferMLASparseBackendBase):
+     def get_name() -> str:
+         return "FLASHINFER_MLA_SPARSE_SM120"
+ 
++    @classmethod
++    def get_supported_head_sizes(cls) -> list[int]:
++        # 576 is the native V3.2/GLM-5.1 path. 192 is only accepted by
++        # supports_combination for the tiny GLM-5.2 Triton adapter below.
++        return [576, 192]
++
+     @staticmethod
+     def get_supported_kernel_block_sizes() -> list[int | MultipleOf]:
+         return [64, 256]
+@@ -189,11 +196,6 @@ class FlashInferMLASparseSM120Backend(_FlashInferMLASparseBackendBase):
+         from vllm.config import get_current_vllm_config
+         from vllm.utils.flashinfer import has_flashinfer_sparse_mla_sm120
+ 
+-        if not has_flashinfer_sparse_mla_sm120():
+-            return (
+-                "FLASHINFER_MLA_SPARSE_SM120 requires FlashInfer's "
+-                "sparse MLA decode API"
+-            )
+         if dtype != torch.bfloat16:
+             return "dtype not supported"
+         if kv_cache_dtype not in (
+@@ -218,6 +220,41 @@ class FlashInferMLASparseSM120Backend(_FlashInferMLASparseBackendBase):
+                     "FLASHINFER_MLA_SPARSE_SM120 requires index_topk=2048; "
+                     f"got {index_topk}"
+                 )
++            if head_size == 192:
++                kv_lora_rank = getattr(hf_text_config, "kv_lora_rank", None)
++                qk_nope_head_dim = getattr(hf_text_config, "qk_nope_head_dim", None)
++                qk_rope_head_dim = getattr(hf_text_config, "qk_rope_head_dim", None)
++                v_head_dim = getattr(hf_text_config, "v_head_dim", None)
++                model_type = getattr(hf_text_config, "model_type", "")
++                expected_dims = (
++                    int(kv_lora_rank or -1) == 128
++                    and int(qk_nope_head_dim or -1) == 192
++                    and int(qk_rope_head_dim or -1) == 64
++                    and int(v_head_dim or -1) == 128
++                    and str(model_type).startswith("glm")
++                )
++                if not expected_dims:
++                    return (
++                        "FLASHINFER_MLA_SPARSE_SM120 h192 adapter only supports "
++                        "GLM tiny dims kv_lora_rank=128, qk_nope_head_dim=192, "
++                        "qk_rope_head_dim=64, v_head_dim=128"
++                    )
++                if (
++                    importlib.util.find_spec(
++                        "putpocket_dataset_mining.kernels.glm_h192_triton"
++                    )
++                    is None
++                ):
++                    return (
++                        "FLASHINFER_MLA_SPARSE_SM120 h192 adapter requires "
++                        "Putpocket GLM h192 Triton kernel module"
++                    )
++                return None
++        if not has_flashinfer_sparse_mla_sm120():
++            return (
++                "FLASHINFER_MLA_SPARSE_SM120 requires FlashInfer's "
++                "sparse MLA decode API"
++            )
+         return None
+ 
+     @staticmethod
+diff --git a/vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py b/vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py
+index d802f5688..bf9464054 100644
+--- a/vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py
++++ b/vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py
+@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, cast
+ 
+ import torch
+ 
++from vllm.logger import init_logger
+ from vllm.v1.attention.backend import (
+     AttentionLayer,
+     AttentionType,
+@@ -22,6 +23,8 @@ from vllm.v1.attention.backends.mla.sparse_utils import (
+ if TYPE_CHECKING:
+     from vllm.model_executor.models.deepseek_v2 import Indexer
+ 
++logger = init_logger(__name__)
++
+ 
+ def _kv_scale_format_for_model(model_type: str | None) -> str:
+     if model_type is not None and model_type.startswith("glm"):
+@@ -71,6 +74,7 @@ class FlashInferMLASparseSM120Impl(SparseMLAAttentionImpl[FlashInferMLASparseMet
+         self.kv_lora_rank: int = mla_args["kv_lora_rank"]
+         self.qk_nope_head_dim: int = mla_args["qk_nope_head_dim"]
+         self.qk_rope_head_dim: int = mla_args["qk_rope_head_dim"]
++        self.v_head_dim: int = mla_args["v_head_dim"]
+         from vllm.config import get_current_vllm_config
+ 
+         vllm_config = get_current_vllm_config()
+@@ -88,14 +92,44 @@ class FlashInferMLASparseSM120Impl(SparseMLAAttentionImpl[FlashInferMLASparseMet
+             if indexer is not None
+             else mla_args.get("topk_indices_buffer")
+         )
+-        from vllm.utils.flashinfer import has_flashinfer_sparse_mla_sm120
+ 
+-        if not has_flashinfer_sparse_mla_sm120():
++        self._use_putpocket_triton_h192 = (
++            self.head_size == 192
++            and self.kv_lora_rank == 128
++            and self.qk_nope_head_dim == 192
++            and self.qk_rope_head_dim == 64
++            and self.v_head_dim == 128
++            and model_type is not None
++            and model_type.startswith("glm")
++        )
++
++        if self._use_putpocket_triton_h192:
++            try:
++                from putpocket_dataset_mining.kernels.glm_h192_triton import (  # noqa: F401
++                    triton_glm_h192_sparse_mla_decode_vllm_fp8_paged,
++                )
++            except ImportError as exc:
++                raise RuntimeError(
++                    "FLASHINFER_MLA_SPARSE_SM120 h192 path requires the "
++                    "Putpocket GLM h192 Triton kernel module."
++                ) from exc
++            logger.info_once(
++                "Using Putpocket Triton h192/v128 sparse MLA path for "
++                "GLM tiny on SM120."
++            )
++        else:
++            from vllm.utils.flashinfer import has_flashinfer_sparse_mla_sm120
++
++            if not has_flashinfer_sparse_mla_sm120():
++                raise RuntimeError(
++                    "FLASHINFER_MLA_SPARSE_SM120 requires FlashInfer's "
++                    "sparse MLA decode API."
++                )
++        if self.topk_indices_buffer is None:
+             raise RuntimeError(
+-                "FLASHINFER_MLA_SPARSE_SM120 requires FlashInfer's "
+-                "sparse MLA decode API."
++                "FLASHINFER_MLA_SPARSE_SM120 requires a sparse MLA top-k "
++                "indices buffer."
+             )
+-        assert self.topk_indices_buffer is not None
+ 
+         self.supports_quant_query_input = False
+         self._workspace_buffer: torch.Tensor | None = None
+@@ -131,6 +165,20 @@ class FlashInferMLASparseSM120Impl(SparseMLAAttentionImpl[FlashInferMLASparseMet
+             dtype=q.dtype,
+         )
+ 
++        if self._use_putpocket_triton_h192:
++            from putpocket_dataset_mining.kernels.glm_h192_triton import (
++                triton_glm_h192_sparse_mla_decode_vllm_fp8_paged,
++            )
++
++            out = triton_glm_h192_sparse_mla_decode_vllm_fp8_paged(
++                q,
++                kv_c_and_k_pe_cache.view(torch.uint8),
++                topk_indices_physical.contiguous(),
++                scale=self.scale,
++            )
++            output.copy_(out.to(dtype=q.dtype))
++            return output, None
++
+         if self._workspace_buffer is None:
+             self._workspace_buffer = _get_workspace_buffer(q.device)
+ 

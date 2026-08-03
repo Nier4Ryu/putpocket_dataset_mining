@@ -1,0 +1,104 @@
+# Single-sample ClassEval Dataset Mining config v0.1
+
+run:
+  mode: single_sample
+  mining_seed: 42
+  output_root: data/dataset_mining/runs
+
+model:
+  generation_model_id: Qwen/Qwen3.5-9B
+  cache_policy: constants_shared_hf_cache
+  serving_mode: local_vllm_python_engine
+  decoding:
+    temperature: 0.0
+    top_p: 1.0
+    n: 1
+    mode: greedy
+
+dataset:
+  adapter: classeval_huggingface
+  hf_dataset_id: FudanSELab/ClassEval
+  split: test
+  split_order: [test]
+
+workspace:
+  container_root: /workspace
+  target_file: solution.py
+  expose_tests_to_agent: false
+  create_clinerules_in_workspace: false
+  materialization: import_statement_plus_skeleton
+
+prompt:
+  cline_prompt_profile: compact
+  action_protocol: original_cline_tool_format
+  render_chat_template_inside_putpocket: true
+  allow_vllm_internal_template: false
+  query1_wrapper: classeval_class_skeleton_completion_v1
+
+history:
+  history1_max_turns: 30
+  history2_max_turns: 30
+  max_parse_failures_per_history: 3
+  history2_context: full_history1_trajectory
+
+query2:
+  generated_by_mining_loop: true
+  initial_classes: [rule_direct, task_refactor]
+  initial_policy_deltas:
+    - type_hints_required_v1
+    - google_docstring_required_v1
+    - forbidden_api_v1
+
+verifier:
+  tests_visibility: hidden_verifier_only
+  mode: fresh_container_from_workspace_snapshot
+  test_command: pytest -q tests/test_solution.py
+  materializer: classeval_unittest_to_pytest
+
+judge:
+  enabled: true
+  backend: codex_cli
+  sandbox: read-only
+  approval: never
+  skip_if_unit_test_failed: true
+  output_schema: decision_only
+
+docker:
+  image: putpocket-classeval-python:ubuntu22.04-py313-v1
+  dockerfile: docker/classeval_python/Dockerfile
+  build_if_missing: true
+  workdir: /workspace
+  network: none
+  allow_dependency_install: false
+  run_container_as_host_uid_gid: true
+  cpus: 8
+  memory: 10g
+  gpu: false
+  timeouts:
+    episode_wall_time_sec: 1800
+    per_tool_command_sec: 120
+    per_generation_sec: 300
+    container_startup_sec: 120
+    image_build_sec: 1800
+
+artifacts:
+  human_timeline: episode_timeline.md
+  machine_timeline: episode_timeline.jsonl
+  required:
+    - source_task.json
+    - scenario_config.yaml
+    - prepared/messages_history1.json
+    - prepared/messages_history2.json
+    - prepared/rendered_prompt_history1.txt
+    - prepared/rendered_prompt_history2.txt
+    - prepared/tokenization_history1.json
+    - prepared/tokenization_history2.json
+    - trajectories/history1_trajectory.jsonl
+    - trajectories/history2_trajectory.jsonl
+    - workspace_snapshots/initial
+    - workspace_snapshots/after_history1
+    - workspace_snapshots/after_history2
+    - verification/history1/checklist.json
+    - verification/history2/checklist.json
+    - judge/judge_decision.json
+    - episode_summary.json

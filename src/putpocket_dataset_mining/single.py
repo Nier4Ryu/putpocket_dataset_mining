@@ -9,7 +9,7 @@ from typing import Any
 
 from .config import dump_yaml, load_yaml
 from .constants import DEFAULT_DOCKER_IMAGE, DEFAULT_MODEL_ID, REPO_ROOT, RUNS_ROOT, ensure_data_dirs
-from .dataset import MBPPDatasetAdapter, SourceTask
+from .dataset import SourceTask, dataset_adapter_from_config, initial_workspace_files_for_task
 from .docker_workspace import DockerImageManager, DockerWorkspace, snapshot_workspace
 from .errors import DatasetMiningError, InfraError
 from .judge import CodexJudge, read_text_files
@@ -41,7 +41,7 @@ class SingleSampleRunner:
         dataset_version: str = "single_sample",
         gpu_devices: list[int] | None = None,
     ) -> dict[str, Any]:
-        adapter = MBPPDatasetAdapter.from_config(self.config)
+        adapter = dataset_adapter_from_config(self.config)
         task = adapter.get_by_flat_index(sample_index, split=split)
         return self.run_task(
             task=task,
@@ -96,7 +96,7 @@ class SingleSampleRunner:
             )
 
             workspace_dir = attempt_dir / "workspace"
-            self._create_initial_workspace(workspace_dir)
+            self._create_initial_workspace(workspace_dir, task)
             snapshot_workspace(workspace_dir, attempt_dir / "workspace_snapshots" / "initial")
 
             model_id = self.config.get("model", {}).get("generation_model_id", DEFAULT_MODEL_ID)
@@ -207,14 +207,11 @@ class SingleSampleRunner:
         ]:
             path.mkdir(parents=True, exist_ok=True)
 
-    def _create_initial_workspace(self, workspace_dir: Path) -> None:
+    def _create_initial_workspace(self, workspace_dir: Path, task: SourceTask) -> None:
         if workspace_dir.exists():
             shutil.rmtree(workspace_dir)
         workspace_dir.mkdir(parents=True, exist_ok=True)
-        initial_files = self.config.get("workspace", {}).get(
-            "initial_files",
-            {"solution.py": "# TODO: implement the required function.\n"},
-        )
+        initial_files = initial_workspace_files_for_task(task, self.config)
         for rel_path, content in initial_files.items():
             target = workspace_dir / rel_path
             target.parent.mkdir(parents=True, exist_ok=True)

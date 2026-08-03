@@ -13,8 +13,9 @@ from typing import Any
 
 from .config import load_yaml
 from .constants import ALLOWED_CUDA_DEVICES, CONTROL_ROOT, REPO_ROOT, RUNS_ROOT, ensure_data_dirs
-from .dataset import MBPPDatasetAdapter, SourceTask
+from .dataset import SourceTask, dataset_adapter_from_config
 from .errors import ConfigError
+from .finalized_dataset import load_finalized_lock, validate_finalized_dataset
 from .serving import LocalVLLMEngine
 from .single import SingleSampleRunner
 from .storage import AttemptRecord, DatasetMaterializer, MiningIndex
@@ -149,18 +150,32 @@ class MultiSampleMaster:
         run_id: str | None = None,
         rerun_failed_infra: bool = False,
     ) -> dict[str, Any]:
-        ensure_data_dirs()
-        slots = validate_gpu_slots(self.config, profile_name)
         profile = self.config["profiles"][profile_name]
         run_id = run_id or f"multi_{profile_name}_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}_{uuid.uuid4().hex[:8]}"
-        stop_file = CONTROL_ROOT / f"{run_id}.stop"
         dataset_version = profile["dataset_version"]
+        finalized_result = self._finalized_noop_result(profile_name, profile, run_id, rerun_failed_infra)
+        if finalized_result is not None:
+            print(
+                f"Dataset `{dataset_version}` is finalized with {finalized_result['canonical_accepted_count']} canonical accepted samples; "
+                "no mining attempts will be assigned."
+            )
+            return finalized_result
+
+        ensure_data_dirs()
+        slots = validate_gpu_slots(self.config, profile_name)
+        stop_file = CONTROL_ROOT / f"{run_id}.stop"
         index = MiningIndex.default()
         materializer = DatasetMaterializer(index)
 
-        single_config_path = REPO_ROOT / "configs" / "dataset_mining" / "mbpp_stateful_single.yaml"
+        single_config_setting = self.config.get("worker", {}).get(
+            "single_config",
+            self.config.get("single_config", "configs/dataset_mining/mbpp_stateful_single.yaml"),
+        )
+        single_config_path = Path(single_config_setting)
+        if not single_config_path.is_absolute():
+            single_config_path = REPO_ROOT / single_config_path
         single_config = load_yaml(single_config_path)
-        adapter = MBPPDatasetAdapter.from_config(single_config)
+        adapter = dataset_adapter_from_config(single_config)
         job_refs = adapter.iter_indices(mining_seed=int(self.config.get("run", {}).get("mining_seed", 42)))
         skip_statuses = {"accepted", "rejected"}
         if not rerun_failed_infra:
@@ -278,10 +293,54 @@ class MultiSampleMaster:
             "dataset_root": str(Path(self.config.get("materialization", {}).get("datasets_root", "data/dataset_mining/datasets")) / dataset_version),
         }
 
+    def _finalized_noop_result(
+        self,
+        profile_name: str,
+        profile: dict[str, Any],
+        run_id: str,
+        rerun_failed_infra: bool,
+    ) -> dict[str, Any] | None:
+        if not profile.get("finalized", False):
+            return None
+        dataset_version = str(profile["dataset_version"])
+        lock_path = profile.get("finalized_lock")
+        if not lock_path:
+            raise ConfigError(f"Finalized profile {profile_name} must set finalized_lock.")
+        lock = load_finalized_lock(lock_path)
+        if lock.dataset_version != dataset_version:
+            raise ConfigError(
+                f"Finalized lock dataset_version {lock.dataset_version} does not match profile dataset_version {dataset_version}."
+            )
+        status = validate_finalized_dataset(lock)
+        if rerun_failed_infra or profile.get("allow_new_attempts", True) or lock.allow_mining:
+            raise ConfigError(
+                f"`{dataset_version}` is immutable. Create and configure a new dataset version to perform additional ClassEval mining."
+            )
+        return {
+            "run_id": run_id,
+            "profile": profile_name,
+            "dataset_version": dataset_version,
+            "target_accepted": int(profile["target_accepted"]),
+            "accepted": 0,
+            "attempts_assigned": 0,
+            "attempts_finished": 0,
+            "stopped": True,
+            "hard_stopped": False,
+            "finalized": True,
+            "finalized_lock": str(lock.path),
+            "canonical_accepted_count": status["accepted_count"],
+            "accepted_sha256": status["accepted_sha256"],
+            "message": (
+                f"Dataset `{dataset_version}` is finalized with {status['accepted_count']} canonical accepted samples; "
+                "no mining attempts will be assigned."
+            ),
+            "dataset_root": str(lock.accepted_file.parent),
+        }
+
     def _next_job(
         self,
         job_iter: Any,
-        adapter: MBPPDatasetAdapter,
+        adapter: Any,
         index: MiningIndex,
         skip_statuses: set[str],
         run_id: str,

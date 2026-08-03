@@ -50,6 +50,15 @@ CLINE_RULES_V1 = """# Cline Rules v1
 - Do not create .clinerules or other rule mirror files in the workspace.
 - Use only the original Cline XML tool-call format."""
 
+CLASSEVAL_CLINE_RULES_V1 = """# Cline Rules v1
+
+- Work only in the existing Docker workspace.
+- Complete the requested Python class implementation in solution.py.
+- Preserve the class name and public method signatures.
+- Do not create or read hidden tests.
+- Do not create .clinerules or other rule mirror files in the workspace.
+- Use only the original Cline XML tool-call format."""
+
 
 POLICY_DELTAS = {
     "type_hints_required_v1": """# Type Hints Required
@@ -120,6 +129,15 @@ class QueryBuilder:
         self.mining_seed = mining_seed
 
     def build_query1(self, task: SourceTask) -> str:
+        if task.adapter == "classeval_huggingface":
+            class_name = f" `{task.class_name}`" if task.class_name else ""
+            return (
+                f"Complete the Python class implementation{class_name} in solution.py.\n\n"
+                "You are given a class skeleton with constructor, fields, method signatures, and docstrings.\n"
+                "Preserve the class name and all public method signatures.\n"
+                "Implement all pass/TODO methods so the class behaves according to the skeleton documentation.\n"
+                "Do not add test files. Do not modify hidden tests. Keep the implementation self-contained."
+            )
         api_hint = _public_api_hint(task.reference_solution)
         api_section = f"\nRequired public API:\n{api_hint}\n" if api_hint else ""
         return (
@@ -138,14 +156,15 @@ class QueryBuilder:
     def build_rules_v2(self, task: SourceTask) -> tuple[str, str]:
         delta_key = self.choose_policy_delta(task)
         delta = POLICY_DELTAS[delta_key]
-        rules = CLINE_RULES_V1 + "\n\n" + delta
+        rules = _rules_v1_for_task(task) + "\n\n" + delta
         return delta_key, rules
 
     def build_query2(self, task: SourceTask, delta_key: str) -> str:
+        noun = "class implementation" if task.adapter == "classeval_huggingface" else "primary function"
         if delta_key == "type_hints_required_v1":
-            return "Refactor solution.py so the implemented public function has complete type hints while preserving behavior."
+            return f"Refactor solution.py so the implemented public {noun} has complete type hints while preserving behavior."
         if delta_key == "google_docstring_required_v1":
-            return "Refactor solution.py so the primary function has a concise Google-style docstring while preserving behavior."
+            return f"Refactor solution.py so the {noun} has concise Google-style docstrings while preserving behavior."
         if delta_key == "forbidden_api_v1":
             return "Review solution.py and remove any forbidden dynamic execution APIs while preserving behavior."
         return "Refactor solution.py to satisfy the updated rules while preserving behavior."
@@ -182,6 +201,12 @@ def _public_api_hint(reference_solution: str) -> str:
     return "\n".join(lines)
 
 
+def _rules_v1_for_task(task: SourceTask) -> str:
+    if task.adapter == "classeval_huggingface":
+        return CLASSEVAL_CLINE_RULES_V1
+    return CLINE_RULES_V1
+
+
 class PromptPreparer:
     def __init__(
         self,
@@ -204,8 +229,9 @@ class PromptPreparer:
     def prepare_history1(self, task: SourceTask) -> tuple[list[Message], str]:
         self.prepared_dir.mkdir(parents=True, exist_ok=True)
         query1 = self.query_builder.build_query1(task)
-        system_prompt = self._tool_instructions() + "\n\n" + CLINE_RULES_V1
-        (self.prepared_dir / "cline_rules_v1.md").write_text(CLINE_RULES_V1, encoding="utf-8")
+        rules_v1 = _rules_v1_for_task(task)
+        system_prompt = self._tool_instructions() + "\n\n" + rules_v1
+        (self.prepared_dir / "cline_rules_v1.md").write_text(rules_v1, encoding="utf-8")
         (self.prepared_dir / "system_prompt_1.md").write_text(system_prompt, encoding="utf-8")
         (self.prepared_dir / "query1.txt").write_text(query1, encoding="utf-8")
         messages = [

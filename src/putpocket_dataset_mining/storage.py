@@ -10,6 +10,8 @@ from typing import Any
 import yaml
 
 from .constants import DATASETS_ROOT, FINAL_STATUSES, INDEX_DB, ensure_data_dirs
+from .errors import ConfigError
+from .finalized_dataset import find_lock_for_dataset_version, validate_finalized_dataset
 from .jsonl import write_jsonl
 
 
@@ -143,6 +145,13 @@ class DatasetMaterializer:
         self.datasets_root = datasets_root
 
     def materialize_dataset(self, dataset_version: str) -> Path:
+        finalized_lock = find_lock_for_dataset_version(dataset_version)
+        if finalized_lock is not None:
+            validate_finalized_dataset(finalized_lock)
+            raise ConfigError(
+                f"`{dataset_version}` is immutable and already finalized at "
+                f"{finalized_lock.final_accepted_count} accepted samples; materialization would rewrite the locked dataset."
+            )
         dataset_root = self.datasets_root / dataset_version
         dataset_root.mkdir(parents=True, exist_ok=True)
         rows = self.index.rows_for_dataset(dataset_version)

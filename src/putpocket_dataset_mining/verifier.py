@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .dataset import MBPPTestListToPytest, SourceTask
+from .dataset import SourceTask, verifier_materializer_for_task
 from .docker_workspace import run_verifier_container
 
 
@@ -58,7 +58,6 @@ class HiddenVerifier:
         self.memory = memory
         self.test_command = test_command
         self.timeout_sec = timeout_sec
-        self.materializer = MBPPTestListToPytest()
 
     def verify(self, stage: str, snapshot_dir: Path, task: SourceTask) -> VerificationResult:
         verification_dir = self.attempt_dir / "verification" / stage
@@ -67,7 +66,7 @@ class HiddenVerifier:
         if verifier_workspace.exists():
             shutil.rmtree(verifier_workspace)
         shutil.copytree(snapshot_dir, verifier_workspace, ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache"))
-        self.materializer.write(task, verifier_workspace)
+        verifier_materializer_for_task(task).write(task, verifier_workspace)
         result = run_verifier_container(
             workspace=verifier_workspace,
             image=self.docker_image,

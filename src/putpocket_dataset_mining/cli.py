@@ -5,7 +5,7 @@ import json
 import sys
 
 from .doctor import collect_doctor_report, format_doctor_report
-from .errors import InfraError
+from .errors import ConfigError, InfraError
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,7 +17,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     docker = sub.add_parser("docker", help="Docker image helpers.")
     docker_sub = docker.add_subparsers(dest="docker_command", required=True)
-    docker_sub.add_parser("ensure-image", help="Build the default image if missing.")
+    ensure_image = docker_sub.add_parser("ensure-image", help="Build a configured image if missing.")
+    ensure_image.add_argument("--config", default=None, help="Dataset mining config containing docker.image/dockerfile.")
 
     externals = sub.add_parser("externals", help="External checkout/install helpers.")
     externals_sub = externals.add_subparsers(dest="externals_command", required=True)
@@ -60,9 +61,23 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "docker":
         from .docker_workspace import DockerImageManager
+        from .config import load_yaml
 
         try:
-            DockerImageManager.from_default().ensure_image()
+            if args.config:
+                from .constants import REPO_ROOT
+                from pathlib import Path
+
+                cfg = load_yaml(args.config)
+                docker_cfg = cfg.get("docker", {})
+                dockerfile = Path(docker_cfg.get("dockerfile", "docker/default_python/Dockerfile"))
+                if not dockerfile.is_absolute():
+                    dockerfile = REPO_ROOT / dockerfile
+                DockerImageManager(docker_cfg.get("image", "putpocket-default-python:ubuntu22.04-py313-v1"), dockerfile).ensure_image(
+                    timeout_sec=int(docker_cfg.get("timeouts", {}).get("image_build_sec", 900))
+                )
+            else:
+                DockerImageManager.from_default().ensure_image()
         except InfraError as exc:
             print(str(exc), file=sys.stderr)
             return 2
@@ -97,11 +112,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "multi":
         from .multi import MultiSampleMaster
 
-        result = MultiSampleMaster.from_config_path(args.config).run(
-            profile_name=args.profile,
-            run_id=args.run_id,
-            rerun_failed_infra=args.rerun_failed_infra,
-        )
+        try:
+            result = MultiSampleMaster.from_config_path(args.config).run(
+                profile_name=args.profile,
+                run_id=args.run_id,
+                rerun_failed_infra=args.rerun_failed_infra,
+            )
+        except ConfigError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
 
@@ -117,7 +136,11 @@ def main(argv: list[str] | None = None) -> int:
 
         index = MiningIndex.default()
         materializer = DatasetMaterializer(index)
-        path = materializer.materialize_dataset(args.dataset_version)
+        try:
+            path = materializer.materialize_dataset(args.dataset_version)
+        except ConfigError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
         print(str(path))
         return 0
 

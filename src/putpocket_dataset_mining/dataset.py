@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import ast
 import json
 import random
+import sys
+import sysconfig
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
 from .constants import MINING_SEED_DEFAULT, SHARED_HF_HUB_CACHE_DIR
-from .errors import DependencyError, InfraError
+from .errors import ConfigError, DependencyError, InfraError
 
 
 @dataclass(frozen=True)
@@ -22,6 +25,16 @@ class SourceTask:
     tests: list[str]
     test_setup: str
     raw: dict[str, Any]
+    class_name: str | None = None
+    class_description: str | None = None
+    class_constructor: str | None = None
+    fields: list[Any] | None = None
+    methods_info: list[dict[str, Any]] | None = None
+    import_statement: str | list[str] | None = None
+    skeleton: str | None = None
+    verifier_test_code: str | None = None
+    method_test_codes: list[str] | None = None
+    dependency_metadata: dict[str, Any] | None = None
 
     @property
     def sample_id(self) -> str:
@@ -163,6 +176,121 @@ class MBPPDatasetAdapter:
         )
 
 
+class ClassEvalDatasetAdapter:
+    def __init__(
+        self,
+        dataset_id: str = "FudanSELab/ClassEval",
+        split_order: list[str] | None = None,
+        cache_dir: Path = SHARED_HF_HUB_CACHE_DIR,
+    ) -> None:
+        self.hf_dataset_id = dataset_id
+        self.split_order = split_order or ["test"]
+        self.cache_dir = cache_dir
+        self._dataset: Any | None = None
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> "ClassEvalDatasetAdapter":
+        dataset = config.get("dataset", {})
+        return cls(
+            dataset_id=dataset.get("hf_dataset_id", dataset.get("preferred_dataset_id", "FudanSELab/ClassEval")),
+            split_order=list(dataset.get("split_order", [dataset.get("split", "test")])),
+        )
+
+    def load(self) -> None:
+        try:
+            from datasets import load_dataset
+        except ImportError as exc:
+            raise DependencyError("The datasets package is required for ClassEval loading.") from exc
+        try:
+            self._dataset = load_dataset(self.hf_dataset_id, cache_dir=str(self.cache_dir))
+        except Exception as exc:  # noqa: BLE001 - include HF failure details in artifacts.
+            raise InfraError(f"Unable to load ClassEval dataset {self.hf_dataset_id}: {exc}") from exc
+
+    @property
+    def dataset(self) -> Any:
+        if self._dataset is None:
+            self.load()
+        return self._dataset
+
+    def iter_indices(self, mining_seed: int = MINING_SEED_DEFAULT) -> list[tuple[str, int]]:
+        rows: list[tuple[str, int]] = []
+        ds = self.dataset
+        for split in self.split_order:
+            if split not in ds:
+                continue
+            rows.extend((split, idx) for idx in range(len(ds[split])))
+        random.Random(mining_seed).shuffle(rows)
+        return rows
+
+    def get_by_flat_index(self, sample_index: int, split: str | None = None) -> SourceTask:
+        if split is not None:
+            return self.get_by_split_index(split, sample_index)
+        offset = sample_index
+        ds = self.dataset
+        for split_name in self.split_order:
+            if split_name not in ds:
+                continue
+            split_len = len(ds[split_name])
+            if offset < split_len:
+                return self._normalize(ds[split_name][offset], split=split_name, row_index=offset)
+            offset -= split_len
+        raise IndexError(f"Sample index out of range: {sample_index}")
+
+    def get_by_split_index(self, split: str, row_index: int) -> SourceTask:
+        ds = self.dataset
+        if split not in ds:
+            raise IndexError(f"Dataset split does not exist: {split}")
+        return self._normalize(ds[split][row_index], split=split, row_index=row_index)
+
+    @staticmethod
+    def _normalize_imports(value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, list):
+            return "\n".join(str(item).strip() for item in value if str(item).strip())
+        return str(value).strip()
+
+    def _normalize(self, row: dict[str, Any], split: str, row_index: int) -> SourceTask:
+        raw = dict(row)
+        methods_info = [dict(item) for item in (row.get("methods_info") or [])]
+        method_test_codes = [
+            str(item.get("test_code", "")).strip()
+            for item in methods_info
+            if str(item.get("test_code", "")).strip()
+        ]
+        import_statement = self._normalize_imports(row.get("import_statement"))
+        skeleton = str(row.get("skeleton", "") or "")
+        class_name = str(row.get("class_name", "") or "")
+        dependency_metadata = {
+            "import_statement": row.get("import_statement"),
+            "method_dependencies": [item.get("dependencies") for item in methods_info if item.get("dependencies")],
+        }
+        return SourceTask(
+            adapter="classeval_huggingface",
+            dataset_id=self.hf_dataset_id,
+            split=split,
+            row_index=row_index,
+            task_id=str(row.get("task_id", row_index)),
+            prompt=str(row.get("class_description", "") or skeleton),
+            reference_solution=str(row.get("solution_code", "") or ""),
+            tests=[str(row.get("test", "") or ""), *method_test_codes],
+            test_setup="",
+            raw=raw,
+            class_name=class_name or None,
+            class_description=str(row.get("class_description", "") or "") or None,
+            class_constructor=str(row.get("class_constructor", "") or "") or None,
+            fields=list(row.get("fields") or []),
+            methods_info=methods_info,
+            import_statement=import_statement,
+            skeleton=skeleton,
+            verifier_test_code=str(row.get("test", "") or ""),
+            method_test_codes=method_test_codes,
+            dependency_metadata=dependency_metadata,
+        )
+
+
 class MBPPTestListToPytest:
     def render(self, task: SourceTask) -> str:
         body: list[str] = [
@@ -192,5 +320,154 @@ class MBPPTestListToPytest:
         return target
 
 
-def task_refs_for_jobs(adapter: MBPPDatasetAdapter, mining_seed: int) -> Iterable[tuple[str, int]]:
+class ClassEvalTestsToPytest:
+    def render(self, task: SourceTask) -> str:
+        blocks: list[str] = []
+        for code in [task.verifier_test_code or "", *(task.method_test_codes or [])]:
+            stripped = code.strip()
+            if stripped and stripped not in blocks:
+                blocks.append(stripped)
+        if not blocks:
+            raise InfraError(f"ClassEval task has no verifier tests: {task.sample_id}")
+
+        body: list[str] = [
+            "import unittest",
+            "import pytest",
+            "from solution import *",
+            "",
+        ]
+        for block in blocks:
+            for line in block.splitlines():
+                if line.strip() in {"import unittest", "from solution import *"}:
+                    continue
+                body.append(line)
+            body.append("")
+        body.extend(
+            [
+                "",
+                "if __name__ == '__main__':",
+                "    unittest.main()",
+                "",
+            ]
+        )
+        rendered = "\n".join(body)
+        try:
+            ast.parse(rendered)
+        except SyntaxError as exc:
+            raise InfraError(f"ClassEval test materialization failed for {task.sample_id}: {exc}") from exc
+        return rendered
+
+    def write(self, task: SourceTask, workspace: Path, injection_path: str = "tests/test_solution.py") -> Path:
+        target = workspace / injection_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(self.render(task), encoding="utf-8")
+        return target
+
+
+def dataset_adapter_from_config(config: dict[str, Any]) -> MBPPDatasetAdapter | ClassEvalDatasetAdapter:
+    adapter_name = str(config.get("dataset", {}).get("adapter", "mbpp_huggingface"))
+    if adapter_name == "mbpp_huggingface":
+        return MBPPDatasetAdapter.from_config(config)
+    if adapter_name == "classeval_huggingface":
+        return ClassEvalDatasetAdapter.from_config(config)
+    raise ConfigError(f"Unknown dataset adapter: {adapter_name}")
+
+
+def initial_workspace_files_for_task(task: SourceTask, config: dict[str, Any]) -> dict[str, str]:
+    if task.adapter == "classeval_huggingface":
+        target_file = str(config.get("workspace", {}).get("target_file", "solution.py"))
+        imports = ClassEvalDatasetAdapter._normalize_imports(task.import_statement)
+        skeleton = task.skeleton or ""
+        content = f"{imports}\n\n{skeleton}" if imports and imports not in skeleton else skeleton
+        return {target_file: content.rstrip() + "\n"}
+    return {
+        str(path): str(content)
+        for path, content in config.get("workspace", {})
+        .get("initial_files", {"solution.py": "# TODO: implement the required function.\n"})
+        .items()
+    }
+
+
+def verifier_materializer_for_task(task: SourceTask) -> MBPPTestListToPytest | ClassEvalTestsToPytest:
+    if task.adapter == "classeval_huggingface":
+        return ClassEvalTestsToPytest()
+    return MBPPTestListToPytest()
+
+
+def task_refs_for_jobs(adapter: MBPPDatasetAdapter | ClassEvalDatasetAdapter, mining_seed: int) -> Iterable[tuple[str, int]]:
     return adapter.iter_indices(mining_seed=mining_seed)
+
+
+def _stdlib_names() -> set[str]:
+    names = set(getattr(sys, "stdlib_module_names", set()))
+    stdlib = sysconfig.get_paths().get("stdlib")
+    if stdlib:
+        root = Path(stdlib)
+        for child in root.iterdir():
+            if child.name.startswith("_"):
+                continue
+            if child.is_dir() and (child / "__init__.py").exists():
+                names.add(child.name)
+            elif child.suffix == ".py":
+                names.add(child.stem)
+    return names
+
+
+def imported_modules_from_code(code: str) -> set[str]:
+    if not code.strip():
+        return set()
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return set()
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            modules.add(node.module.split(".")[0])
+    return modules
+
+
+def scan_classeval_dependencies(adapter: ClassEvalDatasetAdapter) -> dict[str, Any]:
+    stdlib = _stdlib_names()
+    all_imports: set[str] = set()
+    unresolved_code_blocks = 0
+    for split in adapter.split_order:
+        ds = adapter.dataset
+        if split not in ds:
+            continue
+        for row in ds[split]:
+            methods_info = row.get("methods_info") or []
+            code_blocks: list[str] = [
+                ClassEvalDatasetAdapter._normalize_imports(row.get("import_statement")),
+                str(row.get("skeleton", "") or ""),
+                str(row.get("test", "") or ""),
+            ]
+            code_blocks.extend(str(item.get("test_code", "") or "") for item in methods_info)
+            for item in methods_info:
+                deps = item.get("dependencies")
+                if isinstance(deps, str):
+                    code_blocks.append(deps)
+                elif isinstance(deps, list):
+                    code_blocks.extend(str(dep) for dep in deps)
+            for block in code_blocks:
+                before = len(all_imports)
+                all_imports.update(imported_modules_from_code(block))
+                if block.strip() and len(all_imports) == before:
+                    try:
+                        ast.parse(block)
+                    except SyntaxError:
+                        unresolved_code_blocks += 1
+    local = {"solution"}
+    third_party = sorted(name for name in all_imports if name not in stdlib and name not in local)
+    return {
+        "dataset_id": adapter.hf_dataset_id,
+        "splits": adapter.split_order,
+        "imports": sorted(all_imports),
+        "standard_library": sorted(name for name in all_imports if name in stdlib),
+        "third_party": third_party,
+        "local_or_dataset": sorted(name for name in all_imports if name in local),
+        "unresolved": [],
+        "unparsed_code_blocks": unresolved_code_blocks,
+    }

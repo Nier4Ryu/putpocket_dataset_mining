@@ -1,0 +1,80 @@
+# Multi-sample ClassEval Dataset Mining config v0.1
+
+run:
+  mode: multi_sample_master_worker
+  mining_seed: 42
+  index_db: data/dataset_mining/mining_index.sqlite
+
+build_resources:
+  vllm_build_max_cpu_threads: 16
+  env_overrides:
+    PUTPOCKET_BUILD_THREADS: "16"
+    MAX_JOBS: "16"
+    CMAKE_BUILD_PARALLEL_LEVEL: "16"
+    CARGO_BUILD_JOBS: "16"
+    NVCC_THREADS: "1"
+
+profiles:
+  debug:
+    num_workers: 1
+    target_accepted: 1
+    max_attempts: 5
+    dataset_version: classeval_stateful_debug_v0
+  first_parallel:
+    num_workers: 2
+    target_accepted: 2
+    max_attempts: 10
+    dataset_version: classeval_stateful_parallel_smoke_v0
+  full_server:
+    num_workers: 3
+    target_accepted: 18
+    max_attempts: 100
+    dataset_version: classeval_stateful_working_v0
+    finalized: true
+    finalized_lock: configs/dataset_mining/classeval_stateful_working_v0.lock.yaml
+    allow_new_attempts: false
+
+gpu:
+  preflight_required: true
+  default_model: Qwen/Qwen3.5-9B
+  allowed_cuda_devices: [0, 1, 2]
+  tensor_parallel_size: 1
+  pipeline_parallel_size: 1
+  debug_slots:
+    - [0]
+  first_parallel_slots:
+    - [0]
+    - [1]
+  full_server_slots:
+    - [0]
+    - [1]
+    - [2]
+
+worker:
+  single_config: configs/dataset_mining/classeval_stateful_single.yaml
+  vllm_engine_lifetime: worker
+  reuse_engine_across_attempts: true
+  one_attempt_at_a_time: true
+  docker_container_lifetime: attempt
+
+job_queue:
+  generation: lazy
+  sample_selection: seeded_shuffle
+  skip_previous_accepted: true
+  skip_previous_rejected: true
+  skip_previous_failed_infra: true
+  rerun_failed_infra_override_flag: --rerun-failed-infra
+
+db:
+  writer: master_only
+
+stop:
+  default: graceful
+  interfaces: [signal, stop_file, cli]
+  stop_file_template: data/dataset_mining/control/{run_id}.stop
+
+materialization:
+  mode: local_materialized_view
+  update_on_each_accepted: true
+  datasets_root: data/dataset_mining/datasets
+  package_for_other_repo: false

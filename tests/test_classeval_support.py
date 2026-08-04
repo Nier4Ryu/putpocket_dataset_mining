@@ -111,12 +111,16 @@ class ClassEvalSupportTests(unittest.TestCase):
 
     def test_real_working_accepted_file_matches_lock(self) -> None:
         lock = load_finalized_lock("configs/dataset_mining/classeval_stateful_working_v0.lock.yaml")
+        if not lock.accepted_file.exists():
+            self.skipTest("Ignored canonical accepted dataset is not present in this clean checkout.")
         status = validate_finalized_dataset(lock)
 
         self.assertEqual(status["accepted_count"], 18)
         self.assertEqual(status["accepted_sha256"], lock.accepted_sha256)
 
     def test_finalized_exact_match_schedules_zero_attempts_before_model_init(self) -> None:
+        if not load_finalized_lock("configs/dataset_mining/classeval_stateful_working_v0.lock.yaml").accepted_file.exists():
+            self.skipTest("Ignored canonical accepted dataset is not present in this clean checkout.")
         config = load_yaml("configs/dataset_mining/classeval_stateful_multi.yaml")
         result = MultiSampleMaster(config).run("full_server", run_id="unit_finalized_noop")
 
@@ -126,12 +130,16 @@ class ClassEvalSupportTests(unittest.TestCase):
         self.assertEqual(result["canonical_accepted_count"], 18)
 
     def test_finalized_rerun_failed_infra_is_blocked(self) -> None:
+        if not load_finalized_lock("configs/dataset_mining/classeval_stateful_working_v0.lock.yaml").accepted_file.exists():
+            self.skipTest("Ignored canonical accepted dataset is not present in this clean checkout.")
         config = load_yaml("configs/dataset_mining/classeval_stateful_multi.yaml")
 
         with self.assertRaisesRegex(ConfigError, "immutable"):
             MultiSampleMaster(config).run("full_server", run_id="unit_finalized_retry", rerun_failed_infra=True)
 
     def test_finalized_append_mode_is_blocked(self) -> None:
+        if not load_finalized_lock("configs/dataset_mining/classeval_stateful_working_v0.lock.yaml").accepted_file.exists():
+            self.skipTest("Ignored canonical accepted dataset is not present in this clean checkout.")
         config = load_yaml("configs/dataset_mining/classeval_stateful_multi.yaml")
         config["profiles"]["full_server"]["allow_new_attempts"] = True
 
@@ -139,6 +147,8 @@ class ClassEvalSupportTests(unittest.TestCase):
             MultiSampleMaster(config).run("full_server", run_id="unit_finalized_append")
 
     def test_finalized_materialization_is_blocked(self) -> None:
+        if not load_finalized_lock("configs/dataset_mining/classeval_stateful_working_v0.lock.yaml").accepted_file.exists():
+            self.skipTest("Ignored canonical accepted dataset is not present in this clean checkout.")
         with tempfile.TemporaryDirectory() as tmp:
             index = MiningIndex(Path(tmp) / "index.sqlite")
             materializer = DatasetMaterializer(index, datasets_root=Path(tmp) / "datasets")
@@ -150,6 +160,8 @@ class ClassEvalSupportTests(unittest.TestCase):
         import json
 
         lock = load_finalized_lock("configs/dataset_mining/classeval_stateful_working_v0.lock.yaml")
+        if not lock.accepted_file.exists():
+            self.skipTest("Ignored canonical accepted dataset is not present in this clean checkout.")
         rows = [json.loads(line) for line in lock.accepted_file.read_text(encoding="utf-8").splitlines() if line.strip()]
 
         self.assertEqual(len(rows), 18)

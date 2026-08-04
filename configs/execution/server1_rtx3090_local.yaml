@@ -1,0 +1,8 @@
+execution_role: local_controller
+workspace_backend: local_docker
+verifier_backend: local_docker
+hardware_profile: sm86
+server_profile: server1_rtx3090
+vllm_profile: patched
+cuda_arch_list: "8.6"
+model_id: zai-org/GLM-5.2-FP8

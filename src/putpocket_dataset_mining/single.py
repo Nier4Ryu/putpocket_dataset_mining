@@ -10,8 +10,9 @@ from typing import Any
 from .config import dump_yaml, load_yaml
 from .constants import DEFAULT_DOCKER_IMAGE, DEFAULT_MODEL_ID, REPO_ROOT, RUNS_ROOT, ensure_data_dirs
 from .dataset import SourceTask, dataset_adapter_from_config, initial_workspace_files_for_task
-from .docker_workspace import DockerImageManager, DockerWorkspace, snapshot_workspace
+from .docker_workspace import DockerImageManager, snapshot_workspace, workspace_from_execution_config
 from .errors import DatasetMiningError, InfraError
+from .execution_config import DockerBackend, ExecutionConfig
 from .judge import CodexJudge, read_text_files
 from .prompts import ChatTemplateRenderer, PromptPreparer
 from .runtime import EpisodeTimeline, HeadlessClineRuntime, RolloutResult
@@ -24,6 +25,7 @@ class SingleSampleRunner:
     def __init__(self, config: dict[str, Any], config_path: Path | None = None) -> None:
         self.config = config
         self.config_path = config_path
+        self.execution_config = ExecutionConfig.from_env_and_mapping(config.get("execution", {}))
 
     @classmethod
     def from_config_path(cls, path: str | Path) -> "SingleSampleRunner":
@@ -88,12 +90,14 @@ class SingleSampleRunner:
         }
 
         try:
+            self.execution_config.validate_for_evaluation_start()
             self._write_static_artifacts(attempt_dir, task)
             docker_image = self._docker_image()
-            DockerImageManager(docker_image, self._dockerfile()).ensure_image(
-                build_if_missing=bool(self.config.get("docker", {}).get("build_if_missing", True)),
-                timeout_sec=int(self.config.get("docker", {}).get("timeouts", {}).get("image_build_sec", 900)),
-            )
+            if self.execution_config.workspace_backend == DockerBackend.LOCAL_DOCKER or self.execution_config.verifier_backend == DockerBackend.LOCAL_DOCKER:
+                DockerImageManager(docker_image, self._dockerfile()).ensure_image(
+                    build_if_missing=bool(self.config.get("docker", {}).get("build_if_missing", True)),
+                    timeout_sec=int(self.config.get("docker", {}).get("timeouts", {}).get("image_build_sec", 900)),
+                )
 
             workspace_dir = attempt_dir / "workspace"
             self._create_initial_workspace(workspace_dir, task)
@@ -114,12 +118,13 @@ class SingleSampleRunner:
             engine = engine or LocalVLLMEngine(model_id=model_id, gpu_devices=gpu_devices)
             docker_cfg = self.config.get("docker", {})
             timeouts = docker_cfg.get("timeouts", {})
-            with DockerWorkspace(
+            with workspace_from_execution_config(
                 host_workspace=workspace_dir,
                 image=docker_image,
                 cpus=docker_cfg.get("cpus", 8),
                 memory=docker_cfg.get("memory", "8g"),
                 startup_timeout_sec=int(timeouts.get("container_startup_sec", 120)),
+                execution_config=self.execution_config,
             ) as workspace:
                 runtime = HeadlessClineRuntime(
                     attempt_dir=attempt_dir,
@@ -240,6 +245,7 @@ class SingleSampleRunner:
             memory=docker_cfg.get("memory", "8g"),
             test_command=verifier_cfg.get("test_command", "pytest -q tests/test_solution.py"),
             timeout_sec=int(docker_cfg.get("timeouts", {}).get("per_tool_command_sec", 120)),
+            execution_config=self.execution_config,
         )
 
     def _judge_and_decide(

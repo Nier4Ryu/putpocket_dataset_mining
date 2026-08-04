@@ -15,6 +15,7 @@ from .config import load_yaml
 from .constants import ALLOWED_CUDA_DEVICES, CONTROL_ROOT, REPO_ROOT, RUNS_ROOT, ensure_data_dirs
 from .dataset import SourceTask, dataset_adapter_from_config
 from .errors import ConfigError
+from .execution_config import ExecutionConfig
 from .finalized_dataset import load_finalized_lock, validate_finalized_dataset
 from .serving import LocalVLLMEngine
 from .single import SingleSampleRunner
@@ -151,6 +152,7 @@ class MultiSampleMaster:
         rerun_failed_infra: bool = False,
     ) -> dict[str, Any]:
         profile = self.config["profiles"][profile_name]
+        ExecutionConfig.from_env_and_mapping(self.config.get("execution", {})).validate_for_evaluation_start()
         run_id = run_id or f"multi_{profile_name}_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}_{uuid.uuid4().hex[:8]}"
         dataset_version = profile["dataset_version"]
         finalized_result = self._finalized_noop_result(profile_name, profile, run_id, rerun_failed_infra)

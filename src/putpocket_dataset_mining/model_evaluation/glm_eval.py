@@ -30,8 +30,9 @@ from putpocket_dataset_mining.constants import (
     ensure_model_evaluation_dirs,
 )
 from putpocket_dataset_mining.dataset import SourceTask
-from putpocket_dataset_mining.docker_workspace import DockerImageManager, DockerWorkspace, snapshot_workspace
+from putpocket_dataset_mining.docker_workspace import DockerImageManager, snapshot_workspace, workspace_from_execution_config
 from putpocket_dataset_mining.errors import ConfigError, DatasetMiningError, InfraError
+from putpocket_dataset_mining.execution_config import DockerBackend, ExecutionConfig
 from putpocket_dataset_mining.judge import CodexJudge, read_text_files
 from putpocket_dataset_mining.jsonl import append_jsonl, write_jsonl
 from putpocket_dataset_mining.model_evaluation.dataset_loader import AcceptedDatasetSample, load_accepted_samples
@@ -147,6 +148,7 @@ class GLMSampleEvaluator:
         self.run_root = Path(run_config["run_root"])
         self.engine = engine
         self.gpu_slot = gpu_slot or []
+        self.execution_config = ExecutionConfig.from_env_and_mapping(run_config.get("execution", {}))
 
     def evaluate(self, sample: AcceptedDatasetSample) -> dict[str, Any]:
         attempt_id = f"attempt_{uuid.uuid4().hex[:12]}"
@@ -159,6 +161,7 @@ class GLMSampleEvaluator:
         timeline.append("eval_sample.start", f"Starting GLM evaluation for {sample.sample_id}.")
 
         try:
+            self.execution_config.validate_for_evaluation_start()
             self._write_static_artifacts(sample, attempt_dir)
             if sample.missing_artifacts:
                 (attempt_dir / "source_artifact_reference.json").write_text(
@@ -167,6 +170,14 @@ class GLMSampleEvaluator:
                 )
 
             docker_image = self._docker_image()
+            if self.execution_config.workspace_backend == DockerBackend.LOCAL_DOCKER or self.execution_config.verifier_backend == DockerBackend.LOCAL_DOCKER:
+                dockerfile = Path(self.single_config.get("docker", {}).get("dockerfile", str(DEFAULT_DOCKERFILE)))
+                if not dockerfile.is_absolute():
+                    dockerfile = REPO_ROOT / dockerfile
+                DockerImageManager(docker_image, dockerfile).ensure_image(
+                    build_if_missing=bool(self.single_config.get("docker", {}).get("build_if_missing", True)),
+                    timeout_sec=int(self.single_config.get("docker", {}).get("timeouts", {}).get("image_build_sec", 900)),
+                )
             workspace_dir = attempt_dir / "workspace"
             self._create_initial_workspace(workspace_dir)
             snapshot_workspace(workspace_dir, attempt_dir / "workspace_snapshots" / "initial")
@@ -184,12 +195,13 @@ class GLMSampleEvaluator:
             docker_cfg = self.single_config.get("docker", {})
             timeouts = docker_cfg.get("timeouts", {})
 
-            with DockerWorkspace(
+            with workspace_from_execution_config(
                 host_workspace=workspace_dir,
                 image=docker_image,
                 cpus=docker_cfg.get("cpus", 8),
                 memory=docker_cfg.get("memory", "8g"),
                 startup_timeout_sec=int(timeouts.get("container_startup_sec", 120)),
+                execution_config=self.execution_config,
             ) as workspace:
                 current_stage = "history1_rollout"
                 runtime = HeadlessClineRuntime(
@@ -418,6 +430,7 @@ class GLMSampleEvaluator:
             memory=docker_cfg.get("memory", "8g"),
             test_command=verifier_cfg.get("test_command", "pytest -q tests/test_solution.py"),
             timeout_sec=int(docker_cfg.get("timeouts", {}).get("per_tool_command_sec", 120)),
+            execution_config=self.execution_config,
         )
 
     def _engine(self) -> LocalVLLMEngine:

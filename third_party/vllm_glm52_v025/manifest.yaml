@@ -1,0 +1,27 @@
+schema_version: 1
+name: vllm_glm52_v025
+upstream:
+  remote: https://github.com/vllm-project/vllm.git
+  tag: v0.25.1
+  commit: 752a3a504485790a2e8491cacbb35c137339ad34
+profiles:
+  clean:
+    description: Exact pinned upstream commit, no Tiny GLM patch.
+    patches: []
+  patched:
+    description: Pinned upstream commit plus Tiny GLM h192/SM120 patch set.
+    patches:
+      - path: patches/0001-tiny-glm-h192-sm120.patch
+        sha256: 9d90cd2ee970e6c69f57902a30f6c763e2fd3ab8e420a8021c6175c0e983ce90
+build_key_fields:
+  - vllm_commit
+  - patch_digest
+  - python_version
+  - torch_version
+  - torch_cuda_version
+  - nvcc_version
+  - target_arch_list
+  - profile
+notes:
+  - The patched profile is for Tiny GLM h192/SM120 validation only.
+  - Real GLM h576/Hopper runs must assert that the Tiny h192 path is not selected.

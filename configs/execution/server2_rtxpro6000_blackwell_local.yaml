@@ -1,0 +1,8 @@
+execution_role: local_controller
+workspace_backend: local_docker
+verifier_backend: local_docker
+hardware_profile: sm120
+server_profile: server2_rtxpro6000_blackwell
+vllm_profile: patched
+cuda_arch_list: "12.0"
+model_id: inference-optimization/GLM-5.2-0.8B-A0.8B

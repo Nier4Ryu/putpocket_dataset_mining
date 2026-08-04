@@ -1,0 +1,16 @@
+execution_role: cloud_controller
+workspace_backend: remote_ssh_docker
+verifier_backend: remote_ssh_docker
+hardware_profile: sm90
+server_profile: runpod_hopper
+vllm_profile: patched
+cuda_arch_list: "9.0"
+model_id: zai-org/GLM-5.2-FP8
+remote:
+  host: verifier.example.internal
+  user: sr-verifier
+  port: 22
+  root: /srv/putpocket-sr-verifier
+  identity_file: /run/secrets/sr_verifier_ssh_key
+  known_hosts_file: /run/secrets/sr_verifier_known_hosts
+  docker_image: putpocket-classeval-python:ubuntu22.04-py313-v1

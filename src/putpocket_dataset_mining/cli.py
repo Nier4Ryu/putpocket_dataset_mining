@@ -48,6 +48,27 @@ def build_parser() -> argparse.ArgumentParser:
     materialize = sub.add_parser("materialize", help="Rebuild a local materialized dataset view from the SQLite index.")
     materialize.add_argument("dataset_version")
 
+    preflight = sub.add_parser("remote-preflight", help="Check an SSH/rsync remote Docker worker.")
+    preflight.add_argument("--docker-image", default=None)
+
+    sync = sub.add_parser("sync-artifacts", help="Build or copy a selective artifact replication manifest.")
+    sync.add_argument("--source-root", required=True)
+    sync.add_argument("--destination-root", default=None)
+    sync.add_argument("--profile", choices=["analysis_minimal", "analysis_with_workspaces", "analysis_with_selected_kv", "verifier_input", "verifier_output"], default="analysis_minimal")
+    sync.add_argument("--manifest-out", default=None)
+    sync.add_argument("--dry-run", action="store_true")
+
+    bootstrap = sub.add_parser("bootstrap-sr", help="Run staged SR bootstrap checks.")
+    bootstrap.add_argument("--phase", choices=["cpu", "gpu", "all"], required=True)
+    bootstrap.add_argument("--server-profile", choices=["server1_rtx3090", "server2_rtxpro6000_blackwell", "runpod_hopper", "custom"], default="custom")
+    bootstrap.add_argument("--hardware-profile", choices=["cpu", "sm86", "sm90", "sm120", "auto"], default="auto")
+    bootstrap.add_argument("--execution-role", choices=["local_controller", "cloud_controller", "verifier_host"], default=None)
+    bootstrap.add_argument("--workspace-backend", choices=["local_docker", "remote_ssh_docker"], default=None)
+    bootstrap.add_argument("--verifier-backend", choices=["local_docker", "remote_ssh_docker", "disabled"], default=None)
+    bootstrap.add_argument("--vllm-profile", choices=["clean", "patched"], default="patched")
+    bootstrap.add_argument("--build-vllm", choices=["auto", "yes", "no"], default="auto")
+    bootstrap.add_argument("--dry-run", action="store_true")
+
     return parser
 
 
@@ -143,6 +164,59 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(str(path))
         return 0
+
+    if args.command == "remote-preflight":
+        from .execution_config import ExecutionConfig
+        from .ssh_transport import SshRsyncTransport
+
+        try:
+            transport = SshRsyncTransport(ExecutionConfig.from_env_and_mapping().remote)
+            result = transport.lightweight_preflight(args.docker_image)
+        except (ConfigError, InfraError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(json.dumps(result.__dict__, indent=2, sort_keys=True))
+        return 0 if result.status == "REMOTE_DOCKER_PREFLIGHT_PASSED" else 2
+
+    if args.command == "sync-artifacts":
+        from pathlib import Path
+        from .artifact_sync import build_sync_manifest, copy_from_manifest
+
+        source = Path(args.source_root)
+        manifest = build_sync_manifest(source, args.profile)
+        if args.manifest_out:
+            Path(args.manifest_out).write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+        if args.destination_root:
+            result = copy_from_manifest(source, Path(args.destination_root), manifest, dry_run=args.dry_run)
+            print(json.dumps(result, indent=2, sort_keys=True))
+        else:
+            print(json.dumps(manifest, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "bootstrap-sr":
+        from .bootstrap_sr import run_bootstrap
+
+        forwarded = [
+            "--phase",
+            args.phase,
+            "--server-profile",
+            args.server_profile,
+            "--hardware-profile",
+            args.hardware_profile,
+            "--vllm-profile",
+            args.vllm_profile,
+            "--build-vllm",
+            args.build_vllm,
+        ]
+        if args.execution_role:
+            forwarded.extend(["--execution-role", args.execution_role])
+        if args.workspace_backend:
+            forwarded.extend(["--workspace-backend", args.workspace_backend])
+        if args.verifier_backend:
+            forwarded.extend(["--verifier-backend", args.verifier_backend])
+        if args.dry_run:
+            forwarded.append("--dry-run")
+        return run_bootstrap(forwarded)
 
     return 1
 

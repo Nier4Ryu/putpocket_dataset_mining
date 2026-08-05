@@ -35,6 +35,14 @@ class CommandResult:
         }
 
 
+def _timeout_output_text(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
+
+
 class DockerImageManager:
     def __init__(self, image: str, dockerfile: Path) -> None:
         self.image = image
@@ -166,7 +174,7 @@ class DockerWorkspace:
             result = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout_sec)
             return CommandResult(cmd, result.returncode, result.stdout, result.stderr)
         except subprocess.TimeoutExpired as exc:
-            return CommandResult(cmd, 124, exc.stdout or "", exc.stderr or "", timeout=True)
+            return CommandResult(cmd, 124, _timeout_output_text(exc.stdout), _timeout_output_text(exc.stderr), timeout=True)
 
     def read_file(self, path: str) -> str:
         rel = safe_relative_path(path)
@@ -421,7 +429,7 @@ def run_verifier_container(
         result = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout_sec)
         return CommandResult(cmd, result.returncode, result.stdout, result.stderr)
     except subprocess.TimeoutExpired as exc:
-        return CommandResult(cmd, 124, exc.stdout or "", exc.stderr or "", timeout=True)
+        return CommandResult(cmd, 124, _timeout_output_text(exc.stdout), _timeout_output_text(exc.stderr), timeout=True)
 
 
 def snapshot_workspace(source: Path, destination: Path) -> None:

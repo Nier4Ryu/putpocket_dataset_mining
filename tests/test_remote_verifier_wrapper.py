@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,6 +19,28 @@ class RemoteVerifierWrapperTests(unittest.TestCase):
 
     def test_list_test_command_is_shell_quoted_for_local_runner(self) -> None:
         self.assertEqual(_test_command(["python3", "-m", "pytest", "-q", "/workspace/a b.py"]), "python3 -m pytest -q '/workspace/a b.py'")
+
+    def test_timeout_output_bytes_are_decoded_for_result_files(self) -> None:
+        from putpocket_dataset_mining.docker_workspace import run_verifier_container
+
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "putpocket_dataset_mining.docker_workspace.host_uid_gid", return_value=(1000, 1000)
+        ), patch(
+            "putpocket_dataset_mining.docker_workspace.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(["docker"], 1, output=b"stdout bytes", stderr=b"stderr bytes"),
+        ):
+            result = run_verifier_container(
+                Path(tmp),
+                "image",
+                "pytest -q tests/test_solution.py",
+                cpus=1,
+                memory="512m",
+                timeout_sec=1,
+            )
+        self.assertTrue(result.timeout)
+        self.assertEqual(result.returncode, 124)
+        self.assertEqual(result.stdout, "stdout bytes")
+        self.assertEqual(result.stderr, "stderr bytes")
 
     def _job(self, root: Path, job_id: str, expected: int = 1) -> Path:
         job = root / "incoming" / f"{job_id}.partial"

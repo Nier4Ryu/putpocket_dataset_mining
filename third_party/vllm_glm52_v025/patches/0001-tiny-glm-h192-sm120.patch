@@ -317,7 +317,7 @@ index d802f5688..bf9464054 100644
 
          self.supports_quant_query_input = False
          self._workspace_buffer: torch.Tensor | None = None
-@@ -131,6 +165,20 @@ class FlashInferMLASparseSM120Impl(SparseMLAAttentionImpl[FlashInferMLASparseMet
+@@ -131,5 +165,18 @@ class FlashInferMLASparseSM120Impl(SparseMLAAttentionImpl[FlashInferMLASparseMet
              dtype=q.dtype,
          )
 
@@ -334,6 +334,5 @@ index d802f5688..bf9464054 100644
 +            )
 +            output.copy_(out.to(dtype=q.dtype))
 +            return output, None
-+
          if self._workspace_buffer is None:
              self._workspace_buffer = _get_workspace_buffer(q.device)

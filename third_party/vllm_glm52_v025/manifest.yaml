@@ -12,7 +12,7 @@ profiles:
     description: Pinned upstream commit plus Tiny GLM h192/SM120 patch set.
     patches:
       - path: patches/0001-tiny-glm-h192-sm120.patch
-        sha256: 9d90cd2ee970e6c69f57902a30f6c763e2fd3ab8e420a8021c6175c0e983ce90
+        sha256: 35aa053cc2fbe4788ba080bdc3efc71b254b4fc81369d930a05a1f5305836d8d
 build_key_fields:
   - vllm_commit
   - patch_digest

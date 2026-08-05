@@ -59,14 +59,20 @@ def build_parser() -> argparse.ArgumentParser:
     sync.add_argument("--dry-run", action="store_true")
 
     bootstrap = sub.add_parser("bootstrap-sr", help="Run staged SR bootstrap checks.")
-    bootstrap.add_argument("--phase", choices=["cpu", "gpu", "all"], required=True)
-    bootstrap.add_argument("--server-profile", choices=["server1_rtx3090", "server2_rtxpro6000_blackwell", "runpod_hopper", "custom"], default="custom")
+    bootstrap.add_argument("--phase", choices=["cpu", "gpu", "all"], default=None)
+    bootstrap.add_argument("--stage", choices=["preflight", "system", "core", "verifier", "vllm_source", "vllm_build", "validate", "all"], default=None)
+    bootstrap.add_argument("--server-profile", choices=["server1_rtx3090", "server2_rtxpro6000_blackwell", "server2_blackwell", "runpod_hopper", "custom"], default="custom")
     bootstrap.add_argument("--hardware-profile", choices=["cpu", "sm86", "sm90", "sm120", "auto"], default="auto")
+    bootstrap.add_argument("--role", choices=["controller", "verifier", "model_server", "development"], default=None)
     bootstrap.add_argument("--execution-role", choices=["local_controller", "cloud_controller", "verifier_host"], default=None)
     bootstrap.add_argument("--workspace-backend", choices=["local_docker", "remote_ssh_docker"], default=None)
     bootstrap.add_argument("--verifier-backend", choices=["local_docker", "remote_ssh_docker", "disabled"], default=None)
-    bootstrap.add_argument("--vllm-profile", choices=["clean", "patched"], default="patched")
+    bootstrap.add_argument("--vllm-profile", choices=["clean", "patched", "skip"], default="patched")
     bootstrap.add_argument("--build-vllm", choices=["auto", "yes", "no"], default="auto")
+    bootstrap.add_argument("--allow-system-install", action="store_true")
+    bootstrap.add_argument("--allow-docker-build", action="store_true")
+    bootstrap.add_argument("--allow-vllm-build", action="store_true")
+    bootstrap.add_argument("--runtime-checks", action="store_true")
     bootstrap.add_argument("--dry-run", action="store_true")
 
     return parser
@@ -196,10 +202,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "bootstrap-sr":
         from .bootstrap_sr import run_bootstrap
 
-        forwarded = [
-            "--phase",
-            args.phase,
-            "--server-profile",
+        forwarded = ["--server-profile",
             args.server_profile,
             "--hardware-profile",
             args.hardware_profile,
@@ -208,6 +211,12 @@ def main(argv: list[str] | None = None) -> int:
             "--build-vllm",
             args.build_vllm,
         ]
+        if args.phase:
+            forwarded.extend(["--phase", args.phase])
+        if args.stage:
+            forwarded.extend(["--stage", args.stage])
+        if args.role:
+            forwarded.extend(["--role", args.role])
         if args.execution_role:
             forwarded.extend(["--execution-role", args.execution_role])
         if args.workspace_backend:
@@ -216,6 +225,9 @@ def main(argv: list[str] | None = None) -> int:
             forwarded.extend(["--verifier-backend", args.verifier_backend])
         if args.dry_run:
             forwarded.append("--dry-run")
+        for flag in ["allow_system_install", "allow_docker_build", "allow_vllm_build", "runtime_checks"]:
+            if getattr(args, flag):
+                forwarded.append("--" + flag.replace("_", "-"))
         return run_bootstrap(forwarded)
 
     return 1

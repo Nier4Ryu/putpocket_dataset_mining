@@ -45,7 +45,7 @@ class ExecutionConfigTests(unittest.TestCase):
                 "remote": {"host": "example", "user": "u"},
             }
         )
-        with self.assertRaisesRegex(ConfigError, "remote_ssh_docker requires root"):
+        with self.assertRaisesRegex(ConfigError, "remote_ssh_docker requires repository_root"):
             cfg.validate_for_evaluation_start()
 
     def test_cuda_arch_selection(self) -> None:

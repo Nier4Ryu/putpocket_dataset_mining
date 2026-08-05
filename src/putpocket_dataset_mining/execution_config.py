@@ -12,6 +12,10 @@ class ExecutionRole(StrEnum):
     LOCAL_CONTROLLER = "local_controller"
     CLOUD_CONTROLLER = "cloud_controller"
     VERIFIER_HOST = "verifier_host"
+    CONTROLLER = "controller"
+    VERIFIER = "verifier"
+    MODEL_SERVER = "model_server"
+    DEVELOPMENT = "development"
 
 
 class DockerBackend(StrEnum):
@@ -31,8 +35,14 @@ class HardwareProfile(StrEnum):
 class ServerProfile(StrEnum):
     SERVER1_RTX3090 = "server1_rtx3090"
     SERVER2_RTXPRO6000_BLACKWELL = "server2_rtxpro6000_blackwell"
+    SERVER2_BLACKWELL = "server2_blackwell"
     RUNPOD_HOPPER = "runpod_hopper"
     CUSTOM = "custom"
+
+
+class RemoteRoute(StrEnum):
+    DIRECT = "direct"
+    PROXY_JUMP = "proxy_jump"
 
 
 E_CLOUD_LOCAL_DOCKER_FORBIDDEN = "E_CLOUD_LOCAL_DOCKER_FORBIDDEN"
@@ -44,34 +54,77 @@ EVALUATION_BLOCKED_NO_DOCKER_BACKEND = "EVALUATION_BLOCKED_NO_DOCKER_BACKEND"
 
 
 @dataclass(frozen=True)
+class JumpHost:
+    host: str
+    user: str
+    port: int = 22
+
+    @classmethod
+    def from_mapping(cls, mapping: dict[str, Any]) -> "JumpHost":
+        host = _safe_text(mapping.get("host"), "jump_host.host")
+        user = _safe_text(mapping.get("user"), "jump_host.user")
+        port = _safe_port(mapping.get("port", 22), "jump_host.port")
+        return cls(host=host, user=user, port=port)
+
+    def as_proxyjump_target(self) -> str:
+        return f"{self.user}@{self.host}:{self.port}"
+
+
+@dataclass(frozen=True)
 class RemoteDockerConfig:
     host: str | None = None
     user: str | None = None
     port: int = 22
+    route: RemoteRoute = RemoteRoute.DIRECT
+    jump_hosts: tuple[JumpHost, ...] = ()
+    repository_root: str | None = None
+    job_root: str | None = None
     root: str | None = None
     identity_file: str | None = None
     known_hosts_file: str | None = None
+    strict_host_key_checking: bool = True
+    connection_timeout_sec: int = 10
+    command_timeout_sec: int = 120
+    rsync_timeout_sec: int = 300
     docker_image: str | None = None
+    dockerfile: str = "docker/classeval_python/Dockerfile"
+    max_concurrent_jobs: int = 1
 
     @classmethod
     def from_env_and_mapping(cls, mapping: dict[str, Any] | None = None) -> "RemoteDockerConfig":
         mapping = mapping or {}
+        jump_hosts_raw = mapping.get("jump_hosts") or []
+        jump_hosts = tuple(JumpHost.from_mapping(item) for item in jump_hosts_raw)
+        repository_root = str(mapping.get("repository_root") or mapping.get("root") or os.environ.get("SR_REMOTE_REPOSITORY_ROOT") or os.environ.get("SR_REMOTE_ROOT") or "") or None
+        job_root = str(mapping.get("job_root") or os.environ.get("SR_REMOTE_JOB_ROOT") or (f"{repository_root}/data/remote_verifier" if repository_root else "")) or None
         return cls(
-            host=str(mapping.get("host") or os.environ.get("SR_REMOTE_HOST") or "") or None,
-            user=str(mapping.get("user") or os.environ.get("SR_REMOTE_USER") or "") or None,
-            port=int(mapping.get("port") or os.environ.get("SR_REMOTE_PORT") or 22),
-            root=str(mapping.get("root") or os.environ.get("SR_REMOTE_ROOT") or "") or None,
+            host=_safe_optional_text(mapping.get("host") or os.environ.get("SR_REMOTE_HOST"), "remote.host"),
+            user=_safe_optional_text(mapping.get("user") or os.environ.get("SR_REMOTE_USER"), "remote.user"),
+            port=_safe_port(mapping.get("port") or os.environ.get("SR_REMOTE_PORT") or 22, "remote.port"),
+            route=RemoteRoute(str(mapping.get("route") or os.environ.get("SR_REMOTE_ROUTE") or "direct")),
+            jump_hosts=jump_hosts,
+            repository_root=repository_root,
+            job_root=job_root,
+            root=repository_root,
             identity_file=str(mapping.get("identity_file") or os.environ.get("SR_REMOTE_IDENTITY_FILE") or "") or None,
             known_hosts_file=str(mapping.get("known_hosts_file") or os.environ.get("SR_REMOTE_KNOWN_HOSTS_FILE") or "") or None,
+            strict_host_key_checking=_bool(mapping.get("strict_host_key_checking"), default=True),
+            connection_timeout_sec=int(mapping.get("connection_timeout_sec") or os.environ.get("SR_REMOTE_CONNECTION_TIMEOUT_SEC") or 10),
+            command_timeout_sec=int(mapping.get("command_timeout_sec") or os.environ.get("SR_REMOTE_COMMAND_TIMEOUT_SEC") or 120),
+            rsync_timeout_sec=int(mapping.get("rsync_timeout_sec") or os.environ.get("SR_REMOTE_RSYNC_TIMEOUT_SEC") or 300),
             docker_image=str(mapping.get("docker_image") or os.environ.get("SR_REMOTE_DOCKER_IMAGE") or "") or None,
+            dockerfile=str(mapping.get("dockerfile") or os.environ.get("SR_REMOTE_DOCKERFILE") or "docker/classeval_python/Dockerfile"),
+            max_concurrent_jobs=int(mapping.get("max_concurrent_jobs") or os.environ.get("SR_REMOTE_MAX_CONCURRENT_JOBS") or 1),
         )
 
     def require_complete(self) -> None:
-        missing = [name for name in ("host", "user", "root") if not getattr(self, name)]
+        missing = [name for name in ("host", "user", "repository_root", "job_root") if not getattr(self, name)]
         if missing:
             raise ConfigError(
                 f"{EVALUATION_BLOCKED_NO_DOCKER_BACKEND}: remote_ssh_docker requires {', '.join(missing)}."
             )
+        if self.route == RemoteRoute.PROXY_JUMP and not self.jump_hosts:
+            raise ConfigError("remote_ssh_docker route=proxy_jump requires at least one jump host.")
 
 
 @dataclass(frozen=True)
@@ -94,9 +147,9 @@ class ExecutionConfig:
         def pick(key: str, env: str, default: str) -> str:
             return str(mapping.get(key) or os.environ.get(env) or default)
 
-        role_default = "cloud_controller" if _looks_like_runpod() else "local_controller"
+        role_default = "model_server" if _looks_like_runpod() else "controller"
         return cls(
-            execution_role=ExecutionRole(pick("execution_role", "SR_EXECUTION_ROLE", role_default)),
+            execution_role=_role_from_text(pick("execution_role", "SR_EXECUTION_ROLE", role_default)),
             workspace_backend=DockerBackend(pick("workspace_backend", "SR_WORKSPACE_BACKEND", "local_docker")),
             verifier_backend=DockerBackend(pick("verifier_backend", "SR_VERIFIER_BACKEND", "local_docker")),
             hardware_profile=HardwareProfile(pick("hardware_profile", "SR_HARDWARE_PROFILE", "auto")),
@@ -116,7 +169,7 @@ class ExecutionConfig:
             self.remote.require_complete()
 
     def guard_cloud_local_docker(self) -> None:
-        if self.execution_role != ExecutionRole.CLOUD_CONTROLLER:
+        if self.execution_role not in {ExecutionRole.CLOUD_CONTROLLER, ExecutionRole.MODEL_SERVER}:
             return
         local_backends = {
             "workspace_backend": self.workspace_backend,
@@ -151,6 +204,48 @@ def default_hardware_for_server(server: ServerProfile | str) -> HardwareProfile:
     return {
         ServerProfile.SERVER1_RTX3090: HardwareProfile.SM86,
         ServerProfile.SERVER2_RTXPRO6000_BLACKWELL: HardwareProfile.SM120,
+        ServerProfile.SERVER2_BLACKWELL: HardwareProfile.SM120,
         ServerProfile.RUNPOD_HOPPER: HardwareProfile.SM90,
         ServerProfile.CUSTOM: HardwareProfile.AUTO,
     }[server]
+
+
+def _role_from_text(text: str) -> ExecutionRole:
+    aliases = {
+        "controller": ExecutionRole.LOCAL_CONTROLLER,
+        "development": ExecutionRole.LOCAL_CONTROLLER,
+        "verifier": ExecutionRole.VERIFIER_HOST,
+        "model_server": ExecutionRole.CLOUD_CONTROLLER,
+    }
+    return aliases.get(text, ExecutionRole(text))
+
+
+def _safe_optional_text(value: Any, field: str) -> str | None:
+    if value is None or value == "":
+        return None
+    return _safe_text(value, field)
+
+
+def _safe_text(value: Any, field: str) -> str:
+    text = str(value)
+    if any(ord(ch) < 32 for ch in text) or "\n" in text or "\r" in text:
+        raise ConfigError(f"Invalid control character in {field}.")
+    return text
+
+
+def _safe_port(value: Any, field: str) -> int:
+    try:
+        port = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"Invalid {field}: {value!r}") from exc
+    if port < 1 or port > 65535:
+        raise ConfigError(f"Invalid {field}: {port}")
+    return port
+
+
+def _bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}

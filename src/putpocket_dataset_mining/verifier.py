@@ -128,7 +128,7 @@ class SshRsyncVerifierTransport(VerifierTransport):
         job_dir.mkdir(parents=True, exist_ok=True)
         manifest = {
             "schema_version": 1,
-            "protocol_version": "sr-remote-docker-v1",
+            "protocol_version": "sr-remote-verifier-v1",
             "run_id": attempt_dir.parents[2].name if len(attempt_dir.parents) > 2 else "unknown",
             "job_id": job_id,
             "dataset_version": task.split,
@@ -138,28 +138,30 @@ class SshRsyncVerifierTransport(VerifierTransport):
             "workspace_sha256": workspace_sha,
             "timeout_sec": timeout_sec,
             "docker_image": docker_image,
+            "dockerfile": self.execution_config.remote.dockerfile,
             "network_disabled": True,
             "controller_revision": _git_head_or_unknown(),
             "canonical_dataset_sha256": None,
-            "created_at": time.time(),
+            "created_at_kst": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "cpus": cpus,
+            "memory": memory,
         }
         (job_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
-        remote_rel = f"jobs/{job_id}/workspace/"
+        remote_rel = f"incoming/{job_id}.partial/workspace/"
         sync = self.transport.rsync_to_remote(verifier_workspace, remote_rel)
         if sync.returncode != 0:
             raise InfraError(f"Remote verifier workspace transfer failed: {sync.stderr.strip()}")
-        manifest_remote = self.transport.rsync_to_remote(job_dir / "manifest.json", f"jobs/{job_id}/manifest.json")
+        manifest_remote = self.transport.rsync_to_remote(job_dir / "manifest.json", f"incoming/{job_id}.partial/manifest.json")
         if manifest_remote.returncode != 0:
             raise InfraError(f"Remote verifier manifest transfer failed: {manifest_remote.stderr.strip()}")
+        promoted = self.transport.run_wrapper("promote", timeout_sec=30, extra_args=["--job-id", job_id])
+        if promoted.returncode != 0:
+            raise InfraError(f"Remote verifier promote failed: {(promoted.stderr or promoted.stdout).strip()}")
         result = self.transport.run_wrapper(
             "verify",
-            {
-                **manifest,
-                "test_command": test_command,
-                "cpus": cpus,
-                "memory": memory,
-            },
+            None,
             timeout_sec=timeout_sec + 60,
+            extra_args=["--job-id", job_id],
         )
         if result.returncode != 0:
             raise InfraError(f"Remote verifier failed: {(result.stderr or result.stdout).strip()}")
@@ -169,20 +171,26 @@ class SshRsyncVerifierTransport(VerifierTransport):
         stdout = str(payload.get("stdout", ""))
         stderr = str(payload.get("stderr", ""))
         if not stdout and payload.get("stdout_path"):
-            self.transport.rsync_from_remote(f"jobs/{job_id}/{payload['stdout_path']}", job_dir / "stdout.txt")
+            self.transport.rsync_from_remote(f"completed/{job_id}/{payload['stdout_path']}", job_dir / "stdout.txt")
+            stdout = (job_dir / "stdout.txt").read_text(encoding="utf-8") if (job_dir / "stdout.txt").exists() else ""
+        elif not stdout and payload.get("stdout_file"):
+            self.transport.rsync_from_remote(f"completed/{job_id}/{payload['stdout_file']}", job_dir / "stdout.txt")
             stdout = (job_dir / "stdout.txt").read_text(encoding="utf-8") if (job_dir / "stdout.txt").exists() else ""
         if not stderr and payload.get("stderr_path"):
-            self.transport.rsync_from_remote(f"jobs/{job_id}/{payload['stderr_path']}", job_dir / "stderr.txt")
+            self.transport.rsync_from_remote(f"completed/{job_id}/{payload['stderr_path']}", job_dir / "stderr.txt")
+            stderr = (job_dir / "stderr.txt").read_text(encoding="utf-8") if (job_dir / "stderr.txt").exists() else ""
+        elif not stderr and payload.get("stderr_file"):
+            self.transport.rsync_from_remote(f"completed/{job_id}/{payload['stderr_file']}", job_dir / "stderr.txt")
             stderr = (job_dir / "stderr.txt").read_text(encoding="utf-8") if (job_dir / "stderr.txt").exists() else ""
         passed = bool(payload.get("verifier_passed"))
-        timeout = bool(payload.get("timeout"))
+        timeout = bool(payload.get("timeout") or payload.get("timed_out"))
         failure_class = None if passed else f"{stage}.unit_test.timeout" if timeout else f"{stage}.unit_test.failed"
         return VerificationResult(
             stage=stage,
             passed=passed,
-            final_status="passed" if passed else "failed",
-            failure_class=failure_class,
-            returncode=int(payload.get("process_exit_code", 1)),
+            final_status=str(payload.get("status") or ("passed" if passed else "failed")),
+            failure_class=failure_class if payload.get("status") != "infra_failed" else "infra.remote_verifier_failed",
+            returncode=int(payload.get("process_exit_code") if payload.get("process_exit_code") is not None else 1),
             stdout=stdout,
             stderr=stderr,
             timeout=timeout,

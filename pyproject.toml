@@ -20,6 +20,7 @@ vllm = ["vllm"]
 
 [project.scripts]
 putpocket-dataset-mining = "putpocket_dataset_mining.cli:main"
+putpocket-remote-verifier = "putpocket_dataset_mining.remote_verifier.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

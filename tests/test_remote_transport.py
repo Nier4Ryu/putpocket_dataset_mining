@@ -20,15 +20,46 @@ class RemoteTransportTests(unittest.TestCase):
             validate_relative_path("/absolute")
 
     def test_ssh_argv_uses_batchmode_and_identity(self) -> None:
-        t = SshRsyncTransport(RemoteDockerConfig(host="host", user="user", port=2222, root="/srv/sr", identity_file="/id", known_hosts_file="/kh"))
+        t = SshRsyncTransport(RemoteDockerConfig.from_env_and_mapping({"host": "host", "user": "user", "port": 2222, "repository_root": "/srv/sr", "job_root": "/srv/sr/data/remote_verifier", "identity_file": "/id", "known_hosts_file": "/kh"}))
         argv = t.ssh_base_argv()
         self.assertIn("BatchMode=yes", argv)
         self.assertIn("2222", argv)
         self.assertIn("/id", argv)
         self.assertIn("UserKnownHostsFile=/kh", argv)
 
+    def test_direct_server1_port_42_argv(self) -> None:
+        t = SshRsyncTransport(RemoteDockerConfig.from_env_and_mapping({"host": "10.0.0.5", "user": "dyryu", "port": 42, "repository_root": "/repo", "job_root": "/jobs"}))
+        argv = t.ssh_base_argv()
+        self.assertIn("42", argv)
+        self.assertNotIn("-J", argv)
+
+    def test_two_hop_proxyjump_argv(self) -> None:
+        t = SshRsyncTransport(
+            RemoteDockerConfig.from_env_and_mapping(
+                {
+                    "host": "10.0.0.5",
+                    "user": "dyryu",
+                    "port": 42,
+                    "route": "proxy_jump",
+                    "repository_root": "/repo",
+                    "job_root": "/jobs",
+                    "jump_hosts": [
+                        {"host": "141.223.145.88", "user": "dyryu", "port": 4500},
+                        {"host": "141.223.25.156", "user": "dyryu", "port": 42},
+                    ],
+                }
+            )
+        )
+        argv = t.ssh_base_argv()
+        self.assertIn("-J", argv)
+        self.assertIn("dyryu@141.223.145.88:4500,dyryu@141.223.25.156:42", argv)
+
+    def test_invalid_port_rejected(self) -> None:
+        with self.assertRaises(Exception):
+            RemoteDockerConfig.from_env_and_mapping({"host": "h", "user": "u", "port": 70000})
+
     def test_preflight_success_is_structured(self) -> None:
-        t = SshRsyncTransport(RemoteDockerConfig(host="host", user="user", root="/srv/sr"))
+        t = SshRsyncTransport(RemoteDockerConfig.from_env_and_mapping({"host": "host", "user": "user", "repository_root": "/srv/sr", "job_root": "/srv/sr/data/remote_verifier"}))
         fake = type("R", (), {"returncode": 0, "stdout": '{"wrapper_ok": true, "rsync_ok": true, "docker_ok": true, "staging_root_ok": true, "image_ok": true}', "stderr": "", "json_stdout": lambda self: __import__("json").loads(self.stdout)})
         with patch.object(t, "run_wrapper", return_value=fake()):
             result = t.lightweight_preflight("image")
@@ -37,7 +68,7 @@ class RemoteTransportTests(unittest.TestCase):
 
     def test_rsync_construction_does_not_shell_interpolate_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            t = SshRsyncTransport(RemoteDockerConfig(host="host", user="user", root="/srv/sr"))
+            t = SshRsyncTransport(RemoteDockerConfig.from_env_and_mapping({"host": "host", "user": "user", "repository_root": "/srv/sr", "job_root": "/srv/sr/data/remote_verifier"}))
             with patch("subprocess.run") as run:
                 run.return_value = type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
                 t.rsync_to_remote(Path(tmp), "jobs/job1/workspace/")

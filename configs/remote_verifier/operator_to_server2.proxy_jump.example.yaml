@@ -1,0 +1,16 @@
+target:
+  host: 10.0.0.47
+  user: dyryu
+  port: 42
+route: proxy_jump
+jump_hosts:
+  - host: 141.223.145.88
+    user: dyryu
+    port: 4500
+  - host: 141.223.25.155
+    user: dyryu
+    port: 42
+repository_root: /home/dyryu/putpocket_dataset_mining
+identity_file: /path/to/operator_key
+known_hosts_file: /path/to/pinned_known_hosts
+strict_host_key_checking: true

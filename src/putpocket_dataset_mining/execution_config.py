@@ -51,6 +51,8 @@ REMOTE_DOCKER_PREFLIGHT_PASSED = "REMOTE_DOCKER_PREFLIGHT_PASSED"
 REMOTE_DOCKER_PREFLIGHT_FAILED = "REMOTE_DOCKER_PREFLIGHT_FAILED"
 DOCKER_DISABLED_FOR_STATIC_ONLY = "DOCKER_DISABLED_FOR_STATIC_ONLY"
 EVALUATION_BLOCKED_NO_DOCKER_BACKEND = "EVALUATION_BLOCKED_NO_DOCKER_BACKEND"
+DEFAULT_VERIFIER_TIMEOUT_SEC = 3600
+DEFAULT_VERIFIER_REMOTE_GRACE_SEC = 120
 
 
 @dataclass(frozen=True)
@@ -84,8 +86,9 @@ class RemoteDockerConfig:
     known_hosts_file: str | None = None
     strict_host_key_checking: bool = True
     connection_timeout_sec: int = 10
-    command_timeout_sec: int = 120
+    command_timeout_sec: int = DEFAULT_VERIFIER_TIMEOUT_SEC + DEFAULT_VERIFIER_REMOTE_GRACE_SEC
     rsync_timeout_sec: int = 300
+    wrapper: str = "putpocket-remote-verifier"
     docker_image: str | None = None
     dockerfile: str = "docker/classeval_python/Dockerfile"
     max_concurrent_jobs: int = 1
@@ -110,8 +113,9 @@ class RemoteDockerConfig:
             known_hosts_file=str(mapping.get("known_hosts_file") or os.environ.get("SR_REMOTE_KNOWN_HOSTS_FILE") or "") or None,
             strict_host_key_checking=_bool(mapping.get("strict_host_key_checking"), default=True),
             connection_timeout_sec=int(mapping.get("connection_timeout_sec") or os.environ.get("SR_REMOTE_CONNECTION_TIMEOUT_SEC") or 10),
-            command_timeout_sec=int(mapping.get("command_timeout_sec") or os.environ.get("SR_REMOTE_COMMAND_TIMEOUT_SEC") or 120),
+            command_timeout_sec=int(mapping.get("command_timeout_sec") or os.environ.get("SR_REMOTE_COMMAND_TIMEOUT_SEC") or (DEFAULT_VERIFIER_TIMEOUT_SEC + DEFAULT_VERIFIER_REMOTE_GRACE_SEC)),
             rsync_timeout_sec=int(mapping.get("rsync_timeout_sec") or os.environ.get("SR_REMOTE_RSYNC_TIMEOUT_SEC") or 300),
+            wrapper=_safe_text(mapping.get("wrapper") or os.environ.get("SR_REMOTE_WRAPPER") or "putpocket-remote-verifier", "remote.wrapper"),
             docker_image=str(mapping.get("docker_image") or os.environ.get("SR_REMOTE_DOCKER_IMAGE") or "") or None,
             dockerfile=str(mapping.get("dockerfile") or os.environ.get("SR_REMOTE_DOCKERFILE") or "docker/classeval_python/Dockerfile"),
             max_concurrent_jobs=int(mapping.get("max_concurrent_jobs") or os.environ.get("SR_REMOTE_MAX_CONCURRENT_JOBS") or 1),
@@ -138,6 +142,8 @@ class ExecutionConfig:
     model_path: str | None = None
     vllm_profile: str | None = None
     cuda_arch_list: str | None = None
+    verifier_timeout_sec: int = DEFAULT_VERIFIER_TIMEOUT_SEC
+    verifier_remote_grace_sec: int = DEFAULT_VERIFIER_REMOTE_GRACE_SEC
     remote: RemoteDockerConfig = RemoteDockerConfig()
 
     @classmethod
@@ -158,7 +164,25 @@ class ExecutionConfig:
             model_path=str(mapping.get("model_path") or os.environ.get("SR_MODEL_PATH") or "") or None,
             vllm_profile=str(mapping.get("vllm_profile") or os.environ.get("SR_VLLM_PROFILE") or "") or None,
             cuda_arch_list=str(mapping.get("cuda_arch_list") or os.environ.get("SR_CUDA_ARCH_LIST") or "") or None,
+            verifier_timeout_sec=int(mapping.get("verifier_timeout_sec") or os.environ.get("SR_VERIFIER_TIMEOUT_SEC") or DEFAULT_VERIFIER_TIMEOUT_SEC),
+            verifier_remote_grace_sec=int(mapping.get("verifier_remote_grace_sec") or os.environ.get("SR_VERIFIER_REMOTE_GRACE_SEC") or DEFAULT_VERIFIER_REMOTE_GRACE_SEC),
             remote=RemoteDockerConfig.from_env_and_mapping(mapping.get("remote") if isinstance(mapping.get("remote"), dict) else None),
+        )
+
+    @classmethod
+    def from_remote_verifier_mapping(cls, mapping: dict[str, Any]) -> "ExecutionConfig":
+        target = mapping.get("target") if isinstance(mapping.get("target"), dict) else {}
+        remote = dict(mapping)
+        remote.pop("target", None)
+        remote.update(target)
+        verifier = mapping.get("verifier") if isinstance(mapping.get("verifier"), dict) else {}
+        timeout_sec = mapping.get("timeout_sec") or verifier.get("timeout_sec")
+        return cls.from_env_and_mapping(
+            {
+                "verifier_backend": mapping.get("backend", "remote_ssh_docker"),
+                "verifier_timeout_sec": timeout_sec or DEFAULT_VERIFIER_TIMEOUT_SEC,
+                "remote": remote,
+            }
         )
 
     def validate_for_evaluation_start(self) -> None:
@@ -167,6 +191,18 @@ class ExecutionConfig:
             raise ConfigError(f"{EVALUATION_BLOCKED_NO_DOCKER_BACKEND}: evaluation requires workspace and verifier Docker backends.")
         if self.workspace_backend == DockerBackend.REMOTE_SSH_DOCKER or self.verifier_backend == DockerBackend.REMOTE_SSH_DOCKER:
             self.remote.require_complete()
+            self.validate_remote_timeout_budget(self.verifier_timeout_sec)
+
+    def validate_remote_timeout_budget(self, verifier_timeout_sec: int | None = None) -> None:
+        if self.verifier_backend != DockerBackend.REMOTE_SSH_DOCKER and self.workspace_backend != DockerBackend.REMOTE_SSH_DOCKER:
+            return
+        effective = int(verifier_timeout_sec or self.verifier_timeout_sec)
+        minimum = effective + int(self.verifier_remote_grace_sec)
+        if self.remote.command_timeout_sec < minimum:
+            raise ConfigError(
+                "remote.command_timeout_sec must be at least verifier timeout plus grace "
+                f"({minimum}s required, got {self.remote.command_timeout_sec}s)."
+            )
 
     def guard_cloud_local_docker(self) -> None:
         if self.execution_role not in {ExecutionRole.CLOUD_CONTROLLER, ExecutionRole.MODEL_SERVER}:

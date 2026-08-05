@@ -66,6 +66,38 @@ class RemoteTransportTests(unittest.TestCase):
         self.assertTrue(result.docker_ok)
         self.assertEqual(result.status, "REMOTE_DOCKER_PREFLIGHT_PASSED")
 
+    def test_configured_absolute_wrapper_is_used(self) -> None:
+        t = SshRsyncTransport(
+            RemoteDockerConfig.from_env_and_mapping(
+                {
+                    "host": "host",
+                    "user": "user",
+                    "repository_root": "/srv/sr",
+                    "job_root": "/srv/sr/data/remote_verifier",
+                    "wrapper": "/srv/sr/Putpocket_env/bin/putpocket-remote-verifier",
+                }
+            )
+        )
+        with patch("subprocess.run") as run:
+            run.return_value = type("R", (), {"returncode": 0, "stdout": "{}", "stderr": ""})()
+            t.run_wrapper("protocol-version")
+        remote_cmd = run.call_args.args[0][-1]
+        self.assertIn("/srv/sr/Putpocket_env/bin/putpocket-remote-verifier protocol-version", remote_cmd)
+
+    def test_unsafe_wrapper_is_rejected(self) -> None:
+        with self.assertRaises(ConfigError):
+            SshRsyncTransport(
+                RemoteDockerConfig.from_env_and_mapping(
+                    {
+                        "host": "host",
+                        "user": "user",
+                        "repository_root": "/srv/sr",
+                        "job_root": "/srv/sr/data/remote_verifier",
+                        "wrapper": "bad;wrapper",
+                    }
+                )
+            )
+
     def test_rsync_construction_does_not_shell_interpolate_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             t = SshRsyncTransport(RemoteDockerConfig.from_env_and_mapping({"host": "host", "user": "user", "repository_root": "/srv/sr", "job_root": "/srv/sr/data/remote_verifier"}))

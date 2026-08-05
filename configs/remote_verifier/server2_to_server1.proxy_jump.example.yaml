@@ -17,8 +17,11 @@ identity_file: /path/to/dedicated_sr_verifier_key
 known_hosts_file: /path/to/pinned_known_hosts
 strict_host_key_checking: true
 connection_timeout_sec: 10
-command_timeout_sec: 120
+command_timeout_sec: 3720
 rsync_timeout_sec: 300
+wrapper: /home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier
 docker_image: putpocket-classeval-python:ubuntu22.04-py313-v1
 dockerfile: docker/classeval_python/Dockerfile
 max_concurrent_jobs: 1
+verifier:
+  timeout_sec: 3600

@@ -49,7 +49,15 @@ def build_parser() -> argparse.ArgumentParser:
     materialize.add_argument("dataset_version")
 
     preflight = sub.add_parser("remote-preflight", help="Check an SSH/rsync remote Docker worker.")
+    preflight.add_argument("--config", default=None, help="Remote verifier config YAML.")
     preflight.add_argument("--docker-image", default=None)
+
+    remote_test = sub.add_parser("remote-test", help="Run disposable remote verifier pass/fail/timeout fixtures.")
+    remote_test.add_argument("--config", required=True, help="Remote verifier config YAML.")
+    remote_test.add_argument("--fixtures", default="pass,fail,timeout")
+    remote_test.add_argument("--timeout-fixture-sec", type=int, default=2)
+    remote_test.add_argument("--output-dir", default=None)
+    remote_test.add_argument("--dry-run", action="store_true")
 
     sync = sub.add_parser("sync-artifacts", help="Build or copy a selective artifact replication manifest.")
     sync.add_argument("--source-root", required=True)
@@ -176,13 +184,33 @@ def main(argv: list[str] | None = None) -> int:
         from .ssh_transport import SshRsyncTransport
 
         try:
-            transport = SshRsyncTransport(ExecutionConfig.from_env_and_mapping().remote)
+            cfg = _load_execution_config(args.config) if args.config else ExecutionConfig.from_env_and_mapping()
+            transport = SshRsyncTransport(cfg.remote)
             result = transport.lightweight_preflight(args.docker_image)
         except (ConfigError, InfraError) as exc:
             print(str(exc), file=sys.stderr)
             return 2
         print(json.dumps(result.__dict__, indent=2, sort_keys=True))
         return 0 if result.status == "REMOTE_DOCKER_PREFLIGHT_PASSED" else 2
+
+    if args.command == "remote-test":
+        from pathlib import Path
+        from .remote_fixtures import run_remote_verifier_fixtures
+
+        try:
+            cfg = _load_execution_config(args.config)
+            result = run_remote_verifier_fixtures(
+                execution_config=cfg,
+                fixtures=[item.strip() for item in args.fixtures.split(",") if item.strip()],
+                timeout_fixture_sec=args.timeout_fixture_sec,
+                output_dir=Path(args.output_dir) if args.output_dir else None,
+                dry_run=args.dry_run,
+            )
+        except (ConfigError, InfraError, ValueError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
 
     if args.command == "sync-artifacts":
         from pathlib import Path
@@ -231,6 +259,13 @@ def main(argv: list[str] | None = None) -> int:
         return run_bootstrap(forwarded)
 
     return 1
+
+
+def _load_execution_config(path: str):
+    from .config import load_yaml
+    from .execution_config import ExecutionConfig
+
+    return ExecutionConfig.from_remote_verifier_mapping(load_yaml(path))
 
 
 if __name__ == "__main__":

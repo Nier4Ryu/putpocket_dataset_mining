@@ -8,9 +8,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from putpocket_dataset_mining.dataset import SourceTask
+from putpocket_dataset_mining.execution_config import ExecutionConfig
 from putpocket_dataset_mining.remote_verifier.cli import main as remote_main
-from putpocket_dataset_mining.remote_verifier.manifest import sha256_tree, write_json_atomic
+from putpocket_dataset_mining.remote_verifier.manifest import result_sha256, sha256_tree, write_json_atomic
 from putpocket_dataset_mining.remote_verifier.runner import _test_command, promote_incoming, result_status, verify
+from putpocket_dataset_mining.verifier import SshRsyncVerifierTransport
 
 
 class RemoteVerifierWrapperTests(unittest.TestCase):
@@ -41,6 +44,13 @@ class RemoteVerifierWrapperTests(unittest.TestCase):
         self.assertEqual(result.returncode, 124)
         self.assertEqual(result.stdout, "stdout bytes")
         self.assertEqual(result.stderr, "stderr bytes")
+
+    def test_timeout_output_text_normalization_variants(self) -> None:
+        from putpocket_dataset_mining.docker_workspace import _timeout_output_text
+
+        self.assertEqual(_timeout_output_text("already text"), "already text")
+        self.assertEqual(_timeout_output_text(None), "")
+        self.assertEqual(_timeout_output_text(b"bad:\xff"), "bad:\ufffd")
 
     def _job(self, root: Path, job_id: str, expected: int = 1) -> Path:
         job = root / "incoming" / f"{job_id}.partial"
@@ -99,6 +109,63 @@ class RemoteVerifierWrapperTests(unittest.TestCase):
             status = ensure_image("image", dockerfile)
             self.assertFalse(status.built)
             self.assertEqual(status.image_id, "sha256:image")
+
+    def test_remote_manifest_records_effective_timeout_and_command(self) -> None:
+        payload = {
+            "schema_version": 1,
+            "protocol_version": "sr-remote-verifier-v1",
+            "status": "passed",
+            "verifier_passed": True,
+            "process_exit_code": 0,
+            "timed_out": False,
+            "stdout": "ok",
+            "stderr": "",
+        }
+        payload["result_sha256"] = result_sha256(payload)
+        fake_ok = type("R", (), {"returncode": 0, "stdout": "{}", "stderr": ""})()
+        fake_verify = type("R", (), {"returncode": 0, "stdout": json.dumps(payload), "stderr": ""})()
+
+        cfg = ExecutionConfig.from_env_and_mapping(
+            {
+                "verifier_backend": "remote_ssh_docker",
+                "verifier_timeout_sec": 2,
+                "remote": {
+                    "host": "host",
+                    "user": "user",
+                    "repository_root": "/repo",
+                    "job_root": "/repo/data/remote_verifier",
+                    "command_timeout_sec": 122,
+                },
+            }
+        )
+        task = SourceTask("fixture", "fixture", "split", 0, "task", "", "", [], "", {})
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "putpocket_dataset_mining.verifier.SshRsyncTransport.rsync_to_remote",
+            return_value=fake_ok,
+        ), patch(
+            "putpocket_dataset_mining.verifier.SshRsyncTransport.run_wrapper",
+            side_effect=[fake_ok, fake_verify],
+        ):
+            root = Path(tmp)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            (workspace / "solution.py").write_text("", encoding="utf-8")
+            attempt = root / "run" / "per_sample" / "sample" / "attempt"
+            result = SshRsyncVerifierTransport(cfg).run(
+                stage="history1",
+                verifier_workspace=workspace,
+                task=task,
+                docker_image="image",
+                test_command="pytest -q tests/test_solution.py",
+                cpus=1,
+                memory="512m",
+                timeout_sec=2,
+                attempt_dir=attempt,
+            )
+            self.assertTrue(result.passed)
+            manifest = json.loads((attempt / "verification" / "history1" / "remote_job" / "manifest.json").read_text())
+            self.assertEqual(manifest["timeout_sec"], 2)
+            self.assertEqual(manifest["test_command"], "pytest -q tests/test_solution.py")
 
 
 if __name__ == "__main__":

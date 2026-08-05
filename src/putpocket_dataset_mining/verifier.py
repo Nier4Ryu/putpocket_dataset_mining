@@ -13,7 +13,8 @@ from typing import Any
 from .dataset import SourceTask, verifier_materializer_for_task
 from .docker_workspace import run_verifier_container
 from .errors import InfraError
-from .execution_config import DockerBackend, ExecutionConfig
+from .execution_config import DEFAULT_VERIFIER_TIMEOUT_SEC, DockerBackend, ExecutionConfig
+from .remote_verifier.manifest import result_sha256
 from .ssh_transport import SshRsyncTransport, validate_safe_id
 
 
@@ -136,6 +137,7 @@ class SshRsyncVerifierTransport(VerifierTransport):
             "source_task_id": task.task_id,
             "verifier_stage": stage,
             "workspace_sha256": workspace_sha,
+            "test_command": test_command,
             "timeout_sec": timeout_sec,
             "docker_image": docker_image,
             "dockerfile": self.execution_config.remote.dockerfile,
@@ -146,6 +148,7 @@ class SshRsyncVerifierTransport(VerifierTransport):
             "cpus": cpus,
             "memory": memory,
         }
+        self.execution_config.validate_remote_timeout_budget(timeout_sec)
         (job_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
         remote_rel = f"incoming/{job_id}.partial/workspace/"
         sync = self.transport.rsync_to_remote(verifier_workspace, remote_rel)
@@ -160,12 +163,15 @@ class SshRsyncVerifierTransport(VerifierTransport):
         result = self.transport.run_wrapper(
             "verify",
             None,
-            timeout_sec=timeout_sec + 60,
+            timeout_sec=timeout_sec + self.execution_config.verifier_remote_grace_sec,
             extra_args=["--job-id", job_id],
         )
         if result.returncode != 0:
             raise InfraError(f"Remote verifier failed: {(result.stderr or result.stdout).strip()}")
         payload = json.loads(result.stdout or "{}")
+        expected_result_sha = payload.get("result_sha256")
+        if expected_result_sha and expected_result_sha != result_sha256(payload):
+            raise InfraError("REMOTE_RESULT_INTEGRITY_FAILED: remote verifier result checksum mismatch.")
         remote_result = job_dir / "result.json"
         remote_result.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
         stdout = str(payload.get("stdout", ""))
@@ -216,7 +222,7 @@ class HiddenVerifier:
         cpus: int | float = 8,
         memory: str = "8g",
         test_command: str = "pytest -q tests/test_solution.py",
-        timeout_sec: int = 120,
+        timeout_sec: int | None = None,
         transport: VerifierTransport | None = None,
         execution_config: ExecutionConfig | None = None,
     ) -> None:
@@ -225,8 +231,8 @@ class HiddenVerifier:
         self.cpus = cpus
         self.memory = memory
         self.test_command = test_command
-        self.timeout_sec = timeout_sec
         self.execution_config = execution_config or ExecutionConfig.from_env_and_mapping()
+        self.timeout_sec = int(timeout_sec if timeout_sec is not None else self.execution_config.verifier_timeout_sec or DEFAULT_VERIFIER_TIMEOUT_SEC)
         self.transport = transport
 
     def verify(self, stage: str, snapshot_dir: Path, task: SourceTask) -> VerificationResult:

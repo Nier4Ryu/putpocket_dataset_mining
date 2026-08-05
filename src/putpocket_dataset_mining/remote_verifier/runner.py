@@ -11,6 +11,7 @@ from typing import Any
 from putpocket_dataset_mining.constants import REPO_ROOT
 from putpocket_dataset_mining.docker_workspace import run_verifier_container
 from putpocket_dataset_mining.errors import ConfigError
+from putpocket_dataset_mining.execution_config import DEFAULT_VERIFIER_TIMEOUT_SEC
 
 from . import PROTOCOL_VERSION
 from .image import ensure_image
@@ -93,7 +94,7 @@ def verify(job_id: str) -> dict[str, Any]:
         _test_command(manifest.get("test_command", "pytest -q tests/test_solution.py")),
         cpus=manifest.get("cpus", 8),
         memory=str(manifest.get("memory", "8g")),
-        timeout_sec=int(manifest.get("timeout_sec", 120)),
+        timeout_sec=int(manifest.get("timeout_sec", DEFAULT_VERIFIER_TIMEOUT_SEC)),
     )
     status = "passed" if result.returncode == 0 else "timeout" if result.timeout else "failed"
     completed.parent.mkdir(parents=True, exist_ok=True)
@@ -106,6 +107,7 @@ def verify(job_id: str) -> dict[str, Any]:
         "verifier_passed": result.returncode == 0,
         "process_exit_code": result.returncode,
         "timed_out": result.timeout,
+        "timeout_sec": int(manifest.get("timeout_sec", DEFAULT_VERIFIER_TIMEOUT_SEC)),
         "stdout_file": "stdout.txt",
         "stderr_file": "stderr.txt",
         "wall_time_sec": time.monotonic() - start,

@@ -87,7 +87,9 @@ export SR_REMOTE_PORT=42
 export SR_REMOTE_ROUTE=direct
 export SR_REMOTE_REPOSITORY_ROOT=/home/dyryu/putpocket_dataset_mining
 export SR_REMOTE_JOB_ROOT=/home/dyryu/putpocket_dataset_mining/data/remote_verifier
+export SR_REMOTE_WRAPPER=/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier
 export SR_REMOTE_DOCKER_IMAGE=putpocket-classeval-python:ubuntu22.04-py313-v1
+export SR_VERIFIER_TIMEOUT_SEC=3600
 ```
 
 Do not store passwords, private keys, tokens, or unverified known_hosts entries in the repository.
@@ -139,6 +141,12 @@ Commands:
 - `cleanup`
 
 The wrapper uses `SR_REMOTE_JOB_ROOT` and retains job directories by default. It rejects invalid job IDs, path traversal, and symlink escapes. Commands run only inside Docker verifier containers.
+
+Use the absolute wrapper path in non-interactive SSH configurations because a remote shell may not load the project virtualenv on `PATH`:
+
+```yaml
+wrapper: /home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier
+```
 
 ## Remote Job Lifecycle
 
@@ -228,18 +236,25 @@ Dedicated SSH key and pinned known_hosts setup must be approved separately.
 Direct Server 2 -> Server 1 preflight:
 
 ```bash
-SR_REMOTE_HOST=10.0.0.5 \
-SR_REMOTE_USER=dyryu \
-SR_REMOTE_PORT=42 \
-SR_REMOTE_REPOSITORY_ROOT=/home/dyryu/putpocket_dataset_mining \
-SR_REMOTE_JOB_ROOT=/home/dyryu/putpocket_dataset_mining/data/remote_verifier \
-SR_REMOTE_DOCKER_IMAGE=putpocket-classeval-python:ubuntu22.04-py313-v1 \
-putpocket-dataset-mining remote-preflight --docker-image putpocket-classeval-python:ubuntu22.04-py313-v1
+putpocket-dataset-mining remote-preflight \
+  --config configs/remote_verifier/server2_to_server1.direct.example.yaml
 ```
 
 ProxyJump preflight uses values in `configs/remote_verifier/server2_to_server1.proxy_jump.example.yaml`.
 
-Disposable pass/fail/timeout and one real read-only verifier job should be run only after the live connection is approved.
+Dry-run the reusable disposable pass/fail/timeout fixture command before live connection:
+
+```bash
+putpocket-dataset-mining remote-test \
+  --config configs/remote_verifier/server2_to_server1.direct.example.yaml \
+  --fixtures pass,fail,timeout \
+  --timeout-fixture-sec 2 \
+  --dry-run
+```
+
+After live connection is approved, remove `--dry-run` to transfer disposable verifier-only fixture jobs to Server 1. Pass/fail fixtures use the production verifier timeout default of 3600 seconds; the timeout fixture explicitly overrides to 2 seconds. One real read-only verifier job should be a separate approved task.
+
+The SSH connection timeout remains short, for example 10 seconds. The remote wrapper command timeout must be at least verifier timeout plus the configured grace period, currently 3600 + 120 = 3720 seconds.
 
 ## Hidden-Test Policy
 

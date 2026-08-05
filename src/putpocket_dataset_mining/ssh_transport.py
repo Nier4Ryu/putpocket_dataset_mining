@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,7 @@ from .execution_config import RemoteDockerConfig, RemoteRoute
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 SAFE_HOST_RE = re.compile(r"^[A-Za-z0-9_.:-]+$")
 SAFE_USER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]{0,63}$")
+SAFE_WRAPPER_RE = re.compile(r"^[A-Za-z0-9_./:-]+$")
 
 
 @dataclass(frozen=True)
@@ -79,6 +81,12 @@ def validate_user_host(user: str, host: str) -> None:
         raise ConfigError(f"Unsafe SSH host: {host!r}")
 
 
+def validate_wrapper_command(value: str) -> str:
+    if not value or not SAFE_WRAPPER_RE.fullmatch(value):
+        raise ConfigError(f"Unsafe remote wrapper command/path: {value!r}")
+    return value
+
+
 class SshRsyncTransport:
     def __init__(
         self,
@@ -86,7 +94,7 @@ class SshRsyncTransport:
         *,
         connect_timeout_sec: int | None = None,
         command_timeout_sec: int | None = None,
-        wrapper: str = "putpocket-remote-verifier",
+        wrapper: str | None = None,
     ) -> None:
         remote.require_complete()
         assert remote.host and remote.user
@@ -94,7 +102,7 @@ class SshRsyncTransport:
         self.remote = remote
         self.connect_timeout_sec = connect_timeout_sec or remote.connection_timeout_sec
         self.command_timeout_sec = command_timeout_sec or remote.command_timeout_sec
-        self.wrapper = wrapper
+        self.wrapper = validate_wrapper_command(wrapper or remote.wrapper)
 
     @property
     def target(self) -> str:
@@ -136,8 +144,8 @@ class SshRsyncTransport:
         for item in extra_args or []:
             if any(ord(ch) < 32 for ch in item) or "\n" in item or "\r" in item:
                 raise ConfigError("Unsafe wrapper argument contains control characters.")
-            safe_args.append(json.dumps(item))
-        remote_cmd = f"cd {repository_root} && SR_REMOTE_JOB_ROOT={json.dumps(job_root)} {self.wrapper} {command}"
+            safe_args.append(shlex.quote(item))
+        remote_cmd = f"cd {shlex.quote(repository_root)} && SR_REMOTE_JOB_ROOT={shlex.quote(job_root)} {shlex.quote(self.wrapper)} {shlex.quote(command)}"
         if safe_args:
             remote_cmd += " " + " ".join(safe_args)
         argv = [*self.ssh_base_argv(), self.target, remote_cmd]

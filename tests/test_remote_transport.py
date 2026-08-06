@@ -84,6 +84,34 @@ class RemoteTransportTests(unittest.TestCase):
         remote_cmd = run.call_args.args[0][-1]
         self.assertIn("/srv/sr/Putpocket_env/bin/putpocket-remote-verifier protocol-version", remote_cmd)
 
+    def test_configured_wrapper_reaches_remote_command_builders(self) -> None:
+        t = SshRsyncTransport(
+            RemoteDockerConfig.from_env_and_mapping(
+                {
+                    "host": "host",
+                    "user": "user",
+                    "repository_root": "/srv/sr",
+                    "job_root": "/srv/sr/data/remote_verifier",
+                    "wrapper": "/srv/sr/Putpocket_env/bin/putpocket-remote-verifier",
+                }
+            )
+        )
+        commands = [
+            ("protocol-version", []),
+            ("preflight", []),
+            ("promote", ["--job-id", "job1"]),
+            ("verify", ["--job-id", "job1"]),
+            ("result-status", ["--job-id", "job1"]),
+        ]
+        with patch("subprocess.run") as run:
+            run.return_value = type("R", (), {"returncode": 0, "stdout": "{}", "stderr": ""})()
+            for command, extra_args in commands:
+                t.run_wrapper(command, extra_args=extra_args)
+        remote_cmds = [call.args[0][-1] for call in run.call_args_list]
+        for (command, _), remote_cmd in zip(commands, remote_cmds, strict=True):
+            self.assertIn("/srv/sr/Putpocket_env/bin/putpocket-remote-verifier", remote_cmd)
+            self.assertIn(command, remote_cmd)
+
     def test_unsafe_wrapper_is_rejected(self) -> None:
         with self.assertRaises(ConfigError):
             SshRsyncTransport(

@@ -72,6 +72,22 @@ class RemoteFixtureCliTests(unittest.TestCase):
             self.assertEqual(main(["remote-preflight", "--config", str(cfg)]), 0)
             self.assertEqual(preflight.call_count, 1)
 
+    def test_remote_preflight_uses_configured_wrapper(self) -> None:
+        payload = {
+            "wrapper_ok": True,
+            "rsync_ok": True,
+            "docker_ok": True,
+            "staging_root_ok": True,
+            "image_ok": True,
+        }
+        with tempfile.TemporaryDirectory() as tmp, patch("subprocess.run") as run:
+            run.return_value = type("R", (), {"returncode": 0, "stdout": json.dumps(payload), "stderr": ""})()
+            cfg = self._config(Path(tmp))
+            self.assertEqual(main(["remote-preflight", "--config", str(cfg)]), 0)
+        remote_cmd = run.call_args.args[0][-1]
+        self.assertIn("/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier", remote_cmd)
+        self.assertIn("preflight", remote_cmd)
+
     def test_remote_test_uses_transport_and_timeout_override(self) -> None:
         calls = []
 
@@ -87,6 +103,7 @@ class RemoteFixtureCliTests(unittest.TestCase):
                 stdout="",
                 stderr="",
                 timeout=fixture == "timeout",
+                timeout_sec=kwargs["timeout_sec"],
                 workspace=str(kwargs["verifier_workspace"]),
             )
 

@@ -9,7 +9,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from putpocket_dataset_mining.dataset import SourceTask
+from putpocket_dataset_mining.docker_workspace import CommandResult
 from putpocket_dataset_mining.execution_config import ExecutionConfig
+from putpocket_dataset_mining.remote_verifier.image import ImageStatus
 from putpocket_dataset_mining.remote_verifier.cli import main as remote_main
 from putpocket_dataset_mining.remote_verifier.manifest import result_sha256, sha256_tree, write_json_atomic
 from putpocket_dataset_mining.remote_verifier.runner import _test_command, promote_incoming, result_status, verify
@@ -98,6 +100,29 @@ class RemoteVerifierWrapperTests(unittest.TestCase):
             self.assertEqual(result["status"], "infra_failed")
             self.assertEqual(result["error_class"], "REMOTE_RESULT_INTEGRITY_FAILED")
 
+    def test_timeout_result_maps_to_structured_timeout_status(self) -> None:
+        image_status = ImageStatus(
+            image="image",
+            image_id="sha256:image",
+            dockerfile_sha256="0" * 64,
+            built=False,
+        )
+        timed_out = CommandResult(["docker"], 124, "out", "err", timeout=True)
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"SR_REMOTE_JOB_ROOT": tmp}), patch(
+            "putpocket_dataset_mining.remote_verifier.runner.ensure_image",
+            return_value=image_status,
+        ), patch(
+            "putpocket_dataset_mining.remote_verifier.runner.run_verifier_container",
+            return_value=timed_out,
+        ):
+            self._job(Path(tmp), "j4")
+            promote_incoming("j4")
+            result = verify("j4")
+            self.assertEqual(result["status"], "timeout")
+            self.assertEqual(result["process_exit_code"], 124)
+            self.assertTrue(result["timed_out"])
+            self.assertEqual(result["timeout_sec"], 1)
+
     def test_image_ensure_uses_mocked_docker(self) -> None:
         from putpocket_dataset_mining.remote_verifier.image import ensure_image
 
@@ -144,8 +169,8 @@ class RemoteVerifierWrapperTests(unittest.TestCase):
             return_value=fake_ok,
         ), patch(
             "putpocket_dataset_mining.verifier.SshRsyncTransport.run_wrapper",
-            side_effect=[fake_ok, fake_verify],
-        ):
+            side_effect=[fake_ok, fake_verify, fake_verify],
+        ) as run_wrapper:
             root = Path(tmp)
             workspace = root / "workspace"
             workspace.mkdir()
@@ -166,6 +191,8 @@ class RemoteVerifierWrapperTests(unittest.TestCase):
             manifest = json.loads((attempt / "verification" / "history1" / "remote_job" / "manifest.json").read_text())
             self.assertEqual(manifest["timeout_sec"], 2)
             self.assertEqual(manifest["test_command"], "pytest -q tests/test_solution.py")
+            self.assertEqual(result.timeout_sec, 2)
+            self.assertEqual([call.args[0] for call in run_wrapper.call_args_list], ["promote", "verify", "result-status"])
 
 
 if __name__ == "__main__":

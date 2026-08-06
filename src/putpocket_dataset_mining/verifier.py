@@ -28,6 +28,7 @@ class VerificationResult:
     stdout: str
     stderr: str
     timeout: bool
+    timeout_sec: int
     workspace: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -40,12 +41,14 @@ class VerificationResult:
                     "command": "pytest -q tests/test_solution.py",
                     "returncode": self.returncode,
                     "timeout": self.timeout,
+                    "timeout_sec": self.timeout_sec,
                 }
             ],
             "final_status": self.final_status,
             "failure_class": self.failure_class,
             "stdout": self.stdout,
             "stderr": self.stderr,
+            "timeout_sec": self.timeout_sec,
             "workspace": self.workspace,
         }
 
@@ -101,6 +104,7 @@ class LocalDockerVerifierTransport(VerifierTransport):
             stdout=result.stdout,
             stderr=result.stderr,
             timeout=result.timeout,
+            timeout_sec=timeout_sec,
             workspace=str(verifier_workspace),
         )
 
@@ -168,7 +172,10 @@ class SshRsyncVerifierTransport(VerifierTransport):
         )
         if result.returncode != 0:
             raise InfraError(f"Remote verifier failed: {(result.stderr or result.stdout).strip()}")
-        payload = json.loads(result.stdout or "{}")
+        status_result = self.transport.run_wrapper("result-status", timeout_sec=30, extra_args=["--job-id", job_id])
+        if status_result.returncode != 0:
+            raise InfraError(f"Remote verifier result-status failed: {(status_result.stderr or status_result.stdout).strip()}")
+        payload = json.loads(status_result.stdout or result.stdout or "{}")
         expected_result_sha = payload.get("result_sha256")
         if expected_result_sha and expected_result_sha != result_sha256(payload):
             raise InfraError("REMOTE_RESULT_INTEGRITY_FAILED: remote verifier result checksum mismatch.")
@@ -200,6 +207,7 @@ class SshRsyncVerifierTransport(VerifierTransport):
             stdout=stdout,
             stderr=stderr,
             timeout=timeout,
+            timeout_sec=int(payload.get("timeout_sec") if payload.get("timeout_sec") is not None else timeout_sec),
             workspace=str(verifier_workspace),
         )
 

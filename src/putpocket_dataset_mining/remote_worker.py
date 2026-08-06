@@ -13,6 +13,7 @@ from typing import Any
 
 from .docker_workspace import run_verifier_container
 from .errors import ConfigError
+from .execution_config import DEFAULT_VERIFIER_TIMEOUT_SEC
 from .ssh_transport import validate_safe_id
 
 PROTOCOL_VERSION = "sr-remote-docker-v1"
@@ -122,7 +123,7 @@ def cmd_verify(payload: dict[str, Any]) -> int:
     job_id = validate_safe_id(str(payload["job_id"]), "job_id")
     image = str(payload["docker_image"])
     command = str(payload.get("test_command", "pytest -q tests/test_solution.py"))
-    timeout = int(payload.get("timeout_sec", 120))
+    timeout = int(payload.get("timeout_sec", DEFAULT_VERIFIER_TIMEOUT_SEC))
     job_dir = _safe_child(root, "jobs", job_id)
     workspace = job_dir / "workspace"
     manifest = job_dir / "manifest.json"

@@ -61,9 +61,11 @@ class RemoteTransportTests(unittest.TestCase):
     def test_preflight_success_is_structured(self) -> None:
         t = SshRsyncTransport(RemoteDockerConfig.from_env_and_mapping({"host": "host", "user": "user", "repository_root": "/srv/sr", "job_root": "/srv/sr/data/remote_verifier"}))
         fake = type("R", (), {"returncode": 0, "stdout": '{"wrapper_ok": true, "rsync_ok": true, "docker_ok": true, "staging_root_ok": true, "image_ok": true}', "stderr": "", "json_stdout": lambda self: __import__("json").loads(self.stdout)})
-        with patch.object(t, "run_wrapper", return_value=fake()):
+        with patch.object(t, "run_wrapper", return_value=fake()), patch("subprocess.run") as run:
+            run.return_value = type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
             result = t.lightweight_preflight("image")
         self.assertTrue(result.docker_ok)
+        self.assertTrue(result.staging_root_ok)
         self.assertEqual(result.status, "REMOTE_DOCKER_PREFLIGHT_PASSED")
 
     def test_configured_absolute_wrapper_is_used(self) -> None:
@@ -135,6 +137,18 @@ class RemoteTransportTests(unittest.TestCase):
         args = run.call_args.args[0]
         self.assertEqual(args[0], "rsync")
         self.assertIn("--partial", args)
+
+    def test_rsync_creates_validated_remote_destination_directory_first(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            t = SshRsyncTransport(RemoteDockerConfig.from_env_and_mapping({"host": "host", "user": "user", "repository_root": "/srv/sr", "job_root": "/srv/sr/data/remote_verifier"}))
+            with patch("subprocess.run") as run:
+                run.return_value = type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+                t.rsync_to_remote(Path(tmp), "incoming/job1.partial/workspace/")
+        mkdir_args = run.call_args_list[0].args[0]
+        rsync_args = run.call_args_list[1].args[0]
+        self.assertEqual(mkdir_args[0], "ssh")
+        self.assertIn("mkdir -p -- /srv/sr/data/remote_verifier/incoming/job1.partial/workspace", mkdir_args[-1])
+        self.assertEqual(rsync_args[0], "rsync")
 
 
 if __name__ == "__main__":

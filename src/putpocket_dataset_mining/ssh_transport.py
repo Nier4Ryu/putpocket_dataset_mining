@@ -162,8 +162,13 @@ class SshRsyncTransport:
             return TransportResult(argv, 124, exc.stdout or "", exc.stderr or "", timeout=True)
 
     def rsync_to_remote(self, source: Path, remote_rel: str | Path, *, dry_run: bool = False) -> TransportResult:
+        remote_rel_text = str(remote_rel)
         rel = validate_relative_path(remote_rel)
         root = validate_remote_path(self.remote.job_root or "")
+        if not dry_run:
+            mkdir = self.ensure_remote_destination(remote_rel_text)
+            if mkdir.returncode != 0:
+                return mkdir
         destination = f"{self.target}:{root}/{rel.as_posix()}"
         argv = [*self.rsync_base_argv()]
         if dry_run:
@@ -174,6 +179,20 @@ class SshRsyncTransport:
         except subprocess.TimeoutExpired as exc:
             return TransportResult(argv, 124, exc.stdout or "", exc.stderr or "", timeout=True)
         return TransportResult(argv, result.returncode, result.stdout, result.stderr)
+
+    def ensure_remote_destination(self, remote_rel: str | Path) -> TransportResult:
+        root = validate_remote_path(self.remote.job_root or "")
+        remote_rel_text = str(remote_rel)
+        rel = validate_relative_path(remote_rel)
+        directory = rel if remote_rel_text.endswith("/") else rel.parent
+        remote_dir = f"{root}/{directory.as_posix()}" if directory.as_posix() != "." else root
+        remote_cmd = f"mkdir -p -- {shlex.quote(remote_dir)}"
+        argv = [*self.ssh_base_argv(), self.target, remote_cmd]
+        try:
+            result = subprocess.run(argv, text=True, capture_output=True, timeout=self.command_timeout_sec)
+            return TransportResult(argv, result.returncode, result.stdout, result.stderr)
+        except subprocess.TimeoutExpired as exc:
+            return TransportResult(argv, 124, exc.stdout or "", exc.stderr or "", timeout=True)
 
     def rsync_from_remote(self, remote_rel: str | Path, destination: Path, *, dry_run: bool = False) -> TransportResult:
         rel = validate_relative_path(remote_rel)
@@ -204,16 +223,17 @@ class SshRsyncTransport:
             data = result.json_stdout()
         except json.JSONDecodeError as exc:
             raise InfraError(f"{TransportErrorClass.REMOTE_PROTOCOL_MISMATCH}: Remote preflight returned invalid JSON: {exc}") from exc
+        staging = self.ensure_remote_destination("incoming/preflight/")
         return RemotePreflightResult(
-            status="REMOTE_DOCKER_PREFLIGHT_PASSED" if data.get("docker_ok") else "REMOTE_DOCKER_PREFLIGHT_FAILED",
+            status="REMOTE_DOCKER_PREFLIGHT_PASSED" if data.get("docker_ok") and staging.returncode == 0 else "REMOTE_DOCKER_PREFLIGHT_FAILED",
             ssh_ok=True,
             wrapper_ok=bool(data.get("wrapper_ok")),
             rsync_ok=bool(data.get("rsync_ok")),
             docker_ok=bool(data.get("docker_ok")),
-            staging_root_ok=bool(data.get("staging_root_ok")),
+            staging_root_ok=staging.returncode == 0,
             image_ok=data.get("image_ok"),
-            error_class=data.get("error_class"),
-            detail=data.get("detail"),
+            error_class=data.get("error_class") if staging.returncode == 0 else TransportErrorClass.SSH_COMMAND_FAILED,
+            detail=data.get("detail") if staging.returncode == 0 else (staging.stderr or staging.stdout)[-2000:],
         )
 
 

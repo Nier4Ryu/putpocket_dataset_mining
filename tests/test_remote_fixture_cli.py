@@ -84,7 +84,7 @@ class RemoteFixtureCliTests(unittest.TestCase):
             run.return_value = type("R", (), {"returncode": 0, "stdout": json.dumps(payload), "stderr": ""})()
             cfg = self._config(Path(tmp))
             self.assertEqual(main(["remote-preflight", "--config", str(cfg)]), 0)
-        remote_cmd = run.call_args.args[0][-1]
+        remote_cmd = "\n".join(str(call.args[0][-1]) for call in run.call_args_list)
         self.assertIn("/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier", remote_cmd)
         self.assertIn("preflight", remote_cmd)
 

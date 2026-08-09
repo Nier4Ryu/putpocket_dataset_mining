@@ -173,7 +173,8 @@ class SshRsyncTransport:
         argv = [*self.rsync_base_argv()]
         if dry_run:
             argv.append("--dry-run")
-        argv.extend([str(source), destination])
+        source_arg = f"{source}/" if source.is_dir() else str(source)
+        argv.extend([source_arg, destination])
         try:
             result = subprocess.run(argv, text=True, capture_output=True, timeout=self.remote.rsync_timeout_sec)
         except subprocess.TimeoutExpired as exc:

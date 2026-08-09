@@ -137,6 +137,7 @@ class RemoteTransportTests(unittest.TestCase):
         args = run.call_args.args[0]
         self.assertEqual(args[0], "rsync")
         self.assertIn("--partial", args)
+        self.assertEqual(args[-2], f"{Path(tmp)}/")
 
     def test_rsync_creates_validated_remote_destination_directory_first(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -365,6 +365,22 @@ class SingleSampleRunner:
             json.dumps(summary, indent=2, sort_keys=True),
             encoding="utf-8",
         )
+        (attempt_dir / "result.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+        (attempt_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+        (attempt_dir / "summary.md").write_text(
+            "\n".join(
+                [
+                    f"# Attempt Summary: {task.sample_id}",
+                    "",
+                    f"- Final status: `{summary['final_status']}`",
+                    f"- Failure class: `{summary.get('failure_class')}`",
+                    f"- Run ID: `{summary['run_id']}`",
+                    f"- Attempt ID: `{summary['attempt_id']}`",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         if write_index:
             index = MiningIndex.default()
             index.record_attempt(

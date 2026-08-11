@@ -194,6 +194,9 @@ verifier: {timeout_sec: 3600}
                 "workspace_snapshots/after_history2/solution.py",
                 "verification/history2/checklist.json",
                 "episode_summary.json",
+                "result.json",
+                "summary.json",
+                "summary.md",
             ]:
                 self.assertTrue((attempt / rel).exists(), rel)
 

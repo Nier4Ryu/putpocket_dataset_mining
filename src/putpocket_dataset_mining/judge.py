@@ -31,9 +31,10 @@ class JudgeResult:
 
 
 class CodexJudge:
-    def __init__(self, attempt_dir: Path, timeout_sec: int = 300) -> None:
+    def __init__(self, attempt_dir: Path, timeout_sec: int = 300, workdir: Path | None = None) -> None:
         self.attempt_dir = attempt_dir
         self.timeout_sec = timeout_sec
+        self.workdir = workdir or attempt_dir
         (attempt_dir / "judge").mkdir(parents=True, exist_ok=True)
 
     def write_skipped(self, reason: str) -> JudgeResult:
@@ -70,7 +71,8 @@ class CodexJudge:
             "never",
             "exec",
             "--cd",
-            str(self.attempt_dir),
+            str(self.workdir),
+            "--skip-git-repo-check",
             "--sandbox",
             "read-only",
             "-",

@@ -11,6 +11,7 @@ from unittest.mock import patch
 from putpocket_dataset_mining.dataset import SourceTask
 from putpocket_dataset_mining.docker_workspace import CommandResult
 from putpocket_dataset_mining.execution_config import ExecutionConfig
+from putpocket_dataset_mining.judge import JudgeResult
 from putpocket_dataset_mining.remote_verifier.image import ImageStatus
 from putpocket_dataset_mining.remote_verifier.cli import main as remote_main
 from putpocket_dataset_mining.remote_verifier.manifest import result_sha256, sha256_tree, write_json_atomic
@@ -54,7 +55,7 @@ class RemoteVerifierWrapperTests(unittest.TestCase):
         self.assertEqual(_timeout_output_text(None), "")
         self.assertEqual(_timeout_output_text(b"bad:\xff"), "bad:\ufffd")
 
-    def _job(self, root: Path, job_id: str, expected: int = 1) -> Path:
+    def _job(self, root: Path, job_id: str, expected: int = 1, *, stage: str = "history1", policy: str | None = None) -> Path:
         job = root / "incoming" / f"{job_id}.partial"
         ws = job / "workspace"
         tests = ws / "tests"
@@ -70,6 +71,8 @@ class RemoteVerifierWrapperTests(unittest.TestCase):
             "dockerfile": "docker/classeval_python/Dockerfile",
             "test_command": "pytest -q tests/test_solution.py",
             "timeout_sec": 1,
+            "verifier_stage": stage,
+            "verification_policy": policy or ("history2_pytest_then_judge" if stage == "history2" else "history1_pytest_only"),
         }
         write_json_atomic(job / "manifest.json", manifest)
         return job
@@ -122,6 +125,81 @@ class RemoteVerifierWrapperTests(unittest.TestCase):
             self.assertEqual(result["process_exit_code"], 124)
             self.assertTrue(result["timed_out"])
             self.assertEqual(result["timeout_sec"], 1)
+
+    def test_history1_pytest_pass_never_invokes_judge(self) -> None:
+        image_status = ImageStatus("image", "sha256:image", "0" * 64, built=False)
+        passed = CommandResult(["docker"], 0, "out", "err", timeout=False)
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"SR_REMOTE_JOB_ROOT": tmp}), patch(
+            "putpocket_dataset_mining.remote_verifier.runner.ensure_image",
+            return_value=image_status,
+        ), patch(
+            "putpocket_dataset_mining.remote_verifier.runner.run_verifier_container",
+            return_value=passed,
+        ), patch("putpocket_dataset_mining.remote_verifier.runner.CodexJudge.run") as judge_run:
+            self._job(Path(tmp), "j-h1", stage="history1")
+            promote_incoming("j-h1")
+            result = verify("j-h1")
+            self.assertEqual(result["status"], "passed")
+            self.assertFalse(result["judge"]["executed"])
+            judge_run.assert_not_called()
+
+    def test_history2_pytest_failure_skips_judge(self) -> None:
+        image_status = ImageStatus("image", "sha256:image", "0" * 64, built=False)
+        failed = CommandResult(["docker"], 1, "out", "err", timeout=False)
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"SR_REMOTE_JOB_ROOT": tmp}), patch(
+            "putpocket_dataset_mining.remote_verifier.runner.ensure_image",
+            return_value=image_status,
+        ), patch(
+            "putpocket_dataset_mining.remote_verifier.runner.run_verifier_container",
+            return_value=failed,
+        ), patch("putpocket_dataset_mining.remote_verifier.runner.CodexJudge.run") as judge_run:
+            self._job(Path(tmp), "j-h2-fail", stage="history2")
+            promote_incoming("j-h2-fail")
+            result = verify("j-h2-fail")
+            self.assertEqual(result["status"], "failed")
+            self.assertFalse(result["judge"]["executed"])
+            judge_run.assert_not_called()
+
+    def test_history2_pytest_pass_uses_judge_decision(self) -> None:
+        image_status = ImageStatus("image", "sha256:image", "0" * 64, built=False)
+        passed = CommandResult(["docker"], 0, "out", "err", timeout=False)
+        cases = [("pass", "passed"), ("fail", "failed"), ("uncertain", "uncertain")]
+        for decision, expected_status in cases:
+            with self.subTest(decision=decision), tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"SR_REMOTE_JOB_ROOT": tmp}), patch(
+                "putpocket_dataset_mining.remote_verifier.runner.ensure_image",
+                return_value=image_status,
+            ), patch(
+                "putpocket_dataset_mining.remote_verifier.runner.run_verifier_container",
+                return_value=passed,
+            ), patch(
+                "putpocket_dataset_mining.remote_verifier.runner.CodexJudge.run",
+                return_value=JudgeResult(decision, "fixture", "codex_cli", None if decision in {"pass", "fail"} else "judge.uncertain"),
+            ) as judge_run:
+                self._job(Path(tmp), f"j-h2-{decision}", stage="history2")
+                promote_incoming(f"j-h2-{decision}")
+                result = verify(f"j-h2-{decision}")
+                self.assertEqual(result["status"], expected_status)
+                self.assertTrue(result["judge"]["executed"])
+                judge_run.assert_called_once()
+
+    def test_history2_judge_cli_error_is_infra_failed(self) -> None:
+        image_status = ImageStatus("image", "sha256:image", "0" * 64, built=False)
+        passed = CommandResult(["docker"], 0, "out", "err", timeout=False)
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"SR_REMOTE_JOB_ROOT": tmp}), patch(
+            "putpocket_dataset_mining.remote_verifier.runner.ensure_image",
+            return_value=image_status,
+        ), patch(
+            "putpocket_dataset_mining.remote_verifier.runner.run_verifier_container",
+            return_value=passed,
+        ), patch(
+            "putpocket_dataset_mining.remote_verifier.runner.CodexJudge.run",
+            return_value=JudgeResult("uncertain", "cli failed", "codex_cli", "judge.cli_error"),
+        ):
+            self._job(Path(tmp), "j-h2-infra", stage="history2")
+            promote_incoming("j-h2-infra")
+            result = verify("j-h2-infra")
+            self.assertEqual(result["status"], "infra_failed")
+            self.assertEqual(result["judge"]["infrastructure_status"], "infra_failed")
 
     def test_image_ensure_uses_mocked_docker(self) -> None:
         from putpocket_dataset_mining.remote_verifier.image import ensure_image

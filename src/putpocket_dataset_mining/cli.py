@@ -70,6 +70,30 @@ def build_parser() -> argparse.ArgumentParser:
     fresh_timing.add_argument("--kst-timestamp", default=None)
     fresh_timing.add_argument("--gpu-device", type=int, default=2)
 
+    workflow = sub.add_parser("workflow", help="Run durable distributed two-turn workflows.")
+    workflow_sub = workflow.add_subparsers(dest="workflow_command", required=True)
+    workflow_run = workflow_sub.add_parser("run", help="Run a workflow mode.")
+    workflow_run.add_argument("--mode", choices=["sequential", "manual", "pipeline"], required=True)
+    workflow_run.add_argument("--config", default="configs/dataset_mining/classeval_stateful_single.yaml")
+    workflow_run.add_argument("--remote-config", default=None)
+    workflow_run.add_argument("--samples", default="test_ClassEval_76")
+    workflow_run.add_argument("--run-root", default=None)
+    workflow_run.add_argument("--run-uuid", default=None)
+    workflow_run.add_argument("--gpu-device", type=int, default=None)
+    workflow_manual = workflow_sub.add_parser("manual", help="Run or inspect manual staged workflow commands.")
+    workflow_manual_sub = workflow_manual.add_subparsers(dest="manual_command", required=True)
+    workflow_init = workflow_manual_sub.add_parser("init")
+    workflow_init.add_argument("--config", default="configs/dataset_mining/classeval_stateful_single.yaml")
+    workflow_init.add_argument("--remote-config", default=None)
+    workflow_init.add_argument("--samples", default="test_ClassEval_76")
+    workflow_init.add_argument("--run-root", required=True)
+    workflow_init.add_argument("--run-uuid", default=None)
+    workflow_status = workflow_manual_sub.add_parser("status")
+    workflow_status.add_argument("--run-root", required=True)
+    workflow_stage = workflow_manual_sub.add_parser("run-stage")
+    workflow_stage.add_argument("--run-root", required=True)
+    workflow_stage.add_argument("--stage", choices=["history1-infer-submit", "history1-retrieve", "history2-infer-submit", "history2-retrieve-finalize"], required=True)
+
     sync = sub.add_parser("sync-artifacts", help="Build or copy a selective artifact replication manifest.")
     sync.add_argument("--source-root", required=True)
     sync.add_argument("--destination-root", default=None)
@@ -255,6 +279,42 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0 if result.get("result", {}).get("final_status") in {"accepted", "rejected", "uncertain"} else 2
+
+    if args.command == "workflow":
+        from pathlib import Path
+        from .distributed_workflow import manual_run_stage, manual_status, run_workflow
+
+        try:
+            if args.workflow_command == "run":
+                result = run_workflow(
+                    mode=args.mode,
+                    config_path=Path(args.config),
+                    remote_config=Path(args.remote_config) if args.remote_config else None,
+                    sample_ids=[item.strip() for item in args.samples.split(",") if item.strip()],
+                    run_root=Path(args.run_root) if args.run_root else None,
+                    run_uuid=args.run_uuid,
+                    gpu_device=args.gpu_device,
+                )
+            elif args.workflow_command == "manual" and args.manual_command == "init":
+                result = run_workflow(
+                    mode="manual",
+                    config_path=Path(args.config),
+                    remote_config=Path(args.remote_config) if args.remote_config else None,
+                    sample_ids=[item.strip() for item in args.samples.split(",") if item.strip()],
+                    run_root=Path(args.run_root),
+                    run_uuid=args.run_uuid,
+                )
+            elif args.workflow_command == "manual" and args.manual_command == "status":
+                result = manual_status(Path(args.run_root))
+            elif args.workflow_command == "manual" and args.manual_command == "run-stage":
+                result = manual_run_stage(Path(args.run_root), args.stage)
+            else:
+                return 2
+        except (ConfigError, InfraError, ValueError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
 
     if args.command == "sync-artifacts":
         from pathlib import Path

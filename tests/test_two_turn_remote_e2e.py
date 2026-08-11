@@ -41,6 +41,18 @@ def _fake_workspace_from_execution_config(**kwargs):
 
 
 def _remote_result(stage: str, attempt_dir: Path, passed: bool = True) -> VerificationResult:
+    remote_result = {
+        "status": "passed" if passed else "failed",
+        "verification_policy": "history2_pytest_then_judge" if stage == "history2" else "history1_pytest_only",
+        "pytest": {"status": "passed" if passed else "failed"},
+        "judge": {
+            "executed": stage == "history2" and passed,
+            "backend": "codex_cli",
+            "decision": "pass" if stage == "history2" and passed else None,
+            "infrastructure_status": "passed" if stage == "history2" and passed else None,
+            "reason": "fixture",
+        },
+    }
     return VerificationResult(
         stage=stage,
         passed=passed,
@@ -60,6 +72,7 @@ def _remote_result(stage: str, attempt_dir: Path, passed: bool = True) -> Verifi
         workspace_sha256=f"workspace-{stage}",
         result_sha256=f"result-{stage}",
         verifier_revision="sr-remote-verifier-v1",
+        remote_result=remote_result,
     )
 
 
@@ -107,6 +120,28 @@ verifier: {timeout_sec: 3600}
             self.assertIn("Return the sum", (attempt / "workspace_snapshots/after_history2/solution.py").read_text())
             self.assertEqual(json.loads((attempt / "verification/history1/checklist.json").read_text())["backend"], "remote_ssh_docker")
             self.assertEqual(json.loads((attempt / "verification/history2/checklist.json").read_text())["backend"], "remote_ssh_docker")
+            judge = json.loads((attempt / "judge/judge_decision.json").read_text())
+            self.assertTrue(judge["remote_verification2"])
+            self.assertEqual(judge["decision"], "pass")
+
+    def test_remote_history2_pytest_pass_without_judge_is_not_accepted(self) -> None:
+        def fake_run(self, **kwargs):
+            result = _remote_result(kwargs["stage"], kwargs["attempt_dir"], passed=True)
+            if kwargs["stage"] == "history2":
+                result.remote_result["judge"] = {"executed": False, "decision": None}
+            return result
+
+        with tempfile.TemporaryDirectory() as td, \
+            patch("putpocket_dataset_mining.single.DockerImageManager.ensure_image"), \
+            patch("putpocket_dataset_mining.single.workspace_from_execution_config", side_effect=_fake_workspace_from_execution_config), \
+            patch("putpocket_dataset_mining.single.SshRsyncTransport.lightweight_preflight") as preflight, \
+            patch("putpocket_dataset_mining.verifier.SshRsyncVerifierTransport.run", new=fake_run):
+            preflight.return_value.status = "REMOTE_DOCKER_PREFLIGHT_PASSED"
+            summary = SingleSampleRunner(self._runner_config(Path(td))).run_task(
+                scripted_task(), run_id="run", attempt_id="attempt", write_index=False, engine=ScriptedTwoTurnEngine()
+            )
+            self.assertEqual(summary["final_status"], "uncertain")
+            self.assertEqual(summary["failure_class"], "judge.not_run")
 
     def test_history1_verification_failure_skips_history2(self) -> None:
         calls: list[str] = []

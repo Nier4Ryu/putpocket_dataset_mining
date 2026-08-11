@@ -313,6 +313,9 @@ class SingleSampleRunner:
         verification1: VerificationResult,
         verification2: VerificationResult,
     ) -> tuple[str, str | None]:
+        if verification2.backend == "remote_ssh_docker":
+            return self._remote_verification2_decision(attempt_dir, verification1, verification2)
+
         judge = CodexJudge(attempt_dir)
         if not verification1.passed or not verification2.passed:
             reason = "unit tests failed; judge skipped"
@@ -320,7 +323,7 @@ class SingleSampleRunner:
             return "rejected", verification1.failure_class or verification2.failure_class
         if not bool(self.config.get("judge", {}).get("enabled", True)):
             judge.write_skipped("judge disabled by configuration")
-            return "accepted", None
+            return "uncertain", "judge.not_run"
 
         prepared = attempt_dir / "prepared"
         result = judge.run(
@@ -338,6 +341,45 @@ class SingleSampleRunner:
         if result.decision == "fail":
             return "rejected", "judge.failed"
         return "uncertain", result.failure_class or "judge.uncertain"
+
+    def _remote_verification2_decision(
+        self,
+        attempt_dir: Path,
+        verification1: VerificationResult,
+        verification2: VerificationResult,
+    ) -> tuple[str, str | None]:
+        remote = verification2.remote_result or {}
+        judge_payload = remote.get("judge", {}) if isinstance(remote.get("judge"), dict) else {}
+        local_judge = CodexJudge(attempt_dir)
+        decision_record = {
+            "decision": judge_payload.get("decision") or "skipped",
+            "reason": judge_payload.get("reason") or "remote verification2 judge result interpreted by controller",
+            "backend": judge_payload.get("backend") or "remote_ssh_docker",
+            "failure_class": None,
+            "remote_verification2": True,
+            "remote_job_id": verification2.remote_job_id,
+        }
+        (attempt_dir / "judge" / "judge_decision.json").write_text(
+            json.dumps(decision_record, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        if not verification1.passed:
+            return "rejected", verification1.failure_class
+        status = verification2.final_status
+        if status == "passed" and judge_payload.get("decision") == "pass":
+            return "accepted", None
+        if status == "infra_failed" or judge_payload.get("infrastructure_status") == "infra_failed":
+            return "failed_infra", verification2.failure_class or "judge.infra_failed"
+        if status == "uncertain" or judge_payload.get("decision") == "uncertain":
+            return "uncertain", verification2.failure_class or "judge.uncertain"
+        if status == "timeout":
+            return "rejected", verification2.failure_class or "history2.unit_test.timeout"
+        if status == "failed":
+            return "rejected", verification2.failure_class or "history2.unit_test.failed"
+        if not judge_payload.get("executed"):
+            local_judge.write_skipped("remote Verification-2 Judge was not executed")
+            return "uncertain", "judge.not_run"
+        return "rejected", verification2.failure_class or "judge.failed"
 
     def _write_rollout_artifact(self, attempt_dir: Path, result: RolloutResult) -> None:
         path = attempt_dir / "trajectories" / f"{result.history_name}_rollout_summary.json"

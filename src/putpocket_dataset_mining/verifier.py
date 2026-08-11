@@ -15,7 +15,8 @@ from .dataset import SourceTask, verifier_materializer_for_task
 from .docker_workspace import run_verifier_container
 from .errors import InfraError
 from .execution_config import DEFAULT_VERIFIER_TIMEOUT_SEC, DockerBackend, ExecutionConfig
-from .remote_verifier.manifest import result_sha256
+from .judge import read_text_files
+from .remote_verifier.manifest import result_sha256, write_json_atomic
 from .ssh_transport import SshRsyncTransport, validate_safe_id
 from .timing import TimingRecorder
 
@@ -135,7 +136,7 @@ class SshRsyncVerifierTransport(VerifierTransport):
         self.transport = SshRsyncTransport(self.execution_config.remote)
         self.timing_recorder = timing_recorder
 
-    def run(
+    def submit(
         self,
         *,
         stage: str,
@@ -147,7 +148,8 @@ class SshRsyncVerifierTransport(VerifierTransport):
         memory: str,
         timeout_sec: int,
         attempt_dir: Path,
-    ) -> VerificationResult:
+        async_start: bool = False,
+    ) -> dict[str, Any]:
         prefix = os.environ.get("SR_REMOTE_JOB_ID_PREFIX", "").strip()
         job_base = f"{prefix}-{task.sample_id}-{stage}" if prefix else f"{task.sample_id}-{stage}"
         job_id = validate_safe_id(f"{job_base}-{uuid.uuid4().hex[:10]}", "job_id")
@@ -156,6 +158,7 @@ class SshRsyncVerifierTransport(VerifierTransport):
         workspace_sha = _sha256_tree(verifier_workspace)
         job_dir = attempt_dir / "verification" / stage / "remote_job"
         job_dir.mkdir(parents=True, exist_ok=True)
+        policy = "history2_pytest_then_judge" if stage == "history2" else "history1_pytest_only"
         manifest = {
             "schema_version": 1,
             "protocol_version": "sr-remote-verifier-v1",
@@ -165,6 +168,7 @@ class SshRsyncVerifierTransport(VerifierTransport):
             "sample_id": task.sample_id,
             "source_task_id": task.task_id,
             "verifier_stage": stage,
+            "verification_policy": policy,
             "workspace_sha256": workspace_sha,
             "test_command": test_command,
             "timeout_sec": timeout_sec,
@@ -176,6 +180,7 @@ class SshRsyncVerifierTransport(VerifierTransport):
             "created_at_kst": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "cpus": cpus,
             "memory": memory,
+            "judge_timeout_sec": 300,
         }
         self.execution_config.validate_remote_timeout_budget(timeout_sec)
         (job_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
@@ -190,6 +195,11 @@ class SshRsyncVerifierTransport(VerifierTransport):
         manifest_remote = self.transport.rsync_to_remote(job_dir / "manifest.json", f"incoming/{job_id}.partial/manifest.json")
         if manifest_remote.returncode != 0:
             raise InfraError(f"Remote verifier manifest transfer failed: {manifest_remote.stderr.strip()}")
+        if policy == "history2_pytest_then_judge":
+            judge_bundle = self._write_judge_bundle(attempt_dir, job_dir)
+            judge_remote = self.transport.rsync_to_remote(judge_bundle, f"incoming/{job_id}.partial/judge_bundle/")
+            if judge_remote.returncode != 0:
+                raise InfraError(f"Remote verifier judge bundle transfer failed: {judge_remote.stderr.strip()}")
         if self.timing_recorder:
             self.timing_recorder.mark(f"{stage}.rsync_upload.end", job_id=job_id)
             self.timing_recorder.mark(f"{stage}.remote_promote.start", job_id=job_id)
@@ -198,30 +208,80 @@ class SshRsyncVerifierTransport(VerifierTransport):
             raise InfraError(f"Remote verifier promote failed: {(promoted.stderr or promoted.stdout).strip()}")
         if self.timing_recorder:
             self.timing_recorder.mark(f"{stage}.remote_promote.end", job_id=job_id)
-            self.timing_recorder.mark(f"{stage}.remote_verify_call.start", job_id=job_id)
-        result = self.transport.run_wrapper(
-            "verify",
-            None,
-            timeout_sec=timeout_sec + self.execution_config.verifier_remote_grace_sec,
-            extra_args=["--job-id", job_id],
-        )
-        if result.returncode != 0:
-            raise InfraError(f"Remote verifier failed: {(result.stderr or result.stdout).strip()}")
+        receipt = {
+            "job_id": job_id,
+            "verification_policy": policy,
+            "accepted_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "remote_state": "ready",
+            "manifest_sha256": hashlib.sha256((job_dir / "manifest.json").read_bytes()).hexdigest(),
+            "workspace_sha256": workspace_sha,
+            "remote_job_path": f"{self.execution_config.remote.job_root}/ready/{job_id}",
+            "protocol_version": "sr-remote-verifier-v1",
+            "verifier_revision": _git_head_or_unknown(),
+        }
+        if async_start:
+            started = self.transport.run_wrapper("start-worker", timeout_sec=30, extra_args=["--job-id", job_id])
+            if started.returncode != 0:
+                raise InfraError(f"Remote verifier worker start failed: {(started.stderr or started.stdout).strip()}")
+            receipt["remote_state"] = "worker_started"
+            receipt["worker_start"] = json.loads(started.stdout or "{}")
+        write_json_atomic(job_dir.parent / "submission_receipt.json", receipt)
+        return receipt
+
+    def retrieve(
+        self,
+        *,
+        stage: str,
+        verifier_workspace: Path,
+        timeout_sec: int,
+        attempt_dir: Path,
+        receipt: dict[str, Any],
+        wait: bool = True,
+        start_if_needed: bool = False,
+    ) -> VerificationResult:
+        job_id = str(receipt["job_id"])
+        if start_if_needed:
+            if self.timing_recorder:
+                self.timing_recorder.mark(f"{stage}.remote_verify_call.start", job_id=job_id)
+            result = self.transport.run_wrapper(
+                "verify",
+                None,
+                timeout_sec=timeout_sec + self.execution_config.verifier_remote_grace_sec,
+                extra_args=["--job-id", job_id],
+            )
+            if result.returncode != 0:
+                raise InfraError(f"Remote verifier failed: {(result.stderr or result.stdout).strip()}")
+            if self.timing_recorder:
+                self.timing_recorder.mark(f"{stage}.remote_verify_call.end", job_id=job_id)
+        elif wait:
+            deadline = time.monotonic() + timeout_sec + self.execution_config.verifier_remote_grace_sec
+            while time.monotonic() < deadline:
+                status = self.transport.run_wrapper("result-status", timeout_sec=30, extra_args=["--job-id", job_id])
+                if status.returncode == 0:
+                    data = json.loads(status.stdout or "{}")
+                    if data.get("status") != "missing":
+                        break
+                time.sleep(2)
+            else:
+                raise InfraError(f"Remote verifier async result timed out for {job_id}")
         if self.timing_recorder:
-            self.timing_recorder.mark(f"{stage}.remote_verify_call.end", job_id=job_id)
             self.timing_recorder.mark(f"{stage}.result_status.start", job_id=job_id)
         status_result = self.transport.run_wrapper("result-status", timeout_sec=30, extra_args=["--job-id", job_id])
         if status_result.returncode != 0:
             raise InfraError(f"Remote verifier result-status failed: {(status_result.stderr or status_result.stdout).strip()}")
         if self.timing_recorder:
             self.timing_recorder.mark(f"{stage}.result_status.end", job_id=job_id)
-        payload = json.loads(status_result.stdout or result.stdout or "{}")
+        payload = json.loads(status_result.stdout or "{}")
+        if payload.get("status") == "missing":
+            raise InfraError(f"REMOTE_RESULT_MISSING: remote result is not complete for {job_id}")
         expected_result_sha = payload.get("result_sha256")
         if expected_result_sha and expected_result_sha != result_sha256(payload):
             raise InfraError("REMOTE_RESULT_INTEGRITY_FAILED: remote verifier result checksum mismatch.")
-        remote_result = job_dir / "result.json"
-        remote_result.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-        (job_dir.parent / "remote_result.json").write_text(
+        stage_dir = attempt_dir / "verification" / stage
+        job_dir = stage_dir / "remote_job"
+        job_dir.mkdir(parents=True, exist_ok=True)
+        (job_dir / "result.json").write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        (stage_dir / "remote_result.json").write_text(
             json.dumps({"backend": "remote_ssh_docker", **payload}, indent=2, sort_keys=True),
             encoding="utf-8",
         )
@@ -229,29 +289,89 @@ class SshRsyncVerifierTransport(VerifierTransport):
         stderr = str(payload.get("stderr", ""))
         if self.timing_recorder:
             self.timing_recorder.mark(f"{stage}.result_retrieval.start", job_id=job_id)
-        if not stdout and payload.get("stdout_path"):
-            self.transport.rsync_from_remote(f"completed/{job_id}/{payload['stdout_path']}", job_dir / "stdout.txt")
-            stdout = (job_dir / "stdout.txt").read_text(encoding="utf-8") if (job_dir / "stdout.txt").exists() else ""
-        elif not stdout and payload.get("stdout_file"):
+        if not stdout and payload.get("stdout_file"):
             self.transport.rsync_from_remote(f"completed/{job_id}/{payload['stdout_file']}", job_dir / "stdout.txt")
             stdout = (job_dir / "stdout.txt").read_text(encoding="utf-8") if (job_dir / "stdout.txt").exists() else ""
-        if not stderr and payload.get("stderr_path"):
-            self.transport.rsync_from_remote(f"completed/{job_id}/{payload['stderr_path']}", job_dir / "stderr.txt")
-            stderr = (job_dir / "stderr.txt").read_text(encoding="utf-8") if (job_dir / "stderr.txt").exists() else ""
-        elif not stderr and payload.get("stderr_file"):
+        if not stderr and payload.get("stderr_file"):
             self.transport.rsync_from_remote(f"completed/{job_id}/{payload['stderr_file']}", job_dir / "stderr.txt")
             stderr = (job_dir / "stderr.txt").read_text(encoding="utf-8") if (job_dir / "stderr.txt").exists() else ""
+        if payload.get("judge", {}).get("executed"):
+            judge_dir = stage_dir / "judge"
+            judge_dir.mkdir(parents=True, exist_ok=True)
+            for rel in ["judge/stdout.txt", "judge/stderr.txt", "judge/judge_decision.json", "judge/timing.json", "judge/judge_prompt.txt", "judge/judge_input.json"]:
+                src = f"completed/{job_id}/{rel}"
+                dst = stage_dir / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                self.transport.rsync_from_remote(src, dst)
         if self.timing_recorder:
             self.timing_recorder.mark(f"{stage}.result_retrieval.end", job_id=job_id)
             self.timing_recorder.mark(f"{stage}.verification_roundtrip.end", job_id=job_id)
-        passed = bool(payload.get("verifier_passed"))
+        return self._result_from_payload(stage, verifier_workspace, timeout_sec, payload, fallback_job_id=job_id)
+
+    def run(
+        self,
+        *,
+        stage: str,
+        verifier_workspace: Path,
+        task: SourceTask,
+        docker_image: str,
+        test_command: str,
+        cpus: int | float,
+        memory: str,
+        timeout_sec: int,
+        attempt_dir: Path,
+    ) -> VerificationResult:
+        receipt = self.submit(
+            stage=stage,
+            verifier_workspace=verifier_workspace,
+            task=task,
+            docker_image=docker_image,
+            test_command=test_command,
+            cpus=cpus,
+            memory=memory,
+            timeout_sec=timeout_sec,
+            attempt_dir=attempt_dir,
+            async_start=False,
+        )
+        return self.retrieve(
+            stage=stage,
+            verifier_workspace=verifier_workspace,
+            timeout_sec=timeout_sec,
+            attempt_dir=attempt_dir,
+            receipt=receipt,
+            wait=True,
+            start_if_needed=True,
+        )
+
+    def _result_from_payload(
+        self,
+        stage: str,
+        verifier_workspace: Path,
+        timeout_sec: int,
+        payload: dict[str, Any],
+        *,
+        fallback_job_id: str = "",
+    ) -> VerificationResult:
+        job_id = str(payload.get("job_id") or fallback_job_id)
+        stdout = ""
+        stderr = ""
+        job_dir = verifier_workspace.parent / "remote_job"
+        if (job_dir / "stdout.txt").exists():
+            stdout = (job_dir / "stdout.txt").read_text(encoding="utf-8")
+        if (job_dir / "stderr.txt").exists():
+            stderr = (job_dir / "stderr.txt").read_text(encoding="utf-8")
+        passed = str(payload.get("status")) == "passed"
         timeout = bool(payload.get("timeout") or payload.get("timed_out"))
         failure_class = None if passed else f"{stage}.unit_test.timeout" if timeout else f"{stage}.unit_test.failed"
+        if payload.get("status") == "infra_failed":
+            failure_class = "infra.remote_verifier_failed"
+        elif payload.get("status") == "uncertain":
+            failure_class = "judge.uncertain"
         return VerificationResult(
             stage=stage,
             passed=passed,
             final_status=str(payload.get("status") or ("passed" if passed else "failed")),
-            failure_class=failure_class if payload.get("status") != "infra_failed" else "infra.remote_verifier_failed",
+            failure_class=failure_class,
             returncode=int(payload.get("process_exit_code") if payload.get("process_exit_code") is not None else 1),
             stdout=stdout,
             stderr=stderr,
@@ -259,16 +379,29 @@ class SshRsyncVerifierTransport(VerifierTransport):
             timeout_sec=int(payload.get("timeout_sec") if payload.get("timeout_sec") is not None else timeout_sec),
             workspace=str(verifier_workspace),
             backend="remote_ssh_docker",
-            remote_job_id=str(payload.get("job_id") or job_id),
-            remote_protocol=str(payload.get("protocol_version") or manifest["protocol_version"]),
+            remote_job_id=job_id,
+            remote_protocol=str(payload.get("protocol_version") or "sr-remote-verifier-v1"),
             verifier_host=str(payload.get("verifier_host") or ""),
             docker_image_id=str(payload.get("docker_image_id") or ""),
-            workspace_sha256=str(payload.get("workspace_sha256") or workspace_sha),
+            workspace_sha256=str(payload.get("workspace_sha256") or ""),
             result_sha256=str(payload.get("result_sha256") or ""),
             verifier_revision=str(payload.get("verifier_revision") or ""),
             remote_result=payload,
         )
 
+    def _write_judge_bundle(self, attempt_dir: Path, job_dir: Path) -> Path:
+        bundle = job_dir / "judge_bundle"
+        bundle.mkdir(parents=True, exist_ok=True)
+        prepared = attempt_dir / "prepared"
+        payload = {
+            "cline_rules_v1": (prepared / "cline_rules_v1.md").read_text(encoding="utf-8") if (prepared / "cline_rules_v1.md").exists() else "",
+            "files_after_history1": read_text_files(attempt_dir / "workspace_snapshots" / "after_history1"),
+            "cline_rules_v2": (prepared / "cline_rules_v2.md").read_text(encoding="utf-8") if (prepared / "cline_rules_v2.md").exists() else "",
+            "query2": (prepared / "query2.txt").read_text(encoding="utf-8") if (prepared / "query2.txt").exists() else "",
+            "files_after_history2": read_text_files(attempt_dir / "workspace_snapshots" / "after_history2"),
+        }
+        (bundle / "judge_input.json").write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        return bundle
 
 def verifier_transport_from_execution_config(config: ExecutionConfig | None = None) -> VerifierTransport:
     config = config or ExecutionConfig.from_env_and_mapping()

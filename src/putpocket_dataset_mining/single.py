@@ -20,6 +20,7 @@ from .serving import GenerationEngine, LocalVLLMEngine
 from .storage import AttemptRecord, DatasetMaterializer, MiningIndex
 from .verifier import HiddenVerifier, VerificationResult
 from .ssh_transport import SshRsyncTransport
+from .timing import TimingRecorder
 
 
 class SingleSampleRunner:
@@ -28,6 +29,7 @@ class SingleSampleRunner:
         self.config_path = config_path
         self.execution_config = ExecutionConfig.from_env_and_mapping(config.get("execution", {}))
         self._remote_preflight_passed = False
+        self.timing_recorder: TimingRecorder | None = None
 
     @classmethod
     def from_config_path(cls, path: str | Path) -> "SingleSampleRunner":
@@ -76,6 +78,11 @@ class SingleSampleRunner:
             output_root = REPO_ROOT / output_root
         attempt_dir = output_root / run_id / "samples" / task.sample_id / attempt_id
         attempt_dir.mkdir(parents=True, exist_ok=True)
+        run_root = output_root / run_id
+        timing_enabled = bool(self.config.get("timing", {}).get("enabled", False))
+        if timing_enabled:
+            self.timing_recorder = TimingRecorder(run_root)
+            self.timing_recorder.mark("e2e.start", run_id=run_id, attempt_id=attempt_id, sample_id=task.sample_id)
         timeline = EpisodeTimeline(attempt_dir)
         timeline.append("attempt.start", f"Starting sample {task.sample_id}.")
 
@@ -97,18 +104,30 @@ class SingleSampleRunner:
 
         try:
             self.execution_config.validate_for_evaluation_start()
+            if self.timing_recorder:
+                self.timing_recorder.mark("source_inputs.load.start")
             self._write_static_artifacts(attempt_dir, task)
+            if self.timing_recorder:
+                self.timing_recorder.mark("source_inputs.load.end")
             docker_image = self._docker_image()
             if self.execution_config.workspace_backend == DockerBackend.LOCAL_DOCKER or self.execution_config.verifier_backend == DockerBackend.LOCAL_DOCKER:
                 DockerImageManager(docker_image, self._dockerfile()).ensure_image(
                     build_if_missing=bool(self.config.get("docker", {}).get("build_if_missing", True)),
                     timeout_sec=int(self.config.get("docker", {}).get("timeouts", {}).get("image_build_sec", 900)),
                 )
+            if self.timing_recorder:
+                self.timing_recorder.mark("remote_preflight.start")
             self._preflight_remote_verifier_if_needed(docker_image)
+            if self.timing_recorder:
+                self.timing_recorder.mark("remote_preflight.end")
 
             workspace_dir = attempt_dir / "workspace"
+            if self.timing_recorder:
+                self.timing_recorder.mark("initial_workspace.create.start")
             self._create_initial_workspace(workspace_dir, task)
             snapshot_workspace(workspace_dir, attempt_dir / "workspace_snapshots" / "initial")
+            if self.timing_recorder:
+                self.timing_recorder.mark("initial_workspace.create.end")
 
             model_id = self.config.get("model", {}).get("generation_model_id", DEFAULT_MODEL_ID)
             renderer = ChatTemplateRenderer(model_id=model_id)
@@ -122,7 +141,18 @@ class SingleSampleRunner:
             messages1, query1 = preparer.prepare_history1(task)
             summary["query1"] = query1
 
+            if self.timing_recorder:
+                self.timing_recorder.mark("model_engine.init.start")
             engine = engine or LocalVLLMEngine(model_id=model_id, gpu_devices=gpu_devices)
+            if self.timing_recorder and isinstance(engine, LocalVLLMEngine):
+                _ = engine.llm
+                self.timing_recorder.mark(
+                    "model_engine.ready",
+                    controller_pid=engine.controller_pid,
+                    engine_pid=engine.engine_pid,
+                    worker_pids=engine.worker_pids,
+                    enable_prefix_caching=engine.enable_prefix_caching,
+                )
             docker_cfg = self.config.get("docker", {})
             timeouts = docker_cfg.get("timeouts", {})
             with workspace_from_execution_config(
@@ -142,6 +172,7 @@ class SingleSampleRunner:
                     max_parse_failures=int(self.config.get("history", {}).get("max_parse_failures_per_history", 3)),
                     per_generation_timeout_sec=int(timeouts.get("per_generation_sec", 300)),
                     per_tool_timeout_sec=int(timeouts.get("per_tool_command_sec", 120)),
+                    timing_recorder=self.timing_recorder,
                 )
                 history1 = runtime.run_history(
                     "history1",
@@ -169,7 +200,11 @@ class SingleSampleRunner:
                     summary["final_status"] = "rejected"
                     return self._finalize(attempt_dir, summary, task, write_index)
 
+                if self.timing_recorder:
+                    self.timing_recorder.mark("history2.prepare.start")
                 messages2, query2, policy_delta = preparer.prepare_history2(task, query1, history1.messages)
+                if self.timing_recorder:
+                    self.timing_recorder.mark("history2.prepare.end")
                 summary["query2"] = query2
                 summary["policy_delta"] = policy_delta
                 history2 = runtime.run_history(
@@ -261,6 +296,7 @@ class SingleSampleRunner:
             test_command=verifier_cfg.get("test_command", "pytest -q tests/test_solution.py"),
             timeout_sec=int(timeout_sec),
             execution_config=self.execution_config,
+            timing_recorder=self.timing_recorder,
         )
 
     def _preflight_remote_verifier_if_needed(self, docker_image: str) -> None:
@@ -360,6 +396,8 @@ class SingleSampleRunner:
         return "infra.filesystem_permission_error"
 
     def _finalize(self, attempt_dir: Path, summary: dict[str, Any], task: SourceTask, write_index: bool) -> dict[str, Any]:
+        if self.timing_recorder:
+            self.timing_recorder.mark("final_aggregation.start")
         summary["completed_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         (attempt_dir / "episode_summary.json").write_text(
             json.dumps(summary, indent=2, sort_keys=True),
@@ -400,4 +438,6 @@ class SingleSampleRunner:
             )
             if summary["final_status"] == "accepted":
                 DatasetMaterializer(index).materialize_dataset(summary["dataset_version"])
+        if self.timing_recorder:
+            self.timing_recorder.mark("final_aggregation.end")
         return summary

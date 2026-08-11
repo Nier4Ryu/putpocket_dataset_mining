@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -12,6 +13,7 @@ from .errors import InfraError, ToolParseError
 from .jsonl import append_jsonl
 from .prompts import ChatTemplateRenderer, Message
 from .serving import GenerationEngine, GenerationRequest
+from .timing import TimingRecorder, utc_now_iso
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,7 @@ class HeadlessClineRuntime:
         per_tool_timeout_sec: int = 120,
         max_tokens: int = 2048,
         generation_seed: int | None = None,
+        timing_recorder: TimingRecorder | None = None,
     ) -> None:
         self.attempt_dir = attempt_dir
         self.renderer = renderer
@@ -73,6 +76,7 @@ class HeadlessClineRuntime:
         self.per_tool_timeout_sec = per_tool_timeout_sec
         self.max_tokens = max_tokens
         self.generation_seed = generation_seed
+        self.timing_recorder = timing_recorder
         (attempt_dir / "trajectories").mkdir(parents=True, exist_ok=True)
         (attempt_dir / "serving").mkdir(parents=True, exist_ok=True)
 
@@ -82,14 +86,26 @@ class HeadlessClineRuntime:
         trajectory_path = self.attempt_dir / "trajectories" / f"{history_name}_trajectory.jsonl"
         trajectory_path.write_text("", encoding="utf-8")
         self.timeline.append(f"{history_name}.start", f"Starting {history_name} rollout.")
+        if self.timing_recorder:
+            self.timing_recorder.mark(f"{history_name}.rollout.start")
 
         for turn in range(1, max_turns + 1):
             try:
+                prompt_start = time.perf_counter_ns()
+                if self.timing_recorder:
+                    self.timing_recorder.mark(f"{history_name}.prompt_prepare.start", turn=turn)
                 rendered = self.renderer.render(messages)
+                prompt_end = time.perf_counter_ns()
+                if self.timing_recorder:
+                    self.timing_recorder.mark(f"{history_name}.prompt_prepare.end", turn=turn)
                 prompt_path = self.attempt_dir / "serving" / f"{history_name}_turn_{turn}_rendered_prompt.txt"
                 token_path = self.attempt_dir / "serving" / f"{history_name}_turn_{turn}_tokenization.json"
                 prompt_path.write_text(rendered.rendered_prompt, encoding="utf-8")
                 token_path.write_text(json.dumps(rendered.metadata, indent=2, sort_keys=True), encoding="utf-8")
+                request_id = f"{history_name}-{turn}-{hashlib.sha256(rendered.rendered_prompt.encode('utf-8')).hexdigest()[:12]}"
+                vllm_start = time.perf_counter_ns()
+                if self.timing_recorder:
+                    self.timing_recorder.mark(f"{history_name}.vllm_request.{turn}.start", request_id=request_id)
                 generation = self.engine.generate(
                     GenerationRequest(
                         rendered_prompt=rendered.rendered_prompt,
@@ -100,6 +116,35 @@ class HeadlessClineRuntime:
                         seed=self.generation_seed,
                     )
                 )
+                vllm_end = time.perf_counter_ns()
+                if self.timing_recorder:
+                    self.timing_recorder.mark(f"{history_name}.vllm_request.{turn}.end", request_id=request_id)
+                    output_sha = hashlib.sha256(generation.text.encode("utf-8")).hexdigest()
+                    self.timing_recorder.add_vllm_request(
+                        {
+                            "request_ordinal": turn,
+                            "request_id": request_id,
+                            "stage": history_name,
+                            "start_utc": utc_now_iso(),
+                            "elapsed_sec": (vllm_end - vllm_start) / 1_000_000_000,
+                            "prompt_preparation_sec": (prompt_end - prompt_start) / 1_000_000_000,
+                            "prompt_token_count": rendered.metadata.get("token_count"),
+                            "completion_token_count": generation.metadata.get("completion_token_count"),
+                            "total_token_count": (
+                                (rendered.metadata.get("token_count") or 0)
+                                + (generation.metadata.get("completion_token_count") or 0)
+                            ),
+                            "time_to_first_token_sec": generation.metadata.get("time_to_first_token_sec"),
+                            "prefill_time_sec": generation.metadata.get("prefill_time_sec"),
+                            "decode_time_sec": generation.metadata.get("decode_time_sec"),
+                            "output_tokens_per_second": generation.metadata.get("output_tokens_per_second"),
+                            "prompt_sha256": rendered.metadata["prompt_sha256"],
+                            "output_sha256": output_sha,
+                            "stop_reason": generation.metadata.get("finish_reason"),
+                            "cache_read_disabled": generation.metadata.get("skip_reading_prefix_cache"),
+                            "prefix_cache_hit_tokens": generation.metadata.get("prefix_cache_hit_tokens"),
+                        }
+                    )
             except Exception as exc:  # noqa: BLE001
                 failure = f"{history_name}.infra.vllm_generation_failed"
                 self.timeline.append(f"{history_name}.failed", str(exc), {"failure_class": failure})
@@ -151,7 +196,22 @@ class HeadlessClineRuntime:
                 continue
 
             for call in calls:
+                tool_start = time.perf_counter_ns()
+                if self.timing_recorder:
+                    self.timing_recorder.mark(f"{history_name}.tool_execution.{turn}.start", tool=call.name)
                 observation = execute_cline_tool(self.workspace, call, timeout_sec=self.per_tool_timeout_sec)
+                tool_end = time.perf_counter_ns()
+                if self.timing_recorder:
+                    self.timing_recorder.mark(f"{history_name}.tool_execution.{turn}.end", tool=call.name)
+                    self.timing_recorder.add_tool_call(
+                        {
+                            "stage": history_name,
+                            "turn": turn,
+                            "tool": call.name,
+                            "elapsed_sec": (tool_end - tool_start) / 1_000_000_000,
+                            "ok": observation.ok,
+                        }
+                    )
                 messages.append({"role": "user", "content": observation.as_message_content()})
                 append_jsonl(
                     trajectory_path,
@@ -173,8 +233,12 @@ class HeadlessClineRuntime:
                 )
                 if call.name == "attempt_completion":
                     self.timeline.append(f"{history_name}.complete", f"{history_name} ended with attempt_completion.")
+                    if self.timing_recorder:
+                        self.timing_recorder.mark(f"{history_name}.rollout.end", completed=True)
                     return RolloutResult(history_name, True, None, turn, parse_failures, messages)
 
         failure = f"{history_name}.rollout.max_turns_exceeded"
         self.timeline.append(f"{history_name}.failed", f"{history_name} exceeded {max_turns} turns.", {"failure_class": failure})
+        if self.timing_recorder:
+            self.timing_recorder.mark(f"{history_name}.rollout.end", completed=False, failure_class=failure)
         return RolloutResult(history_name, False, failure, max_turns, parse_failures, messages)

@@ -64,6 +64,12 @@ def build_parser() -> argparse.ArgumentParser:
     scripted_e2e.add_argument("--run-id", default=None)
     scripted_e2e.add_argument("--output-root", default=None)
 
+    fresh_timing = sub.add_parser("fresh-e2e-timing", help="Run one fresh no-reuse two-turn timing experiment for test_ClassEval_76.")
+    fresh_timing.add_argument("--remote-config", required=True, help="Remote verifier config YAML.")
+    fresh_timing.add_argument("--run-uuid", default=None)
+    fresh_timing.add_argument("--kst-timestamp", default=None)
+    fresh_timing.add_argument("--gpu-device", type=int, default=2)
+
     sync = sub.add_parser("sync-artifacts", help="Build or copy a selective artifact replication manifest.")
     sync.add_argument("--source-root", required=True)
     sync.add_argument("--destination-root", default=None)
@@ -232,6 +238,23 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0 if result.get("final_status") in {"accepted", "rejected", "uncertain"} else 2
+
+    if args.command == "fresh-e2e-timing":
+        from pathlib import Path
+        from .fresh_timing import run_fresh_timing
+
+        try:
+            result = run_fresh_timing(
+                remote_config=Path(args.remote_config),
+                run_uuid=args.run_uuid,
+                kst_timestamp=args.kst_timestamp,
+                gpu_device=args.gpu_device,
+            )
+        except (ConfigError, InfraError, ValueError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0 if result.get("result", {}).get("final_status") in {"accepted", "rejected", "uncertain"} else 2
 
     if args.command == "sync-artifacts":
         from pathlib import Path

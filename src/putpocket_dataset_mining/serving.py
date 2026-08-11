@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,6 +50,7 @@ class LocalVLLMEngine:
         gpu_memory_utilization: float = 0.85,
         max_num_seqs: int = 1,
         enforce_eager: bool = True,
+        enable_prefix_caching: bool | None = None,
     ) -> None:
         self.model_id = model_id
         self.gpu_devices = list(gpu_devices) if gpu_devices is not None else [ALLOWED_CUDA_DEVICES[0]]
@@ -59,8 +61,14 @@ class LocalVLLMEngine:
         self.gpu_memory_utilization = gpu_memory_utilization
         self.max_num_seqs = max_num_seqs
         self.enforce_eager = enforce_eager
+        self.enable_prefix_caching = enable_prefix_caching
         self._llm: Any | None = None
         self._sampling_params_cls: Any | None = None
+        self.initialized_at_monotonic_ns: int | None = None
+        self.ready_at_monotonic_ns: int | None = None
+        self.controller_pid = os.getpid()
+        self.engine_pid: int | None = None
+        self.worker_pids: list[int] = []
 
     @property
     def llm(self) -> Any:
@@ -73,17 +81,26 @@ class LocalVLLMEngine:
                 raise DependencyError("vLLM is required for dataset mining generation.") from exc
             try:
                 self._sampling_params_cls = SamplingParams
+                self.initialized_at_monotonic_ns = time.perf_counter_ns()
+                llm_kwargs: dict[str, Any] = {
+                    "model": self.model_id,
+                    "download_dir": str(self.cache_dir),
+                    "tensor_parallel_size": self.tensor_parallel_size,
+                    "pipeline_parallel_size": self.pipeline_parallel_size,
+                    "max_model_len": self.max_model_len,
+                    "gpu_memory_utilization": self.gpu_memory_utilization,
+                    "max_num_seqs": self.max_num_seqs,
+                    "enforce_eager": self.enforce_eager,
+                    "trust_remote_code": True,
+                }
+                if self.enable_prefix_caching is not None:
+                    llm_kwargs["enable_prefix_caching"] = self.enable_prefix_caching
                 self._llm = LLM(
-                    model=self.model_id,
-                    download_dir=str(self.cache_dir),
-                    tensor_parallel_size=self.tensor_parallel_size,
-                    pipeline_parallel_size=self.pipeline_parallel_size,
-                    max_model_len=self.max_model_len,
-                    gpu_memory_utilization=self.gpu_memory_utilization,
-                    max_num_seqs=self.max_num_seqs,
-                    enforce_eager=self.enforce_eager,
-                    trust_remote_code=True,
+                    **llm_kwargs,
                 )
+                self.ready_at_monotonic_ns = time.perf_counter_ns()
+                self.worker_pids = _child_pids(os.getpid())
+                self.engine_pid = _select_engine_pid(self.worker_pids) or os.getpid()
             except Exception as exc:  # noqa: BLE001 - preserve engine load failure.
                 raise InfraError(f"Failed to initialize local vLLM engine for {self.model_id}: {exc}") from exc
         return self._llm
@@ -132,7 +149,35 @@ class LocalVLLMEngine:
                 "gpu_memory_utilization": self.gpu_memory_utilization,
                 "max_num_seqs": self.max_num_seqs,
                 "enforce_eager": self.enforce_eager,
+                "enable_prefix_caching": self.enable_prefix_caching,
+                "skip_reading_prefix_cache": self.enable_prefix_caching is False,
+                "prefix_cache_hit_tokens": 0 if self.enable_prefix_caching is False else None,
                 "elapsed_sec": elapsed,
                 "gpu_devices": self.gpu_devices,
             },
         )
+
+
+def _child_pids(pid: int) -> list[int]:
+    try:
+        output = subprocess.check_output(["pgrep", "-P", str(pid)], text=True, stderr=subprocess.DEVNULL)
+    except Exception:  # noqa: BLE001
+        return []
+    pids: list[int] = []
+    for line in output.splitlines():
+        try:
+            pids.append(int(line.strip()))
+        except ValueError:
+            continue
+    return pids
+
+
+def _select_engine_pid(pids: list[int]) -> int | None:
+    for pid in pids:
+        try:
+            cmd = subprocess.check_output(["ps", "-p", str(pid), "-o", "args="], text=True, stderr=subprocess.DEVNULL)
+        except Exception:  # noqa: BLE001
+            continue
+        if "EngineCore" in cmd or "SpawnProcess" in cmd:
+            return pid
+    return pids[0] if pids else None

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 from .errors import ConfigError
@@ -149,6 +150,17 @@ class ExecutionConfig:
     @classmethod
     def from_env_and_mapping(cls, mapping: dict[str, Any] | None = None) -> "ExecutionConfig":
         mapping = mapping or {}
+        remote_config_path = (
+            mapping.get("remote_config")
+            or mapping.get("remote_config_path")
+            or (mapping.get("verifier", {}).get("remote_config") if isinstance(mapping.get("verifier"), dict) else None)
+            or os.environ.get("SR_REMOTE_CONFIG")
+        )
+        remote_mapping: dict[str, Any] | None = None
+        if remote_config_path:
+            from .config import load_yaml
+
+            remote_mapping = _remote_mapping_from_config(load_yaml(Path(str(remote_config_path))))
 
         def pick(key: str, env: str, default: str) -> str:
             return str(mapping.get(key) or os.environ.get(env) or default)
@@ -166,15 +178,15 @@ class ExecutionConfig:
             cuda_arch_list=str(mapping.get("cuda_arch_list") or os.environ.get("SR_CUDA_ARCH_LIST") or "") or None,
             verifier_timeout_sec=int(mapping.get("verifier_timeout_sec") or os.environ.get("SR_VERIFIER_TIMEOUT_SEC") or DEFAULT_VERIFIER_TIMEOUT_SEC),
             verifier_remote_grace_sec=int(mapping.get("verifier_remote_grace_sec") or os.environ.get("SR_VERIFIER_REMOTE_GRACE_SEC") or DEFAULT_VERIFIER_REMOTE_GRACE_SEC),
-            remote=RemoteDockerConfig.from_env_and_mapping(mapping.get("remote") if isinstance(mapping.get("remote"), dict) else None),
+            remote=RemoteDockerConfig.from_env_and_mapping(
+                remote_mapping
+                or (mapping.get("remote") if isinstance(mapping.get("remote"), dict) else None)
+            ),
         )
 
     @classmethod
     def from_remote_verifier_mapping(cls, mapping: dict[str, Any]) -> "ExecutionConfig":
-        target = mapping.get("target") if isinstance(mapping.get("target"), dict) else {}
-        remote = dict(mapping)
-        remote.pop("target", None)
-        remote.update(target)
+        remote = _remote_mapping_from_config(mapping)
         verifier = mapping.get("verifier") if isinstance(mapping.get("verifier"), dict) else {}
         timeout_sec = mapping.get("timeout_sec") or verifier.get("timeout_sec")
         return cls.from_env_and_mapping(
@@ -222,6 +234,14 @@ class ExecutionConfig:
 
 def _looks_like_runpod() -> bool:
     return any(os.environ.get(name) for name in ("RUNPOD_POD_ID", "RUNPOD_PUBLIC_IP", "RUNPOD_DC_ID"))
+
+
+def _remote_mapping_from_config(mapping: dict[str, Any]) -> dict[str, Any]:
+    target = mapping.get("target") if isinstance(mapping.get("target"), dict) else {}
+    remote = dict(mapping)
+    remote.pop("target", None)
+    remote.update(target)
+    return remote
 
 
 def cuda_arch_for_profile(profile: HardwareProfile | str) -> str | None:

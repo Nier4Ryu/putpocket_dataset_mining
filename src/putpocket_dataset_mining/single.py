@@ -19,6 +19,7 @@ from .runtime import EpisodeTimeline, HeadlessClineRuntime, RolloutResult
 from .serving import GenerationEngine, LocalVLLMEngine
 from .storage import AttemptRecord, DatasetMaterializer, MiningIndex
 from .verifier import HiddenVerifier, VerificationResult
+from .ssh_transport import SshRsyncTransport
 
 
 class SingleSampleRunner:
@@ -26,6 +27,7 @@ class SingleSampleRunner:
         self.config = config
         self.config_path = config_path
         self.execution_config = ExecutionConfig.from_env_and_mapping(config.get("execution", {}))
+        self._remote_preflight_passed = False
 
     @classmethod
     def from_config_path(cls, path: str | Path) -> "SingleSampleRunner":
@@ -68,7 +70,11 @@ class SingleSampleRunner:
         ensure_data_dirs()
         run_id = run_id or f"run_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}_{uuid.uuid4().hex[:8]}"
         attempt_id = attempt_id or f"attempt_{uuid.uuid4().hex[:12]}"
-        attempt_dir = RUNS_ROOT / run_id / "samples" / task.sample_id / attempt_id
+        output_root_cfg = self.config.get("run", {}).get("output_root")
+        output_root = Path(output_root_cfg) if output_root_cfg else RUNS_ROOT
+        if not output_root.is_absolute():
+            output_root = REPO_ROOT / output_root
+        attempt_dir = output_root / run_id / "samples" / task.sample_id / attempt_id
         attempt_dir.mkdir(parents=True, exist_ok=True)
         timeline = EpisodeTimeline(attempt_dir)
         timeline.append("attempt.start", f"Starting sample {task.sample_id}.")
@@ -98,6 +104,7 @@ class SingleSampleRunner:
                     build_if_missing=bool(self.config.get("docker", {}).get("build_if_missing", True)),
                     timeout_sec=int(self.config.get("docker", {}).get("timeouts", {}).get("image_build_sec", 900)),
                 )
+            self._preflight_remote_verifier_if_needed(docker_image)
 
             workspace_dir = attempt_dir / "workspace"
             self._create_initial_workspace(workspace_dir, task)
@@ -154,6 +161,13 @@ class SingleSampleRunner:
 
                 verifier = self._verifier(attempt_dir, docker_image)
                 verification1 = verifier.verify("history1", attempt_dir / "workspace_snapshots" / "after_history1", task)
+                if not verification1.passed:
+                    summary["failure_class"] = verification1.failure_class
+                    self._write_skipped_history2_artifacts(attempt_dir, "history1 verification did not pass")
+                    self._write_skipped_verification(attempt_dir, "history2", "history2.skipped")
+                    CodexJudge(attempt_dir).write_skipped("history1 verification did not pass")
+                    summary["final_status"] = "rejected"
+                    return self._finalize(attempt_dir, summary, task, write_index)
 
                 messages2, query2, policy_delta = preparer.prepare_history2(task, query1, history1.messages)
                 summary["query2"] = query2
@@ -238,15 +252,24 @@ class SingleSampleRunner:
     def _verifier(self, attempt_dir: Path, docker_image: str) -> HiddenVerifier:
         docker_cfg = self.config.get("docker", {})
         verifier_cfg = self.config.get("verifier", {})
+        timeout_sec = verifier_cfg.get("timeout_sec") or self.execution_config.verifier_timeout_sec
         return HiddenVerifier(
             attempt_dir=attempt_dir,
             docker_image=docker_image,
             cpus=docker_cfg.get("cpus", 8),
             memory=docker_cfg.get("memory", "8g"),
             test_command=verifier_cfg.get("test_command", "pytest -q tests/test_solution.py"),
-            timeout_sec=int(docker_cfg.get("timeouts", {}).get("per_tool_command_sec", 120)),
+            timeout_sec=int(timeout_sec),
             execution_config=self.execution_config,
         )
+
+    def _preflight_remote_verifier_if_needed(self, docker_image: str) -> None:
+        if self.execution_config.verifier_backend != DockerBackend.REMOTE_SSH_DOCKER or self._remote_preflight_passed:
+            return
+        result = SshRsyncTransport(self.execution_config.remote).lightweight_preflight(docker_image)
+        if result.status != "REMOTE_DOCKER_PREFLIGHT_PASSED":
+            raise InfraError(f"REMOTE_DOCKER_PREFLIGHT_FAILED: {result.detail or result.error_class or 'unknown remote preflight failure'}")
+        self._remote_preflight_passed = True
 
     def _judge_and_decide(
         self,
@@ -259,6 +282,9 @@ class SingleSampleRunner:
             reason = "unit tests failed; judge skipped"
             judge.write_skipped(reason)
             return "rejected", verification1.failure_class or verification2.failure_class
+        if not bool(self.config.get("judge", {}).get("enabled", True)):
+            judge.write_skipped("judge disabled by configuration")
+            return "accepted", None
 
         prepared = attempt_dir / "prepared"
         result = judge.run(

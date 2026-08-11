@@ -103,6 +103,21 @@ class ChatTemplateRenderer:
         return self._tokenizer
 
     def render(self, messages: list[Message]) -> RenderedPrompt:
+        if self.model_id == "scripted-two-turn-engine":
+            rendered = "\n".join(f"{message['role'].upper()}: {message['content']}" for message in messages) + "\nASSISTANT:"
+            prompt_hash = hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+            return RenderedPrompt(
+                rendered_prompt=rendered,
+                metadata={
+                    "model_id": self.model_id,
+                    "chat_template_applied_inside_putpocket": False,
+                    "vllm_internal_chat_template_allowed": False,
+                    "tokenizer_class": "offline_scripted_renderer",
+                    "prompt_sha256": prompt_hash,
+                    "token_count": len(rendered.split()),
+                    "add_generation_prompt": True,
+                },
+            )
         tokenizer = self.tokenizer
         rendered = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         token_ids = tokenizer.encode(rendered, add_special_tokens=False)

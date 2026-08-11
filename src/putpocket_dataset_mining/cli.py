@@ -59,6 +59,11 @@ def build_parser() -> argparse.ArgumentParser:
     remote_test.add_argument("--output-dir", default=None)
     remote_test.add_argument("--dry-run", action="store_true")
 
+    scripted_e2e = sub.add_parser("scripted-two-turn-e2e", help="Run a disposable two-turn E2E with scripted model output and configured verifier transport.")
+    scripted_e2e.add_argument("--remote-config", required=True, help="Remote verifier config YAML.")
+    scripted_e2e.add_argument("--run-id", default=None)
+    scripted_e2e.add_argument("--output-root", default=None)
+
     sync = sub.add_parser("sync-artifacts", help="Build or copy a selective artifact replication manifest.")
     sync.add_argument("--source-root", required=True)
     sync.add_argument("--destination-root", default=None)
@@ -211,6 +216,22 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
+
+    if args.command == "scripted-two-turn-e2e":
+        from pathlib import Path
+        from .two_turn_e2e import run_scripted_two_turn_e2e
+
+        try:
+            result = run_scripted_two_turn_e2e(
+                remote_config=Path(args.remote_config),
+                run_id=args.run_id,
+                output_root=Path(args.output_root) if args.output_root else None,
+            )
+        except (ConfigError, InfraError, ValueError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0 if result.get("final_status") in {"accepted", "rejected", "uncertain"} else 2
 
     if args.command == "sync-artifacts":
         from pathlib import Path

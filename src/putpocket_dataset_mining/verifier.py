@@ -30,10 +30,26 @@ class VerificationResult:
     timeout: bool
     timeout_sec: int
     workspace: str
+    backend: str = "local_docker"
+    remote_job_id: str | None = None
+    remote_protocol: str | None = None
+    verifier_host: str | None = None
+    docker_image_id: str | None = None
+    workspace_sha256: str | None = None
+    result_sha256: str | None = None
+    verifier_revision: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "stage": self.stage,
+            "backend": self.backend,
+            "remote_job_id": self.remote_job_id,
+            "remote_protocol": self.remote_protocol,
+            "verifier_host": self.verifier_host,
+            "docker_image_id": self.docker_image_id,
+            "workspace_sha256": self.workspace_sha256,
+            "result_sha256": self.result_sha256,
+            "verifier_revision": self.verifier_revision,
             "checks": [
                 {
                     "name": "hidden_mbpp_pytest",
@@ -181,6 +197,10 @@ class SshRsyncVerifierTransport(VerifierTransport):
             raise InfraError("REMOTE_RESULT_INTEGRITY_FAILED: remote verifier result checksum mismatch.")
         remote_result = job_dir / "result.json"
         remote_result.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        (job_dir.parent / "remote_result.json").write_text(
+            json.dumps({"backend": "remote_ssh_docker", **payload}, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
         stdout = str(payload.get("stdout", ""))
         stderr = str(payload.get("stderr", ""))
         if not stdout and payload.get("stdout_path"):
@@ -209,6 +229,14 @@ class SshRsyncVerifierTransport(VerifierTransport):
             timeout=timeout,
             timeout_sec=int(payload.get("timeout_sec") if payload.get("timeout_sec") is not None else timeout_sec),
             workspace=str(verifier_workspace),
+            backend="remote_ssh_docker",
+            remote_job_id=str(payload.get("job_id") or job_id),
+            remote_protocol=str(payload.get("protocol_version") or manifest["protocol_version"]),
+            verifier_host=str(payload.get("verifier_host") or ""),
+            docker_image_id=str(payload.get("docker_image_id") or ""),
+            workspace_sha256=str(payload.get("workspace_sha256") or workspace_sha),
+            result_sha256=str(payload.get("result_sha256") or ""),
+            verifier_revision=str(payload.get("verifier_revision") or ""),
         )
 
 

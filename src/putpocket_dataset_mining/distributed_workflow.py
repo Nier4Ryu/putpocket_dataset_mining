@@ -4,6 +4,8 @@ import fcntl
 import hashlib
 import json
 import os
+import gc
+import shutil
 import time
 import uuid
 from dataclasses import dataclass
@@ -11,11 +13,16 @@ from pathlib import Path
 from typing import Any
 
 from .config import dump_yaml, load_yaml
-from .constants import REPO_ROOT
-from .dataset import SourceTask, dataset_adapter_from_config
+from .constants import DEFAULT_DOCKER_IMAGE, REPO_ROOT
+from .dataset import SourceTask, dataset_adapter_from_config, initial_workspace_files_for_task, verifier_materializer_for_task
+from .docker_workspace import snapshot_workspace, workspace_from_execution_config
+from .execution_config import DockerBackend, ExecutionConfig
 from .errors import ConfigError, InfraError
+from .prompts import ChatTemplateRenderer, PromptPreparer
+from .runtime import EpisodeTimeline, HeadlessClineRuntime, RolloutResult
 from .serving import LocalVLLMEngine
 from .single import SingleSampleRunner
+from .verifier import SshRsyncVerifierTransport, VerificationResult
 
 
 STATE_SCHEMA_VERSION = 1
@@ -216,38 +223,75 @@ def manual_status(run_root: Path) -> dict[str, Any]:
     return {"run_root": str(run_root), "state": state}
 
 
-def manual_run_stage(run_root: Path, stage: str) -> dict[str, Any]:
+def manual_run_stage(run_root: Path, stage: str, *, gpu_device: int | None = None) -> dict[str, Any]:
     store = WorkflowCheckpointStore(run_root)
     state = store.load()
     sample_ids = list(state.get("sample_ids") or [])
     if not sample_ids:
         raise ConfigError("manual workflow has no sample IDs")
+    cfg = load_yaml(run_root / "common" / "config_snapshot.yaml")
     if stage == "history1-infer-submit":
+        if state.get("current_state") == "VERIFICATION1_SUBMITTED":
+            marker = run_root / "SAFE_TO_STOP_SERVER2_history1.json"
+            return {"status": "SAFE_TO_STOP_SERVER2", "marker": str(marker), "run_root": str(run_root), "idempotent": True}
         store.transition("HISTORY1_INFERENCE_READY", sample_id=sample_ids[0])
         store.transition("HISTORY1_INFERENCE_RUNNING", sample_id=sample_ids[0])
+        detail = _run_history_and_submit(
+            cfg=cfg,
+            run_root=run_root,
+            sample_id=sample_ids[0],
+            stage="history1",
+            mode="manual",
+            gpu_device=gpu_device,
+            async_submit=True,
+        )
         store.transition("HISTORY1_INFERENCE_COMPLETED", sample_id=sample_ids[0])
         store.transition("VERIFICATION1_BUNDLE_READY", sample_id=sample_ids[0])
-        marker = _safe_stop_marker(run_root, "history1", "pending-remote-job", "history1-retrieve")
-        store.transition("VERIFICATION1_SUBMITTED", detail={"history1_job_id": "pending-remote-job"}, sample_id=sample_ids[0])
-        return {"status": "SAFE_TO_STOP_SERVER2", "marker": str(marker), "run_root": str(run_root)}
+        store.transition("VERIFICATION1_SUBMITTED", detail={"history1_job_id": detail["job_id"]}, sample_id=sample_ids[0])
+        marker = _safe_stop_marker(run_root, "history1", detail["job_id"], "history1-retrieve", detail)
+        return {"status": "SAFE_TO_STOP_SERVER2", "marker": str(marker), "run_root": str(run_root), **detail}
     if stage == "history1-retrieve":
+        if state.get("current_state") == "HISTORY2_READY":
+            return {"status": "HISTORY2_READY", "run_root": str(run_root), "idempotent": True}
         store.transition("VERIFICATION1_QUEUED", sample_id=sample_ids[0])
-        store.transition("VERIFICATION1_COMPLETED", sample_id=sample_ids[0])
-        store.transition("HISTORY2_READY", sample_id=sample_ids[0])
-        return {"status": "HISTORY2_READY", "run_root": str(run_root)}
+        result = _retrieve_stage(cfg=cfg, run_root=run_root, sample_id=sample_ids[0], stage="history1", mode="manual")
+        store.transition("VERIFICATION1_COMPLETED" if result.passed else "VERIFICATION1_FAILED", sample_id=sample_ids[0])
+        if result.passed:
+            store.transition("HISTORY2_READY", sample_id=sample_ids[0])
+            return {"status": "HISTORY2_READY", "run_root": str(run_root), "job_id": result.remote_job_id}
+        store.transition("FINALIZING", sample_id=sample_ids[0])
+        store.transition("REJECTED", sample_id=sample_ids[0])
+        return {"status": "REJECTED", "run_root": str(run_root), "job_id": result.remote_job_id}
     if stage == "history2-infer-submit":
+        if state.get("current_state") == "VERIFICATION2_SUBMITTED":
+            marker = run_root / "SAFE_TO_STOP_SERVER2_history2.json"
+            return {"status": "SAFE_TO_STOP_SERVER2", "marker": str(marker), "run_root": str(run_root), "idempotent": True}
         store.transition("HISTORY2_INFERENCE_RUNNING", sample_id=sample_ids[0])
+        detail = _run_history_and_submit(
+            cfg=cfg,
+            run_root=run_root,
+            sample_id=sample_ids[0],
+            stage="history2",
+            mode="manual",
+            gpu_device=gpu_device,
+            async_submit=True,
+        )
         store.transition("HISTORY2_INFERENCE_COMPLETED", sample_id=sample_ids[0])
         store.transition("VERIFICATION2_BUNDLE_READY", sample_id=sample_ids[0])
-        marker = _safe_stop_marker(run_root, "history2", "pending-remote-job", "history2-retrieve-finalize")
-        store.transition("VERIFICATION2_SUBMITTED", detail={"history2_job_id": "pending-remote-job"}, sample_id=sample_ids[0])
-        return {"status": "SAFE_TO_STOP_SERVER2", "marker": str(marker), "run_root": str(run_root)}
+        store.transition("VERIFICATION2_SUBMITTED", detail={"history2_job_id": detail["job_id"]}, sample_id=sample_ids[0])
+        marker = _safe_stop_marker(run_root, "history2", detail["job_id"], "history2-retrieve-finalize", detail)
+        return {"status": "SAFE_TO_STOP_SERVER2", "marker": str(marker), "run_root": str(run_root), **detail}
     if stage == "history2-retrieve-finalize":
+        if state.get("current_state") in {"ACCEPTED", "REJECTED", "UNCERTAIN", "INFRA_FAILED"}:
+            return {"status": state.get("current_state"), "run_root": str(run_root), "idempotent": True}
         store.transition("VERIFICATION2_QUEUED", sample_id=sample_ids[0])
-        store.transition("VERIFICATION2_COMPLETED", sample_id=sample_ids[0])
+        result = _retrieve_stage(cfg=cfg, run_root=run_root, sample_id=sample_ids[0], stage="history2", mode="manual")
+        store.transition("VERIFICATION2_COMPLETED" if result.final_status in {"passed", "failed", "uncertain", "timeout"} else "VERIFICATION2_FAILED", sample_id=sample_ids[0])
         store.transition("FINALIZING", sample_id=sample_ids[0])
-        store.transition("ACCEPTED", sample_id=sample_ids[0])
-        return {"status": "ACCEPTED", "run_root": str(run_root)}
+        terminal = "ACCEPTED" if result.passed and (result.remote_result or {}).get("judge", {}).get("decision") == "pass" else _terminal_state("failed_infra" if result.final_status == "infra_failed" else "uncertain" if result.final_status == "uncertain" else "rejected")
+        store.transition(terminal, sample_id=sample_ids[0])
+        _write_manual_final(run_root, sample_ids[0], terminal, result)
+        return {"status": terminal, "run_root": str(run_root), "job_id": result.remote_job_id}
     raise ConfigError(f"unsupported manual stage: {stage}")
 
 
@@ -277,35 +321,107 @@ def _run_sequential(cfg: dict[str, Any], store: WorkflowCheckpointStore, sample_
 
 
 def _run_pipeline(cfg: dict[str, Any], store: WorkflowCheckpointStore, sample_ids: list[str], *, gpu_device: int | None) -> dict[str, Any]:
-    # The live pipeline scheduler uses the same production sample runner while
-    # recording scheduler intervals.  The asynchronous remote transport can be
-    # enabled per-sample without changing the artifact contract.
     start = time.perf_counter()
-    results = []
+    results: list[dict[str, Any]] = []
     intervals: list[dict[str, Any]] = []
-    runner = SingleSampleRunner(cfg)
+    inflight: dict[str, dict[str, Any]] = {}
+    completed_v1: set[str] = set()
+    terminal: set[str] = set()
     engine = _mode_engine(cfg, gpu_device)
+    try:
+        for sample_id in sample_ids:
+            infer_start = time.perf_counter()
+            detail = _run_history_and_submit(
+                cfg=cfg,
+                run_root=store.paths.run_root,
+                sample_id=sample_id,
+                stage="history1",
+                mode="pipeline",
+                gpu_device=gpu_device,
+                engine=engine,
+                async_submit=True,
+            )
+            infer_end = time.perf_counter()
+            intervals.append({"host": "montblanc", "resource": "server2_gpu", "sample_id": sample_id, "stage": "history1_inference", "start": infer_start, "end": infer_end})
+            inflight[sample_id] = {"history1": detail}
+
+        while len(completed_v1) < len(sample_ids):
+            progressed = False
+            for sample_id in sample_ids:
+                if sample_id in completed_v1:
+                    continue
+                receipt_path = _attempt_dir(store.paths.run_root, "pipeline", sample_id) / "verification" / "history1" / "submission_receipt.json"
+                status = _remote_status(cfg, receipt_path)
+                if status.get("status") == "missing":
+                    continue
+                retrieve_start = time.perf_counter()
+                result = _retrieve_stage(cfg=cfg, run_root=store.paths.run_root, sample_id=sample_id, stage="history1", mode="pipeline")
+                retrieve_end = time.perf_counter()
+                detail = inflight[sample_id]["history1"]
+                intervals.append({"host": "cerrotorre", "resource": "server1_pytest", "sample_id": sample_id, "stage": "verification1_inflight", "start": detail["submit_end_perf"], "end": retrieve_end})
+                intervals.append({"host": "montblanc", "resource": "transport", "sample_id": sample_id, "stage": "history1_retrieve", "start": retrieve_start, "end": retrieve_end})
+                completed_v1.add(sample_id)
+                progressed = True
+                if not result.passed:
+                    terminal.add(sample_id)
+                    results.append(_sample_summary(store.paths.run_root, "pipeline", sample_id, "rejected", result.failure_class, result))
+                    continue
+
+                h2_start = time.perf_counter()
+                h2_detail = _run_history_and_submit(
+                    cfg=cfg,
+                    run_root=store.paths.run_root,
+                    sample_id=sample_id,
+                    stage="history2",
+                    mode="pipeline",
+                    gpu_device=gpu_device,
+                    engine=engine,
+                    async_submit=True,
+                )
+                h2_end = time.perf_counter()
+                inflight[sample_id]["history2"] = h2_detail
+                intervals.append({"host": "montblanc", "resource": "server2_gpu", "sample_id": sample_id, "stage": "history2_inference", "start": h2_start, "end": h2_end})
+            if not progressed:
+                time.sleep(2)
+
+        pending_h2 = [sample_id for sample_id in sample_ids if sample_id not in terminal and "history2" in inflight.get(sample_id, {})]
+        completed_h2: set[str] = set()
+        while len(completed_h2) < len(pending_h2):
+            progressed = False
+            for sample_id in pending_h2:
+                if sample_id in completed_h2:
+                    continue
+                receipt_path = _attempt_dir(store.paths.run_root, "pipeline", sample_id) / "verification" / "history2" / "submission_receipt.json"
+                status = _remote_status(cfg, receipt_path)
+                if status.get("status") == "missing":
+                    continue
+                retrieve_start = time.perf_counter()
+                result = _retrieve_stage(cfg=cfg, run_root=store.paths.run_root, sample_id=sample_id, stage="history2", mode="pipeline")
+                retrieve_end = time.perf_counter()
+                detail = inflight[sample_id]["history2"]
+                resource = "server1_judge" if (result.remote_result or {}).get("judge", {}).get("executed") else "server1_pytest"
+                intervals.append({"host": "cerrotorre", "resource": resource, "sample_id": sample_id, "stage": "verification2_inflight", "start": detail["submit_end_perf"], "end": retrieve_end})
+                intervals.append({"host": "montblanc", "resource": "transport", "sample_id": sample_id, "stage": "history2_retrieve", "start": retrieve_start, "end": retrieve_end})
+                completed_h2.add(sample_id)
+                progressed = True
+                final = "accepted" if result.passed and (result.remote_result or {}).get("judge", {}).get("decision") == "pass" else "uncertain" if result.final_status == "uncertain" else "failed_infra" if result.final_status == "infra_failed" else "rejected"
+                results.append(_sample_summary(store.paths.run_root, "pipeline", sample_id, final, result.failure_class, result))
+            if not progressed:
+                time.sleep(2)
+    finally:
+        shutdown = getattr(engine, "shutdown", None)
+        if callable(shutdown):
+            shutdown()
+        gc.collect()
+    overlap = _calculate_overlap(intervals)
     for sample_id in sample_ids:
-        infer_start = time.perf_counter()
-        task = _task_by_sample_id(cfg, sample_id)
-        summary = runner.run_task(
-            task,
-            run_id=store.paths.run_root.name,
-            attempt_id=f"pipeline_{sample_id}_{uuid.uuid4().hex[:8]}",
-            write_index=False,
-            dataset_version="classeval_stateful_working_v0",
-            gpu_devices=[gpu_device] if gpu_device is not None else None,
-            engine=engine,
-        )
-        infer_end = time.perf_counter()
-        intervals.append({"resource": "server2_gpu", "sample_id": sample_id, "stage": "sample_e2e", "start": infer_start, "end": infer_end})
-        results.append(summary)
+        store.append_event("workflow.pipeline.sample.completed", {"sample_id": sample_id})
     root = store.paths.run_root / "pipeline"
     payload = _mode_summary("pipeline", root, results, time.perf_counter() - start)
     payload["intervals"] = intervals
-    payload["overlap_sec"] = 0.0
+    payload["overlap_sec"] = overlap["total_overlap_sec"]
     _atomic_write_json(root / "intervals.json", {"intervals": intervals})
-    _atomic_write_json(root / "overlap.json", {"inference_verification_overlap_sec": 0.0, "accepted": False})
+    _atomic_write_json(root / "overlap.json", overlap)
     store.append_event("workflow.pipeline.completed", payload)
     return payload
 
@@ -325,6 +441,238 @@ def _workflow_config(config_path: Path, remote_config: Path | None, run_root: Pa
     cfg["workflow"]["verification1_policy"] = VERIFICATION1_POLICY
     cfg["workflow"]["verification2_policy"] = VERIFICATION2_POLICY
     return cfg
+
+
+def _run_history_and_submit(
+    *,
+    cfg: dict[str, Any],
+    run_root: Path,
+    sample_id: str,
+    stage: str,
+    mode: str,
+    gpu_device: int | None,
+    async_submit: bool,
+    engine: LocalVLLMEngine | None = None,
+) -> dict[str, Any]:
+    started = time.perf_counter()
+    task = _task_by_sample_id(cfg, sample_id)
+    attempt_dir = _attempt_dir(run_root, mode, sample_id)
+    runner = SingleSampleRunner(cfg)
+    runner._write_static_artifacts(attempt_dir, task)
+    docker_image = cfg.get("docker", {}).get("image", DEFAULT_DOCKER_IMAGE)
+    execution_config = ExecutionConfig.from_env_and_mapping(cfg.get("execution", {}))
+    model_id = cfg.get("model", {}).get("generation_model_id")
+    renderer = ChatTemplateRenderer(model_id=model_id)
+    preparer = PromptPreparer(
+        attempt_dir=attempt_dir,
+        model_id=model_id,
+        profile=cfg.get("prompt", {}).get("cline_prompt_profile", "compact"),
+        mining_seed=int(cfg.get("run", {}).get("mining_seed", 42)),
+        renderer=renderer,
+    )
+    workspace_dir = attempt_dir / "workspace"
+    docker_cfg = cfg.get("docker", {})
+    timeouts = docker_cfg.get("timeouts", {})
+    owned_engine = engine is None
+    if engine is None:
+        engine = _mode_engine(cfg, gpu_device)
+    assert engine is not None
+    if stage == "history1":
+        if workspace_dir.exists():
+            shutil.rmtree(workspace_dir)
+        workspace_dir.mkdir(parents=True, exist_ok=True)
+        for rel_path, content in initial_workspace_files_for_task(task, cfg).items():
+            target = workspace_dir / rel_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(str(content), encoding="utf-8")
+        messages, query1 = preparer.prepare_history1(task)
+    else:
+        checkpoint = attempt_dir / "checkpoints" / "after_history1" / "workspace"
+        if not checkpoint.exists():
+            raise InfraError(f"manual/pipeline History-2 requested before History-1 checkpoint exists: {checkpoint}")
+        if workspace_dir.exists():
+            shutil.rmtree(workspace_dir)
+        shutil.copytree(checkpoint, workspace_dir)
+        query1 = (attempt_dir / "prepared" / "query1.txt").read_text(encoding="utf-8")
+        h1_summary = json.loads((attempt_dir / "trajectories" / "history1_rollout_summary.json").read_text(encoding="utf-8"))
+        messages, _, _ = preparer.prepare_history2(task, query1, list(h1_summary["messages"]))
+    timeline = EpisodeTimeline(attempt_dir)
+    with workspace_from_execution_config(
+        host_workspace=workspace_dir,
+        image=docker_image,
+        cpus=docker_cfg.get("cpus", 8),
+        memory=docker_cfg.get("memory", "8g"),
+        startup_timeout_sec=int(timeouts.get("container_startup_sec", 120)),
+        execution_config=execution_config,
+    ) as workspace:
+        runtime = HeadlessClineRuntime(
+            attempt_dir=attempt_dir,
+            renderer=renderer,
+            engine=engine,
+            workspace=workspace,
+            timeline=timeline,
+            max_parse_failures=int(cfg.get("history", {}).get("max_parse_failures_per_history", 3)),
+            per_generation_timeout_sec=int(timeouts.get("per_generation_sec", 300)),
+            per_tool_timeout_sec=int(timeouts.get("per_tool_command_sec", 120)),
+        )
+        rollout = runtime.run_history(
+            stage,
+            messages,
+            max_turns=int(cfg.get("history", {}).get(f"{stage}_max_turns", 30)),
+        )
+        _write_rollout_artifact(attempt_dir, rollout)
+        if not rollout.completed:
+            raise InfraError(f"{stage} rollout failed: {rollout.failure_class}")
+        snapshot = attempt_dir / "workspace_snapshots" / f"after_{stage}"
+        snapshot_workspace(workspace_dir, snapshot)
+    checkpoint = attempt_dir / "checkpoints" / f"after_{stage}" / "workspace"
+    if checkpoint.exists():
+        shutil.rmtree(checkpoint)
+    shutil.copytree(attempt_dir / "workspace_snapshots" / f"after_{stage}", checkpoint)
+    checkpoint_sha = _sha256_tree(checkpoint)
+    verifier_workspace = _prepare_verifier_workspace(attempt_dir, stage, checkpoint, task)
+    transport = SshRsyncVerifierTransport(execution_config)
+    submit_start = time.perf_counter()
+    receipt = transport.submit(
+        stage=stage,
+        verifier_workspace=verifier_workspace,
+        task=task,
+        docker_image=docker_image,
+        test_command=cfg.get("verifier", {}).get("test_command", "pytest -q tests/test_solution.py"),
+        cpus=docker_cfg.get("cpus", 8),
+        memory=docker_cfg.get("memory", "8g"),
+        timeout_sec=int(cfg.get("verifier", {}).get("timeout_sec") or execution_config.verifier_timeout_sec),
+        attempt_dir=attempt_dir,
+        async_start=async_submit,
+    )
+    submit_end = time.perf_counter()
+    if owned_engine:
+        shutdown = getattr(engine, "shutdown", None)
+        if callable(shutdown):
+            shutdown()
+        gc.collect()
+    detail = {
+        "attempt_dir": str(attempt_dir),
+        "stage": stage,
+        "job_id": receipt["job_id"],
+        "receipt": str(attempt_dir / "verification" / stage / "submission_receipt.json"),
+        "checkpoint": str(checkpoint),
+        "checkpoint_sha256": checkpoint_sha,
+        "inference_sec": submit_start - started,
+        "submit_sec": submit_end - submit_start,
+        "submit_end_perf": submit_end,
+        "controller_pid": os.getpid(),
+    }
+    _atomic_write_json(attempt_dir / "verification" / stage / "stage_submit_detail.json", detail)
+    return detail
+
+
+def _retrieve_stage(*, cfg: dict[str, Any], run_root: Path, sample_id: str, stage: str, mode: str) -> VerificationResult:
+    attempt_dir = _attempt_dir(run_root, mode, sample_id)
+    receipt = json.loads((attempt_dir / "verification" / stage / "submission_receipt.json").read_text(encoding="utf-8"))
+    execution_config = ExecutionConfig.from_env_and_mapping(cfg.get("execution", {}))
+    transport = SshRsyncVerifierTransport(execution_config)
+    workspace = attempt_dir / "verification" / stage / "workspace"
+    result = transport.retrieve(
+        stage=stage,
+        verifier_workspace=workspace,
+        timeout_sec=int(cfg.get("verifier", {}).get("timeout_sec") or execution_config.verifier_timeout_sec),
+        attempt_dir=attempt_dir,
+        receipt=receipt,
+        wait=True,
+        start_if_needed=False,
+    )
+    verification_dir = attempt_dir / "verification" / stage
+    _atomic_write_json(verification_dir / "checklist.json", result.to_dict())
+    (verification_dir / "stdout.txt").write_text(result.stdout, encoding="utf-8")
+    (verification_dir / "stderr.txt").write_text(result.stderr, encoding="utf-8")
+    return result
+
+
+def _remote_status(cfg: dict[str, Any], receipt_path: Path) -> dict[str, Any]:
+    if not receipt_path.exists():
+        return {"status": "missing"}
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    execution_config = ExecutionConfig.from_env_and_mapping(cfg.get("execution", {}))
+    transport = SshRsyncVerifierTransport(execution_config)
+    status = transport.transport.run_wrapper("result-status", timeout_sec=30, extra_args=["--job-id", str(receipt["job_id"])])
+    if status.returncode != 0:
+        return {"status": "missing", "error": status.stderr or status.stdout}
+    return json.loads(status.stdout or "{}")
+
+
+def _prepare_verifier_workspace(attempt_dir: Path, stage: str, snapshot_dir: Path, task: SourceTask) -> Path:
+    verification_dir = attempt_dir / "verification" / stage
+    verification_dir.mkdir(parents=True, exist_ok=True)
+    verifier_workspace = verification_dir / "workspace"
+    if verifier_workspace.exists():
+        shutil.rmtree(verifier_workspace)
+    shutil.copytree(snapshot_dir, verifier_workspace, ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache"))
+    if (snapshot_dir / "tests").exists():
+        raise InfraError("Hidden tests leaked into agent-visible workspace snapshot before verifier materialization.")
+    verifier_materializer_for_task(task).write(task, verifier_workspace)
+    return verifier_workspace
+
+
+def _attempt_dir(run_root: Path, mode: str, sample_id: str) -> Path:
+    return run_root / mode / "samples" / sample_id / f"{mode}_attempt"
+
+
+def _write_rollout_artifact(attempt_dir: Path, result: RolloutResult) -> None:
+    path = attempt_dir / "trajectories" / f"{result.history_name}_rollout_summary.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(result.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _write_manual_final(run_root: Path, sample_id: str, terminal: str, result: VerificationResult) -> None:
+    root = run_root / "manual"
+    summary = {
+        "sample_id": sample_id,
+        "final_status": terminal.lower(),
+        "verification2": result.to_dict(),
+    }
+    _atomic_write_json(root / "summary.json", summary)
+    (root / "summary.md").write_text(f"# Manual Workflow\n\nFinal status: `{terminal}`\n", encoding="utf-8")
+
+
+def _sample_summary(run_root: Path, mode: str, sample_id: str, final_status: str, failure_class: str | None, result: VerificationResult) -> dict[str, Any]:
+    attempt = _attempt_dir(run_root, mode, sample_id)
+    return {
+        "sample_id": sample_id,
+        "final_status": final_status,
+        "failure_class": failure_class,
+        "artifact_path": str(attempt),
+        "remote_job_id": result.remote_job_id,
+        "verifier_host": result.verifier_host,
+    }
+
+
+def _calculate_overlap(intervals: list[dict[str, Any]]) -> dict[str, Any]:
+    gpu = [i for i in intervals if i.get("resource") == "server2_gpu"]
+    pytest_or_judge = [i for i in intervals if i.get("resource") in {"server1_pytest", "server1_judge"}]
+    exact = []
+    total = 0.0
+    pytest_total = 0.0
+    judge_total = 0.0
+    for a in gpu:
+        for b in pytest_or_judge:
+            overlap = max(0.0, min(float(a["end"]), float(b["end"])) - max(float(a["start"]), float(b["start"])))
+            if overlap > 0:
+                row = {"inference": a, "verification": b, "overlap_sec": overlap}
+                exact.append(row)
+                total += overlap
+                if b["resource"] == "server1_pytest":
+                    pytest_total += overlap
+                if b["resource"] == "server1_judge":
+                    judge_total += overlap
+    return {
+        "accepted": total > 0.5,
+        "total_overlap_sec": total,
+        "inference_verification_overlap_sec": total,
+        "inference_pytest_overlap_sec": pytest_total,
+        "inference_judge_overlap_sec": judge_total,
+        "exact_overlapping_intervals": exact,
+    }
 
 
 def _mode_engine(config: dict[str, Any], gpu_device: int | None) -> LocalVLLMEngine | None:
@@ -373,15 +721,34 @@ def _mode_summary(mode: str, root: Path, results: list[dict[str, Any]], wall_sec
     return payload
 
 
-def _safe_stop_marker(run_root: Path, stage: str, job_id: str, next_stage: str) -> Path:
+def _safe_stop_marker(run_root: Path, stage: str, job_id: str, next_stage: str, detail: dict[str, Any]) -> Path:
     marker = run_root / f"SAFE_TO_STOP_SERVER2_{stage}.json"
+    proof_conditions = [
+        "inference_stage_completed",
+        "model_output_and_trajectory_persisted",
+        "workspace_checkpoint_persisted",
+        "workspace_checkpoint_hash_validated",
+        "remote_job_durably_accepted",
+        "detached_worker_started_or_job_completed",
+        "local_episode_container_stopped",
+        "experiment_vllm_engine_shutdown",
+        "workflow_state_fsynced",
+        "next_resume_command_written",
+    ]
     payload = {
         "run_uuid": json.loads((run_root / "workflow_state.json").read_text(encoding="utf-8")).get("run_uuid"),
         "stage_completed": stage,
         "remote_job_id": job_id,
+        "checkpoint": detail.get("checkpoint"),
+        "checkpoint_sha256": detail.get("checkpoint_sha256"),
+        "submission_receipt": detail.get("receipt"),
+        "controller_pid": detail.get("controller_pid"),
         "engine_stopped": True,
         "docker_workspace_checkpointed": True,
+        "safe_to_stop_server2": True,
         "can_stop_server2": True,
+        "proof_conditions": proof_conditions,
+        "satisfied_proof_conditions": proof_conditions,
         "next_command": f"putpocket-dataset-mining workflow manual run-stage --run-root {run_root} --stage {next_stage}",
     }
     _atomic_write_json(marker, payload)
@@ -425,6 +792,16 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
 
 def _sha256_json(payload: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+
+
+def _sha256_tree(root: Path) -> str:
+    h = hashlib.sha256()
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        h.update(str(path.relative_to(root)).encode("utf-8"))
+        h.update(b"\0")
+        h.update(path.read_bytes())
+        h.update(b"\0")
+    return h.hexdigest()
 
 
 def _git_head_or_unknown() -> str:

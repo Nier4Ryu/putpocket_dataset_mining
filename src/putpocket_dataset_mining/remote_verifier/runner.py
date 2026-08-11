@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import fcntl
 import json
 import subprocess
 import shlex
@@ -92,48 +93,55 @@ def verify(job_id: str) -> dict[str, Any]:
         shutil.rmtree(running)
     ready.replace(running)
     total_start = time.monotonic()
-    start = time.monotonic()
-    result = run_verifier_container(
-        running / "workspace",
-        str(manifest["docker_image"]),
-        _test_command(manifest.get("test_command", "pytest -q tests/test_solution.py")),
-        cpus=manifest.get("cpus", 8),
-        memory=str(manifest.get("memory", "8g")),
-        timeout_sec=int(manifest.get("timeout_sec", DEFAULT_VERIFIER_TIMEOUT_SEC)),
-    )
-    pytest_wall = time.monotonic() - start
-    policy = str(manifest.get("verification_policy") or ("history2_pytest_then_judge" if manifest.get("verifier_stage") == "history2" else "history1_pytest_only"))
-    pytest_status = "passed" if result.returncode == 0 else "timeout" if result.timeout else "failed"
-    status = pytest_status
-    judge_payload: dict[str, Any] = {
-        "executed": False,
-        "backend": "codex_cli",
-        "decision": None,
-        "infrastructure_status": None,
-        "reason": "not run",
-        "wall_time_sec": None,
-        "stdout_file": None,
-        "stderr_file": None,
-        "decision_file": None,
-        "checksum": None,
-    }
-    judge_result = None
-    if policy == "history2_pytest_then_judge" and pytest_status == "passed":
-        judge_result = _run_remote_judge(running, result.returncode, manifest)
-        judge_payload = judge_result["judge"]
-        decision = judge_payload.get("decision")
-        if judge_payload.get("infrastructure_status") == "infra_failed":
-            status = "infra_failed"
-        elif decision == "pass":
-            status = "passed"
-        elif decision == "fail":
-            status = "failed"
-        elif decision == "uncertain":
-            status = "uncertain"
-        else:
-            status = "infra_failed"
-    elif policy == "history2_pytest_then_judge":
-        judge_payload["reason"] = "pytest did not pass"
+    queue_wait_start = time.monotonic()
+    lock_path = job_dir("locks", "worker.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("w", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        queue_wait_sec = time.monotonic() - queue_wait_start
+        start = time.monotonic()
+        result = run_verifier_container(
+            running / "workspace",
+            str(manifest["docker_image"]),
+            _test_command(manifest.get("test_command", "pytest -q tests/test_solution.py")),
+            cpus=manifest.get("cpus", 8),
+            memory=str(manifest.get("memory", "8g")),
+            timeout_sec=int(manifest.get("timeout_sec", DEFAULT_VERIFIER_TIMEOUT_SEC)),
+        )
+        pytest_wall = time.monotonic() - start
+        policy = str(manifest.get("verification_policy") or ("history2_pytest_then_judge" if manifest.get("verifier_stage") == "history2" else "history1_pytest_only"))
+        pytest_status = "passed" if result.returncode == 0 else "timeout" if result.timeout else "failed"
+        status = pytest_status
+        judge_payload: dict[str, Any] = {
+            "executed": False,
+            "backend": "codex_cli",
+            "decision": None,
+            "infrastructure_status": None,
+            "reason": "not run",
+            "wall_time_sec": None,
+            "stdout_file": None,
+            "stderr_file": None,
+            "decision_file": None,
+            "checksum": None,
+        }
+        judge_result = None
+        if policy == "history2_pytest_then_judge" and pytest_status == "passed":
+            judge_result = _run_remote_judge(running, result.returncode, manifest)
+            judge_payload = judge_result["judge"]
+            decision = judge_payload.get("decision")
+            if judge_payload.get("infrastructure_status") == "infra_failed":
+                status = "infra_failed"
+            elif decision == "pass":
+                status = "passed"
+            elif decision == "fail":
+                status = "failed"
+            elif decision == "uncertain":
+                status = "uncertain"
+            else:
+                status = "infra_failed"
+        elif policy == "history2_pytest_then_judge":
+            judge_payload["reason"] = "pytest did not pass"
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
     completed.parent.mkdir(parents=True, exist_ok=True)
     running.replace(completed)
     (completed / "stdout.txt").write_text(result.stdout, encoding="utf-8")
@@ -166,6 +174,12 @@ def verify(job_id: str) -> dict[str, Any]:
         "wall_time_sec": pytest_wall,
         "pytest": pytest_payload,
         "judge": judge_payload,
+        "server1_timing": {
+            "queue_wait_sec": queue_wait_sec,
+            "pytest_sec": pytest_wall,
+            "judge_sec": judge_payload.get("wall_time_sec"),
+            "wrapper_total_sec": time.monotonic() - total_start,
+        },
         "final": {
             "status": status,
             "failure_class": None if status == "passed" else "verifier.timeout" if result.timeout else "judge.infra_failed" if status == "infra_failed" else "judge.uncertain" if status == "uncertain" else "verifier.failed",

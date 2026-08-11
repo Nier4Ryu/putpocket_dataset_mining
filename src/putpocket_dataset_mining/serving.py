@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import atexit
+import gc
+import signal
 import subprocess
 import time
 from dataclasses import dataclass
@@ -69,6 +72,8 @@ class LocalVLLMEngine:
         self.controller_pid = os.getpid()
         self.engine_pid: int | None = None
         self.worker_pids: list[int] = []
+        self._shutdown_done = False
+        atexit.register(self.shutdown)
 
     @property
     def llm(self) -> Any:
@@ -157,6 +162,36 @@ class LocalVLLMEngine:
             },
         )
 
+    def shutdown(self) -> None:
+        """Best-effort teardown for experiment-owned vLLM resources."""
+        if self._shutdown_done:
+            return
+        self._shutdown_done = True
+        llm = self._llm
+        self._llm = None
+        for attr in ("shutdown", "close"):
+            method = getattr(llm, attr, None) if llm is not None else None
+            if callable(method):
+                try:
+                    method()
+                except Exception:
+                    pass
+                break
+        engine = getattr(llm, "llm_engine", None) if llm is not None else None
+        shutdown = getattr(engine, "shutdown", None)
+        if callable(shutdown):
+            try:
+                shutdown()
+            except Exception:
+                pass
+        gc.collect()
+        for pid in list(self.worker_pids):
+            _terminate_child_pid(pid, self.controller_pid)
+        self.worker_pids = []
+
+    def __del__(self) -> None:
+        self.shutdown()
+
 
 def _child_pids(pid: int) -> list[int]:
     try:
@@ -181,3 +216,27 @@ def _select_engine_pid(pids: list[int]) -> int | None:
         if "EngineCore" in cmd or "SpawnProcess" in cmd:
             return pid
     return pids[0] if pids else None
+
+
+def _terminate_child_pid(pid: int, expected_parent: int) -> None:
+    try:
+        parent = int(subprocess.check_output(["ps", "-o", "ppid=", "-p", str(pid)], text=True, stderr=subprocess.DEVNULL).strip())
+    except Exception:
+        return
+    if parent != expected_parent:
+        return
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    except Exception:
+        return
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        if not Path(f"/proc/{pid}").exists():
+            return
+        time.sleep(0.2)
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except Exception:
+        pass

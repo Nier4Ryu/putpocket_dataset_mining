@@ -81,6 +81,10 @@ changes require an incremental native rebuild:
 ```bash
 cd /workspace/putpocket_dataset_mining/externals/vllm
 export TORCH_CUDA_ARCH_LIST="8.6 9.0 10.0 12.0"
+export PUTPOCKET_BUILD_JOBS="$(nproc)"
+export MAX_JOBS="${PUTPOCKET_BUILD_JOBS}"
+export CMAKE_BUILD_PARALLEL_LEVEL="${PUTPOCKET_BUILD_JOBS}"
+export NVCC_THREADS=1
 python use_existing_torch.py
 uv pip install -r requirements/build/cuda.txt
 CCACHE_NOHASHDIR=true uv pip install --no-build-isolation -e .
@@ -112,6 +116,7 @@ PRO 6000 smoke and `hopper` for H100/H200-specific iteration:
 
 ```bash
 ./scripts/env/bootstrap_sr.sh --preset runpod-dev --cuda-arch-profile blackwell-rtx --dry-run
+./scripts/env/bootstrap_sr.sh --preset runpod-dev --cuda-arch-profile blackwell-rtx --build-jobs "$(nproc)"
 ./scripts/env/bootstrap_sr.sh --preset runpod-dev --cuda-arch-profile hopper
 ```
 

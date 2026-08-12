@@ -74,6 +74,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--storage-kind", choices=["network-volume", "local", "ephemeral"], default=None)
     parser.add_argument("--cuda-arch-profile", choices=[*ARCH_PROFILES.keys(), "native"], default=None, help=profile_help)
     parser.add_argument("--cuda-arch-list", default=None, help="Explicit CUDA arch list. Highest precedence; example: '8.6 9.0 10.0 12.0'.")
+    parser.add_argument("--build-jobs", type=int, default=None, help="Native build jobs. For runpod-dev: CLI > PUTPOCKET_BUILD_JOBS > nproc.")
     parser.add_argument("--base-image-contract", default=None)
     parser.add_argument("--phase", choices=["cpu", "gpu", "all"], default=None, help="Compatibility alias for --stage core|validate|all.")
     parser.add_argument("--stage", choices=["preflight", "system", "core", "verifier", "vllm_source", "vllm_build", "validate", "all"], default=None)
@@ -107,6 +108,7 @@ def _run_runpod_dev_preset(args: argparse.Namespace) -> int:
         skip_vllm_build=bool(args.skip_vllm_build),
         force_vllm_build=bool(args.force_vllm_build),
         skip_gpu_smoke=bool(args.skip_gpu_smoke),
+        build_jobs=args.build_jobs,
     )
     payload = plan.as_dict()
     if args.dry_run:
@@ -131,6 +133,8 @@ def _run_runpod_dev_preset(args: argparse.Namespace) -> int:
             storage = validate_network_volume(plan)
         fingerprint = runtime_fingerprint(plan, base, torch_contract)
         manifest = build_manifest(plan, fingerprint)
+        if not args.doctor_only and not args.skip_vllm_build:
+            _run_runpod_vllm_build(plan, manifest, log_dir)
         _write_json(log_dir / "runtime_fingerprint.json", fingerprint)
         _write_json(log_dir / "build_manifest.json", manifest)
         summary = {
@@ -141,6 +145,18 @@ def _run_runpod_dev_preset(args: argparse.Namespace) -> int:
             "storage": storage,
             "torch_provenance": torch_contract.get("provenance_status"),
             "uv_bootstrap_ready": torch_contract.get("provenance_status") == "resolved",
+            "detected_cpus": plan.cpu_count_detected,
+            "vllm_build_jobs": plan.build_jobs_effective,
+            "cmake_parallel_level": plan.build_jobs_effective,
+            "nvcc_threads": plan.nvcc_threads,
+            "cpu_count_detected": plan.cpu_count_detected,
+            "build_jobs_requested": plan.build_jobs_requested,
+            "build_jobs_effective": plan.build_jobs_effective,
+            "max_jobs": plan.build_jobs_effective,
+            "cmake_build_parallel_level": plan.build_jobs_effective,
+            "vllm_native_build_wall_time_seconds": manifest["vllm_editable_build"]["build_wall_time_seconds"],
+            "memory_related_build_fallback_used": manifest["vllm_editable_build"]["memory_related_build_fallback_used"],
+            "fallback_effective_jobs": manifest["vllm_editable_build"]["fallback_effective_jobs"],
         }
         _write_json(log_dir / "summary.json", summary)
         print(json.dumps(summary, indent=2, sort_keys=True))
@@ -150,6 +166,51 @@ def _run_runpod_dev_preset(args: argparse.Namespace) -> int:
         _write_json(log_dir / "summary.json", summary)
         print(json.dumps(summary, indent=2, sort_keys=True))
         return 2
+
+
+def _run_runpod_vllm_build(plan: Any, manifest: dict[str, Any], log_dir: Path) -> None:
+    """Execute the canonical editable vLLM build with recorded resource evidence."""
+
+    vllm_root = plan.repo_root / "externals" / "vllm"
+    env_python = plan.env_path / "bin" / "python"
+    uv = plan.env_path / "bin" / "uv"
+    if not vllm_root.is_dir():
+        raise ConfigError(f"Missing editable vLLM source: {vllm_root}")
+    if not env_python.exists() or not uv.exists():
+        raise ConfigError(f"Missing runpod-dev environment tools under: {plan.env_path}")
+
+    evidence = {
+        "nproc": _command(["nproc"], check=True),
+        "free_h": _command(["free", "-h"], check=True),
+        "df_workspace": _command(["df", "-h", "/workspace"], check=True),
+        "df_tmp": _command(["df", "-h", "/tmp"], check=True),
+    }
+    _write_json(log_dir / "native_build_resources_before.json", evidence)
+    build = manifest["vllm_editable_build"]
+    build["ram_before_build"] = evidence["free_h"]["stdout"]
+    build["build_start_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    started = time.monotonic()
+    build_env = os.environ.copy()
+    build_env.update(plan.environment())
+    command = (
+        f"cd {vllm_root} && "
+        f"{env_python} use_existing_torch.py && "
+        f"{uv} pip install -r requirements/build/cuda.txt && "
+        f"CCACHE_NOHASHDIR=true {uv} pip install --no-build-isolation -e ."
+    )
+    result = subprocess.run(["bash", "-lc", command], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=build_env)
+    build["build_end_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    build["build_wall_time_seconds"] = round(time.monotonic() - started, 3)
+    after = _command(["free", "-h"], check=True)
+    build["ram_after_build"] = after["stdout"]
+    _write_text(log_dir / "vllm_native_build.log", "$ " + command + "\n" + result.stdout + result.stderr)
+    _write_json(log_dir / "build_manifest.json", manifest)
+    if result.returncode != 0:
+        raise ConfigError(
+            "editable vLLM build failed; no automatic job-count fallback was used. "
+            f"Requested/effective jobs: {plan.build_jobs_requested}/{plan.build_jobs_effective}. "
+            f"See {log_dir / 'vllm_native_build.log'}"
+        )
 
 
 def _run_server2_preset(args: argparse.Namespace) -> int:

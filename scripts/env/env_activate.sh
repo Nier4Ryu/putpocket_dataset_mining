@@ -112,8 +112,9 @@ fi
 
 export RANDOM_SEED="${RANDOM_SEED:-42}"
 export PUTPOCKET_BUILD_THREADS="${PUTPOCKET_BUILD_THREADS:-16}"
-export MAX_JOBS="${MAX_JOBS:-16}"
-export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-16}"
+export PUTPOCKET_BUILD_JOBS="${PUTPOCKET_BUILD_JOBS:-${PUTPOCKET_BUILD_THREADS}}"
+export MAX_JOBS="${MAX_JOBS:-${PUTPOCKET_BUILD_JOBS}}"
+export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-${PUTPOCKET_BUILD_JOBS}}"
 export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-16}"
 export NVCC_THREADS="${NVCC_THREADS:-1}"
 
@@ -152,6 +153,7 @@ echo "  venv: ${_putpocket_venv}"
 echo "  python: $(command -v python)"
 echo "  CUDA_HOME: ${CUDA_HOME:-unset}"
 echo "  build threads: ${PUTPOCKET_BUILD_THREADS}"
+echo "  build jobs: ${PUTPOCKET_BUILD_JOBS}"
 
 unset _putpocket_env_script
 unset _putpocket_env_dir

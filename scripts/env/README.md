@@ -92,7 +92,16 @@ Portable editable vLLM builds set:
 
 ```bash
 TORCH_CUDA_ARCH_LIST="8.6 9.0 10.0 12.0"
+PUTPOCKET_BUILD_JOBS="$(nproc)"
+MAX_JOBS="${PUTPOCKET_BUILD_JOBS}"
+CMAKE_BUILD_PARALLEL_LEVEL="${PUTPOCKET_BUILD_JOBS}"
+NVCC_THREADS=1
 ```
+
+For `runpod-dev`, native build jobs resolve as `--build-jobs`, then
+`PUTPOCKET_BUILD_JOBS`, then `nproc`. The resolved value controls vLLM,
+CMake/Ninja, LMCache, and future native extension builds. `NVCC_THREADS`
+remains `1` to avoid multiplying build-level and NVCC-level parallelism.
 
 The portable profile covers RTX 3090, H100/H200, B200/GB200-class Blackwell,
 and RTX PRO 6000 Blackwell Server Edition, but it is slower and larger than a

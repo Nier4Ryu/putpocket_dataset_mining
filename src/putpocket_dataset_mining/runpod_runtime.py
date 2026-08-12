@@ -65,6 +65,10 @@ class RunpodPlan:
     skip_vllm_build: bool
     force_vllm_build: bool
     skip_gpu_smoke: bool
+    cpu_count_detected: int
+    build_jobs_requested: int
+    build_jobs_effective: int
+    nvcc_threads: int
 
     def as_dict(self) -> dict[str, Any]:
         env = self.environment()
@@ -80,6 +84,12 @@ class RunpodPlan:
             "skip_vllm_build": self.skip_vllm_build,
             "force_vllm_build": self.force_vllm_build,
             "skip_gpu_smoke": self.skip_gpu_smoke,
+            "cpu_count_detected": self.cpu_count_detected,
+            "build_jobs_requested": self.build_jobs_requested,
+            "build_jobs_effective": self.build_jobs_effective,
+            "max_jobs": self.build_jobs_effective,
+            "cmake_build_parallel_level": self.build_jobs_effective,
+            "nvcc_threads": self.nvcc_threads,
             "stages": [
                 "base-image-contract",
                 "network-volume-guard",
@@ -100,7 +110,7 @@ class RunpodPlan:
                 "install project, vLLM, and LMCache editable",
                 "write runtime fingerprint and build manifests",
             ],
-            "vllm_developer_commands": vllm_developer_commands(self.repo_root),
+            "vllm_developer_commands": vllm_developer_commands(self.repo_root, self.build_jobs_effective, self.nvcc_threads),
             "docker_build_args": docker_build_args(self.cuda_arch_list),
         }
 
@@ -118,8 +128,51 @@ class RunpodPlan:
             "PUTPOCKET_CUDA_ARCH_PROFILE": self.cuda_arch_profile,
             "PUTPOCKET_CUDA_ARCH_LIST": self.cuda_arch_list,
             "TORCH_CUDA_ARCH_LIST": self.cuda_arch_list,
+            "PUTPOCKET_BUILD_JOBS": str(self.build_jobs_effective),
+            "MAX_JOBS": str(self.build_jobs_effective),
+            "CMAKE_BUILD_PARALLEL_LEVEL": str(self.build_jobs_effective),
+            "NVCC_THREADS": str(self.nvcc_threads),
             "CCACHE_NOHASHDIR": "true",
         }
+
+
+def detect_cpu_count() -> int:
+    """Return the build-visible CPU count using the same contract as `nproc`."""
+
+    tool = shutil.which("nproc")
+    if not tool:
+        raise ConfigError("runpod-dev build parallelism requires nproc")
+    proc = subprocess.run([tool], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if proc.returncode != 0:
+        raise ConfigError(f"nproc failed: {proc.stderr.strip()}")
+    return normalize_build_jobs(proc.stdout.strip(), source="nproc")
+
+
+def normalize_build_jobs(value: str | int, *, source: str) -> int:
+    try:
+        jobs = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"{source} must be a positive integer, got {value!r}") from exc
+    if jobs <= 0:
+        raise ConfigError(f"{source} must be a positive integer, got {value!r}")
+    return jobs
+
+
+def resolve_build_jobs(
+    cli_build_jobs: int | None,
+    *,
+    env: dict[str, str] | None = None,
+    cpu_count: int | None = None,
+) -> tuple[int, int]:
+    """Resolve CLI > PUTPOCKET_BUILD_JOBS > nproc and return (CPUs, jobs)."""
+
+    env = env if env is not None else os.environ
+    detected = normalize_build_jobs(cpu_count if cpu_count is not None else detect_cpu_count(), source="nproc")
+    if cli_build_jobs is not None:
+        return detected, normalize_build_jobs(cli_build_jobs, source="--build-jobs")
+    if env.get("PUTPOCKET_BUILD_JOBS") is not None:
+        return detected, normalize_build_jobs(env["PUTPOCKET_BUILD_JOBS"], source="PUTPOCKET_BUILD_JOBS")
+    return detected, detected
 
 
 def normalize_cuda_arch_list(value: str) -> str:
@@ -215,6 +268,8 @@ def build_runpod_plan(
     skip_vllm_build: bool,
     force_vllm_build: bool,
     skip_gpu_smoke: bool,
+    build_jobs: int | None = None,
+    cpu_count: int | None = None,
     env: dict[str, str] | None = None,
 ) -> RunpodPlan:
     env = env if env is not None else os.environ
@@ -227,6 +282,7 @@ def build_runpod_plan(
         cli_arch_list=cuda_arch_list,
         env=env,
     )
+    detected_cpus, resolved_build_jobs = resolve_build_jobs(build_jobs, env=env, cpu_count=cpu_count)
     return RunpodPlan(
         repo_root=root,
         env_path=env_path,
@@ -241,6 +297,10 @@ def build_runpod_plan(
         skip_vllm_build=skip_vllm_build,
         force_vllm_build=force_vllm_build,
         skip_gpu_smoke=skip_gpu_smoke,
+        cpu_count_detected=detected_cpus,
+        build_jobs_requested=resolved_build_jobs,
+        build_jobs_effective=resolved_build_jobs,
+        nvcc_threads=1,
     )
 
 
@@ -309,6 +369,12 @@ def runtime_fingerprint(plan: RunpodPlan, base: dict[str, Any], torch_contract: 
         "cuda_arch_profile": plan.cuda_arch_profile,
         "cuda_arch_list": plan.cuda_arch_list,
         "torch_cuda_arch_list": plan.cuda_arch_list,
+        "cpu_count_detected": plan.cpu_count_detected,
+        "build_jobs_requested": plan.build_jobs_requested,
+        "build_jobs_effective": plan.build_jobs_effective,
+        "max_jobs": plan.build_jobs_effective,
+        "cmake_build_parallel_level": plan.build_jobs_effective,
+        "nvcc_threads": plan.nvcc_threads,
     }
 
 
@@ -327,23 +393,44 @@ def build_manifest(plan: RunpodPlan, fingerprint: dict[str, Any]) -> dict[str, A
         "cuda_arch_profile": plan.cuda_arch_profile,
         "requested_cuda_arch_list": plan.cuda_arch_list.split(),
         "torch_cuda_arch_list": plan.cuda_arch_list,
+        "cpu_count_detected": plan.cpu_count_detected,
+        "build_jobs_requested": plan.build_jobs_requested,
+        "build_jobs_effective": plan.build_jobs_effective,
+        "max_jobs": plan.build_jobs_effective,
+        "cmake_build_parallel_level": plan.build_jobs_effective,
+        "nvcc_threads": plan.nvcc_threads,
         "requested_architecture_profile": plan.cuda_arch_profile,
         "requested_architecture_list": plan.cuda_arch_list,
         "actual_compiled_architecture_evidence": {key: "NOT_INSPECTED" for key in SM_EVIDENCE_KEYS},
         "heavy_multiarch_build_executed": os.environ.get("PUTPOCKET_ALLOW_HEAVY_MULTIARCH_BUILD") == "1",
         "vllm_editable_build": {
-            "environment": {"TORCH_CUDA_ARCH_LIST": plan.cuda_arch_list},
-            "command": vllm_editable_build_command(plan.repo_root, plan.cuda_arch_list),
+            "environment": {
+                "TORCH_CUDA_ARCH_LIST": plan.cuda_arch_list,
+                "PUTPOCKET_BUILD_JOBS": str(plan.build_jobs_effective),
+                "MAX_JOBS": str(plan.build_jobs_effective),
+                "CMAKE_BUILD_PARALLEL_LEVEL": str(plan.build_jobs_effective),
+                "NVCC_THREADS": str(plan.nvcc_threads),
+            },
+            "command": vllm_editable_build_command(plan.repo_root, plan.cuda_arch_list, plan.build_jobs_effective, plan.nvcc_threads),
             "heavy_build_required_for_portable_multiarch": plan.cuda_arch_list == ARCH_PROFILES["portable-nvidia"],
+            "build_start_time": None,
+            "build_end_time": None,
+            "build_wall_time_seconds": None,
+            "ram_before_build": None,
+            "ram_after_build": None,
+            "memory_related_build_fallback_used": False,
+            "fallback_effective_jobs": None,
         },
         "docker_build_args": docker_build_args(plan.cuda_arch_list),
     }
 
 
-def vllm_editable_build_command(repo_root: Path, cuda_arch_list: str) -> str:
+def vllm_editable_build_command(repo_root: Path, cuda_arch_list: str, build_jobs: int = 1, nvcc_threads: int = 1) -> str:
     prefix = f"cd {repo_root}/externals/vllm"
     return (
         f"{prefix} && export TORCH_CUDA_ARCH_LIST=\"{cuda_arch_list}\" && "
+        f"export PUTPOCKET_BUILD_JOBS={build_jobs} MAX_JOBS={build_jobs} "
+        f"CMAKE_BUILD_PARALLEL_LEVEL={build_jobs} NVCC_THREADS={nvcc_threads} && "
         "python use_existing_torch.py && "
         "uv pip install -r requirements/build/cuda.txt && "
         "CCACHE_NOHASHDIR=true uv pip install --no-build-isolation -e ."
@@ -354,14 +441,14 @@ def docker_build_args(cuda_arch_list: str) -> list[str]:
     return ["--build-arg", f"torch_cuda_arch_list={normalize_cuda_arch_list(cuda_arch_list)}"]
 
 
-def vllm_developer_commands(repo_root: Path) -> dict[str, str]:
+def vllm_developer_commands(repo_root: Path, build_jobs: int = 1, nvcc_threads: int = 1) -> dict[str, str]:
     prefix = f"cd {repo_root}/externals/vllm"
     portable = ARCH_PROFILES["portable-nvidia"]
     return {
         "python_only_change": "edit externals/vllm Python files; no reinstall required for editable install",
-        "cpp_or_cuda_change": vllm_editable_build_command(repo_root, portable),
-        "clean_rebuild": f"{prefix} && rm -rf build && export TORCH_CUDA_ARCH_LIST=\"{portable}\" && CCACHE_NOHASHDIR=true uv pip install --no-build-isolation -e .",
-        "build_doctor": f"{prefix} && export TORCH_CUDA_ARCH_LIST=\"{portable}\" && python use_existing_torch.py && uv pip install -r requirements/build/cuda.txt",
+        "cpp_or_cuda_change": vllm_editable_build_command(repo_root, portable, build_jobs, nvcc_threads),
+        "clean_rebuild": f"{prefix} && rm -rf build && export TORCH_CUDA_ARCH_LIST=\"{portable}\" PUTPOCKET_BUILD_JOBS={build_jobs} MAX_JOBS={build_jobs} CMAKE_BUILD_PARALLEL_LEVEL={build_jobs} NVCC_THREADS={nvcc_threads} && CCACHE_NOHASHDIR=true uv pip install --no-build-isolation -e .",
+        "build_doctor": f"{prefix} && export TORCH_CUDA_ARCH_LIST=\"{portable}\" PUTPOCKET_BUILD_JOBS={build_jobs} MAX_JOBS={build_jobs} CMAKE_BUILD_PARALLEL_LEVEL={build_jobs} NVCC_THREADS={nvcc_threads} && python use_existing_torch.py && uv pip install -r requirements/build/cuda.txt",
         "serve_later": "python -m vllm.entrypoints.openai.api_server --help",
     }
 

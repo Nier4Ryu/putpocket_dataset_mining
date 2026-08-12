@@ -1,8 +1,11 @@
 schema_version: 1
 name: putpocket-runpod-cuda129-editable-dev
 image:
-  repository: registry.example.com/putpocket-runpod-dev-base
-  tag: ubuntu22.04-cuda12.9.1-v1
+  # Replace with the published immutable Docker Hub reference when available:
+  # <dockerhub-user>/putpocket-runpod-dev:cuda12.9.1-ubuntu22.04-agent-v1@sha256:<remote-digest>
+  repository: docker.io/<dockerhub-user>/putpocket-runpod-dev
+  tag: cuda12.9.1-ubuntu22.04-agent-v1
+  digest: sha256:<set-after-push>
   platform: linux/amd64
 minimum_cuda: "12.9"
 network_volume:
@@ -18,6 +21,7 @@ ports:
     protocol: http
     purpose: future OpenAI-compatible endpoint
 environment:
+  CODEX_HOME: /workspace/.private/codex
   PUTPOCKET_REPO_ROOT: /workspace/putpocket_dataset_mining
   PUTPOCKET_ENV_PATH: /workspace/putpocket_dataset_mining/Putpocket_env
   PUTPOCKET_STORAGE_KIND: network-volume
@@ -30,8 +34,14 @@ environment:
   PUTPOCKET_CUDA_ARCH_PROFILE: portable-nvidia
   PUTPOCKET_CUDA_ARCH_LIST: "8.6 9.0 10.0 12.0"
   TORCH_CUDA_ARCH_LIST: "8.6 9.0 10.0 12.0"
-start_command: sleep infinity
+start_command: /usr/local/bin/putpocket-runpod-start
+runtime_secrets:
+  # Optional automation mode only. Configure this as a RunPod Secret, never as
+  # plaintext in the template, Dockerfile, image labels, or logs.
+  OPENAI_API_KEY: "<runpod-secret-reference-optional>"
 notes:
-  - The image does not include Putpocket, vLLM, LMCache, model weights, a virtual environment, or experiment artifacts.
+  - The image does not include Putpocket, vLLM, LMCache, model weights, a virtual environment, credentials, or experiment artifacts.
   - Run the repository bootstrap after cloning or attaching the Network Volume.
+  - Run codex login --device-auth only after launching a trusted private Pod.
+  - CODEX_HOME is /workspace/.private/codex and must remain outside the Git repository root.
   - Do not auto-launch vLLM or any model workload at Pod start.

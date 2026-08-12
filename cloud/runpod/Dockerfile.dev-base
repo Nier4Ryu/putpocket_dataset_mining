@@ -5,12 +5,28 @@ FROM --platform=linux/amd64 ${UV_IMAGE} AS uv
 
 FROM --platform=linux/amd64 nvidia/cuda:12.9.1-devel-ubuntu22.04@sha256:bd4e2680a261c212f1e2fea241606f71497dc67a417f73175d794ec8212b5ba8
 
+ARG NODE_VERSION=24.19.0
+ARG NODE_SHA256=14b342e71204f811bde6153be8e04b62aef63c236fef92b55f9c83154b409647
+ARG ZELLIJ_VERSION=0.44.3
+ARG ZELLIJ_SHA256=0f7c346788627f506c0a28296517768633cff24fc822a739f8264b640ecad751
+ARG CODEX_VERSION=0.147.0
+ARG BUILD_CREATED=unknown
+ARG BUILD_REVISION=unknown
+ARG IMAGE_VERSION=cuda12.9.1-ubuntu22.04-agent-v1
+ARG TOOL_LOCK_SHA256=unknown
+
 LABEL org.opencontainers.image.title="Putpocket RunPod CUDA 12.9 editable development base"
-LABEL org.opencontainers.image.description="CUDA-devel toolchain image only; uv owns Python, torch, Putpocket, editable vLLM, and editable LMCache on the Network Volume."
+LABEL org.opencontainers.image.description="CUDA-devel and agent tool image only; uv owns Python, torch, Putpocket, editable vLLM, and editable LMCache on the Network Volume."
+LABEL org.opencontainers.image.source="https://github.com/Nier4Ryu/putpocket_dataset_mining"
+LABEL org.opencontainers.image.revision="${BUILD_REVISION}"
+LABEL org.opencontainers.image.version="${IMAGE_VERSION}"
+LABEL org.opencontainers.image.created="${BUILD_CREATED}"
 LABEL org.opencontainers.image.base.name="nvidia/cuda:12.9.1-devel-ubuntu22.04"
 LABEL org.opencontainers.image.base.digest="sha256:bd4e2680a261c212f1e2fea241606f71497dc67a417f73175d794ec8212b5ba8"
+LABEL org.opencontainers.image.tool-lock-sha256="${TOOL_LOCK_SHA256}"
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV CODEX_HOME=/workspace/.private/codex
 ENV PUTPOCKET_REPO_ROOT=/workspace/putpocket_dataset_mining
 ENV PUTPOCKET_ENV_PATH=/workspace/putpocket_dataset_mining/Putpocket_env
 ENV PUTPOCKET_STORAGE_KIND=network-volume
@@ -23,6 +39,8 @@ ENV PUTPOCKET_CUDA_ARCH_PROFILE=portable-nvidia
 ENV PUTPOCKET_CUDA_ARCH_LIST="8.6 9.0 10.0 12.0"
 ENV TORCH_CUDA_ARCH_LIST="8.6 9.0 10.0 12.0"
 ENV CCACHE_NOHASHDIR=true
+ENV NPM_CONFIG_PREFIX=/opt/npm-global
+ENV PATH="/opt/node/bin:/opt/npm-global/bin:/usr/local/bin:${PATH}"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -45,10 +63,11 @@ RUN apt-get update \
       procps \
       iproute2 \
       less \
-      vim-tiny \
+      vim \
       tmux \
       file \
       unzip \
+      xz-utils \
       zip \
       libnuma-dev \
       libibverbs-dev \
@@ -57,12 +76,41 @@ RUN apt-get update \
       libaio-dev \
     && git lfs install --system \
     && mkdir -p /run/sshd /workspace /tmp/putpocket-build /var/tmp/putpocket \
+    && rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=uv /uv /usr/local/bin/uv
 COPY --from=uv /uvx /usr/local/bin/uvx
 
+RUN set -eux; \
+    node_archive="node-v${NODE_VERSION}-linux-x64.tar.xz"; \
+    curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/${node_archive}"; \
+    echo "${NODE_SHA256}  ${node_archive}" | sha256sum -c -; \
+    mkdir -p /opt/node /opt/npm-global; \
+    tar -xJf "${node_archive}" -C /opt/node --strip-components=1; \
+    rm -f "${node_archive}"; \
+    /opt/node/bin/node --version; \
+    /opt/node/bin/npm --version; \
+    /opt/node/bin/npm config set prefix /opt/npm-global
+
+RUN set -eux; \
+    zellij_archive="zellij-x86_64-unknown-linux-musl.tar.gz"; \
+    curl -fsSLo "${zellij_archive}" "https://github.com/zellij-org/zellij/releases/download/v${ZELLIJ_VERSION}/${zellij_archive}"; \
+    echo "${ZELLIJ_SHA256}  ${zellij_archive}" | sha256sum -c -; \
+    tar -xzf "${zellij_archive}" -C /usr/local/bin zellij; \
+    chmod 0755 /usr/local/bin/zellij; \
+    rm -f "${zellij_archive}"; \
+    zellij --version
+
+RUN set -eux; \
+    npm install -g "@openai/codex@${CODEX_VERSION}"; \
+    npm cache clean --force; \
+    codex --version
+
+COPY cloud/runpod/start-dev-container.sh /usr/local/bin/putpocket-runpod-start
+RUN chmod 0755 /usr/local/bin/putpocket-runpod-start
+
 WORKDIR /workspace
 
-CMD ["sleep", "infinity"]
+CMD ["/usr/local/bin/putpocket-runpod-start"]

@@ -1,9 +1,31 @@
 # RunPod CUDA 12.9 Editable Runtime
 
 The development image provides Ubuntu 22.04, CUDA 12.9.1, nvcc, compiler tools,
-SSH/rsync, a minimal OS Python for bootstrap dispatch, and a pinned `uv` binary.
+SSH/rsync, Vim, Zellij, Node.js LTS with npm/npx, the OpenAI Codex CLI, a
+minimal OS Python for bootstrap dispatch, and a pinned `uv` binary.
 It deliberately does not include the project source, project Python environment,
-torch, vLLM, LMCache, model weights, caches, or experiment outputs.
+torch, vLLM, LMCache, model weights, caches, credentials, or experiment outputs.
+
+Build the image from the repository root:
+
+```bash
+docker buildx build \
+  --platform linux/amd64 \
+  --file cloud/runpod/Dockerfile.dev-base \
+  --tag "${PUTPOCKET_RUNPOD_IMAGE_REPO}:${PUTPOCKET_RUNPOD_IMAGE_VERSION}" \
+  --tag "${PUTPOCKET_RUNPOD_IMAGE_REPO}:git-$(git rev-parse --short HEAD)" \
+  --load \
+  .
+```
+
+Use immutable tags such as:
+
+```text
+cuda12.9.1-ubuntu22.04-agent-v1
+git-<short-sha>
+```
+
+Do not use `latest` as the only deployment tag.
 
 The Network Volume owns the editable runtime:
 
@@ -18,6 +40,40 @@ For planning without mutation:
 ```bash
 ./scripts/env/bootstrap_sr.sh --preset runpod-dev --dry-run
 ```
+
+The container startup helper is inert. It creates `/workspace/.private/codex`
+with mode `0700` when `/workspace` is mounted, writes only non-secret Codex CLI
+configuration, prints tool versions, and then runs `sleep infinity`. It does
+not clone the repository, build vLLM, download models, start a server, run
+Codex, or authenticate Codex.
+
+Codex authentication is a runtime action on a trusted private Pod:
+
+```bash
+codex login --device-auth
+```
+
+`CODEX_HOME` is:
+
+```text
+/workspace/.private/codex
+```
+
+Expected policy:
+
+- `auth.json` contains access and refresh tokens.
+- Never copy `auth.json` into the image.
+- Never commit it, upload it to Docker Hub, print it in logs, or include it in
+  a Docker build context.
+- Keep `CODEX_HOME` mode `0700`; after login, keep `auth.json` mode `0600`.
+- Reuse the same private Network Volume for serialized later Pod launches.
+- Do not share one `auth.json` across concurrently active Pods or machines.
+- Reauthenticate only when refresh fails, access is revoked, or the credential
+  file is removed.
+
+Alternative automation mode is `OPENAI_API_KEY` supplied through a RunPod
+Secret at runtime. Do not place API keys in Dockerfile `ENV`/`ARG`, labels,
+template plaintext, or logs.
 
 Python-only vLLM changes are visible through the editable install. C++ or CUDA
 changes require an incremental native rebuild:

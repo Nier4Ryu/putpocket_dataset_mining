@@ -38,6 +38,7 @@ class RemotePreflightResult:
     docker_ok: bool = False
     staging_root_ok: bool = False
     image_ok: bool | None = None
+    judge_ok: bool | None = None
     error_class: str | None = None
     detail: str | None = None
 
@@ -233,6 +234,7 @@ class SshRsyncTransport:
             docker_ok=bool(data.get("docker_ok")),
             staging_root_ok=staging.returncode == 0,
             image_ok=data.get("image_ok"),
+            judge_ok=data.get("judge_ok"),
             error_class=data.get("error_class") if staging.returncode == 0 else TransportErrorClass.SSH_COMMAND_FAILED,
             detail=data.get("detail") if staging.returncode == 0 else (staging.stderr or staging.stdout)[-2000:],
         )

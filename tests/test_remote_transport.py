@@ -60,13 +60,14 @@ class RemoteTransportTests(unittest.TestCase):
 
     def test_preflight_success_is_structured(self) -> None:
         t = SshRsyncTransport(RemoteDockerConfig.from_env_and_mapping({"host": "host", "user": "user", "repository_root": "/srv/sr", "job_root": "/srv/sr/data/remote_verifier"}))
-        fake = type("R", (), {"returncode": 0, "stdout": '{"wrapper_ok": true, "rsync_ok": true, "docker_ok": true, "staging_root_ok": true, "image_ok": true}', "stderr": "", "json_stdout": lambda self: __import__("json").loads(self.stdout)})
+        fake = type("R", (), {"returncode": 0, "stdout": '{"wrapper_ok": true, "rsync_ok": true, "docker_ok": true, "staging_root_ok": true, "image_ok": true, "judge_ok": true}', "stderr": "", "json_stdout": lambda self: __import__("json").loads(self.stdout)})
         with patch.object(t, "run_wrapper", return_value=fake()), patch("subprocess.run") as run:
             run.return_value = type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
             result = t.lightweight_preflight("image")
         self.assertTrue(result.docker_ok)
         self.assertTrue(result.staging_root_ok)
         self.assertEqual(result.status, "REMOTE_DOCKER_PREFLIGHT_PASSED")
+        self.assertTrue(result.judge_ok)
 
     def test_configured_absolute_wrapper_is_used(self) -> None:
         t = SshRsyncTransport(

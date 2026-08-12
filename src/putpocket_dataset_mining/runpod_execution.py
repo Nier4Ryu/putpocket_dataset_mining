@@ -307,6 +307,8 @@ def _server1_preflight(profile: RunpodExecutionProfile, *, live_remote: bool, li
         failure = SERVER1_WRAPPER_PREFLIGHT_FAILED
     elif not result.docker_ok:
         failure = SERVER1_DOCKER_PREFLIGHT_FAILED
+    elif result.judge_ok is not True:
+        failure = SERVER1_JUDGE_PREFLIGHT_FAILED
     return {
         **static,
         "checked": True,
@@ -315,6 +317,7 @@ def _server1_preflight(profile: RunpodExecutionProfile, *, live_remote: bool, li
         "wrapper_ok": result.wrapper_ok,
         "docker_ok": result.docker_ok,
         "image_ok": result.image_ok,
+        "judge_preflight": "passed" if result.judge_ok is True else "failed",
         "failure_class": failure,
         "detail": _redact(result.detail or ""),
         "workspace": workspace_payload,

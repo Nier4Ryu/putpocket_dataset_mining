@@ -44,6 +44,15 @@ def preflight(image: str | None = None, dockerfile: str = "docker/classeval_pyth
                 "error_class": "infra.image_missing",
                 "error_message": str(exc),
             }
+    codex = shutil.which("codex")
+    codex_home = Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex"))
+    auth_ok = (codex_home / "auth.json").is_file()
+    codex_version = None
+    if codex:
+        version = subprocess.run([codex, "--version"], text=True, capture_output=True, timeout=15)
+        if version.returncode == 0:
+            codex_version = version.stdout.strip()
+    judge_ok = bool(codex and auth_ok and codex_version)
     return protocol_version() | {
         "status": "passed",
         "wrapper_ok": True,
@@ -52,6 +61,10 @@ def preflight(image: str | None = None, dockerfile: str = "docker/classeval_pyth
         "image_ok": None if image is None else bool(status and status.image_id),
         "image_id": None if status is None else status.image_id,
         "verifier_host": socket.gethostname(),
+        "judge_ok": judge_ok,
+        "judge_cli_ok": bool(codex),
+        "judge_auth_present": auth_ok,
+        "judge_version": codex_version,
     }
 
 

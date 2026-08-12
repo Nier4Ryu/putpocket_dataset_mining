@@ -20,6 +20,21 @@ from putpocket_dataset_mining.verifier import SshRsyncVerifierTransport
 
 
 class RemoteVerifierWrapperTests(unittest.TestCase):
+    def test_preflight_reports_judge_cli_and_auth(self) -> None:
+        from putpocket_dataset_mining.remote_verifier.runner import preflight
+
+        with tempfile.TemporaryDirectory() as td, patch.dict("os.environ", {"CODEX_HOME": td}), patch(
+            "putpocket_dataset_mining.remote_verifier.runner.shutil.which",
+            side_effect=lambda name: f"/usr/bin/{name}",
+        ), patch("putpocket_dataset_mining.remote_verifier.runner.ensure_image") as ensure, patch(
+            "putpocket_dataset_mining.remote_verifier.runner.subprocess.run"
+        ) as run:
+            (Path(td) / "auth.json").write_text("{}", encoding="utf-8")
+            ensure.return_value.image_id = "sha256:test"
+            run.return_value = type("R", (), {"returncode": 0, "stdout": "codex-cli test", "stderr": ""})()
+            result = preflight("image")
+        self.assertTrue(result["judge_ok"])
+        self.assertTrue(result["judge_auth_present"])
     def test_protocol_version(self) -> None:
         self.assertEqual(remote_main(["protocol-version"]), 0)
 

@@ -2,7 +2,7 @@
 
 task identity: T20260813-001__publish-frozen-classeval-dataset
 objective: publish-frozen-classeval-dataset
-status: ready_for_integration
+status: integrated
 base tip: 6d5a10496bda4b03b37e71b72fcae36276651f4c
 branch: agent/T20260813-001__publish-frozen-classeval-dataset
 worktree: /home/dyryu/putpocket_dataset_mining_worktrees/T20260813-001__publish-frozen-classeval-dataset
@@ -39,5 +39,5 @@ validation:
 artifacts:
   - agent/tasks/T20260813-001__publish-frozen-classeval-dataset/
 commits:
-  - pending
+  - c7273c2d33443613f2bec476931baf006ce18ea9 data: publish frozen 18-sample ClassEval dataset
 final handoff link: agent/tasks/T20260813-001__publish-frozen-classeval-dataset/handoffs/TO_GPT_20260813-070217.md

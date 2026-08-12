@@ -8,6 +8,7 @@ data
 codex_runs/
 logs/
 logs/env_setup/
+builds/
 
 __pycache__/
 *.py[cod]

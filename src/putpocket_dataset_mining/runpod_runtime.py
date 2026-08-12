@@ -125,6 +125,7 @@ class RunpodPlan:
             "VLLM_CACHE_ROOT": str(self.repo_root / ".cache" / "vllm"),
             "TORCH_HOME": str(self.repo_root / ".cache" / "torch"),
             "HF_HOME": str(self.repo_root / "models" / "hf"),
+            "TMPDIR": str(self.repo_root / "builds" / "tmp"),
             "PUTPOCKET_CUDA_ARCH_PROFILE": self.cuda_arch_profile,
             "PUTPOCKET_CUDA_ARCH_LIST": self.cuda_arch_list,
             "TORCH_CUDA_ARCH_LIST": self.cuda_arch_list,
@@ -425,6 +426,7 @@ def build_manifest(plan: RunpodPlan, fingerprint: dict[str, Any]) -> dict[str, A
             "fallback_effective_jobs": None,
         },
         "docker_build_args": docker_build_args(plan.cuda_arch_list),
+        "native_scratch": plan.environment()["TMPDIR"],
     }
 
 

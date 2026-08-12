@@ -38,6 +38,7 @@ class BuildParallelismContractTests(unittest.TestCase):
         self.assertEqual(plan.environment()["MAX_JOBS"], "32")
         self.assertEqual(plan.environment()["CMAKE_BUILD_PARALLEL_LEVEL"], "32")
         self.assertEqual(plan.environment()["NVCC_THREADS"], "1")
+        self.assertEqual(plan.environment()["TMPDIR"], "/workspace/putpocket_dataset_mining/builds/tmp")
 
     def test_cli_overrides_environment_and_nproc(self) -> None:
         self.assertEqual(resolve_build_jobs(24, env={"PUTPOCKET_BUILD_JOBS": "12"}, cpu_count=32), (32, 24))

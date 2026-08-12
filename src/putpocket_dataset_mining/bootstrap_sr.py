@@ -238,6 +238,7 @@ def _ensure_runpod_runtime(plan: Any, contract: dict[str, Any], log_dir: Path) -
         plan.repo_root / ".cache" / "vllm",
         plan.repo_root / ".cache" / "torch",
         plan.repo_root / "builds",
+        plan.repo_root / "builds" / "tmp",
         plan.repo_root / "models" / "hf",
     ):
         path.mkdir(parents=True, exist_ok=True)

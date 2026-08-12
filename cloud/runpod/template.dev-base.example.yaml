@@ -44,4 +44,6 @@ notes:
   - Run the repository bootstrap after cloning or attaching the Network Volume.
   - Run codex login --device-auth only after launching a trusted private Pod.
   - CODEX_HOME is /workspace/.private/codex and must remain outside the Git repository root.
+  - RunPod blocks the user namespace required by bubblewrap; Codex therefore uses sandbox_mode danger-full-access with approval_policy on-request inside the outer Docker container.
+  - Bubblewrap is installed for general Linux compatibility, not as a working inner Codex sandbox on RunPod.
   - Do not auto-launch vLLM or any model workload at Pod start.

@@ -54,6 +54,7 @@ RUN apt-get update \
       openssh-server \
       rsync \
       build-essential \
+      bubblewrap \
       pkg-config \
       cmake \
       ninja-build \

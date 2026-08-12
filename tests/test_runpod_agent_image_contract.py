@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 import unittest
@@ -49,6 +50,7 @@ class RunpodAgentImageContractTests(unittest.TestCase):
         self.assertIn("ARG CODEX_VERSION=0.147.0", text)
         self.assertIn("npm install -g \"@openai/codex@${CODEX_VERSION}\"", text)
         self.assertIn("COPY cloud/runpod/start-dev-container.sh", text)
+        self.assertIn("      bubblewrap \\", text)
         self.assertIn("rm -f /etc/ssh/ssh_host_*_key", text)
         self.assertIn('CMD ["/usr/local/bin/putpocket-runpod-start"]', text)
         self.assertNotIn("pip install torch", text)
@@ -70,12 +72,36 @@ class RunpodAgentImageContractTests(unittest.TestCase):
         self.assertIn("set -euo pipefail", text)
         self.assertIn("chmod 700", text)
         self.assertIn('cli_auth_credentials_store = "file"', text)
+        self.assertIn('sandbox_mode = "danger-full-access"', text)
+        self.assertIn('approval_policy = "on-request"', text)
         self.assertIn("exec sleep infinity", text)
         self.assertNotIn("auth.json", text)
         self.assertNotIn("codex login", text)
         self.assertNotIn("git clone", text)
         self.assertNotIn("bootstrap_sr.sh", text)
         self.assertNotIn("vllm", text.lower())
+
+    def test_startup_reconciles_existing_codex_config_without_credentials(self) -> None:
+        script = ROOT / "cloud" / "runpod" / "start-dev-container.sh"
+        with tempfile.TemporaryDirectory() as tmp_name:
+            codex_home = Path(tmp_name) / "codex"
+            codex_home.mkdir()
+            config = codex_home / "config.toml"
+            original = 'model = "gpt-test"\nsandbox_mode = "workspace-write"\n\n[features]\nweb_search = true\n'
+            config.write_text(original, encoding="utf-8")
+            env = os.environ | {"CODEX_HOME": str(codex_home), "PUTPOCKET_RUNPOD_CONFIG_ONLY": "1"}
+            subprocess.check_call(["bash", str(script)], env=env)
+            updated = config.read_text(encoding="utf-8")
+            self.assertIn('model = "gpt-test"', updated)
+            self.assertIn('cli_auth_credentials_store = "file"', updated)
+            self.assertIn('sandbox_mode = "danger-full-access"', updated)
+            self.assertIn('approval_policy = "on-request"', updated)
+            self.assertIn('[features]\nweb_search = true', updated)
+            backup = codex_home / "config.toml.pre-runpod-policy.bak"
+            self.assertEqual(backup.read_text(encoding="utf-8"), original)
+            self.assertEqual({path.name for path in codex_home.iterdir()}, {"config.toml", backup.name})
+            subprocess.check_call(["bash", str(script)], env=env)
+            self.assertEqual(config.read_text(encoding="utf-8"), updated)
 
     def test_startup_script_syntax(self) -> None:
         subprocess.check_call(["bash", "-n", str(ROOT / "cloud" / "runpod" / "start-dev-container.sh")])

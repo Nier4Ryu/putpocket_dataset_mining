@@ -6,6 +6,14 @@ minimal OS Python for bootstrap dispatch, and a pinned `uv` binary.
 It deliberately does not include the project source, project Python environment,
 torch, vLLM, LMCache, model weights, caches, credentials, or experiment outputs.
 
+`bubblewrap` is installed for general Linux compatibility. RunPod blocks the
+user namespace it requires (`No permissions to create new namespace`), so it
+does not provide an inner Codex sandbox here. The startup helper reconciles the
+persistent non-secret Codex config to `sandbox_mode = "danger-full-access"`
+and `approval_policy = "on-request"`; the outer RunPod Docker container is the
+security boundary. Existing unrelated config and file-backed authentication
+remain on the Network Volume.
+
 Build the image from the repository root:
 
 ```bash

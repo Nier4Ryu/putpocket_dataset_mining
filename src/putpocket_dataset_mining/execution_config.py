@@ -12,6 +12,7 @@ from .errors import ConfigError
 class ExecutionRole(StrEnum):
     LOCAL_CONTROLLER = "local_controller"
     CLOUD_CONTROLLER = "cloud_controller"
+    RUNPOD_CONTROLLER = "runpod_controller"
     VERIFIER_HOST = "verifier_host"
     CONTROLLER = "controller"
     VERIFIER = "verifier"
@@ -218,6 +219,13 @@ class ExecutionConfig:
             )
 
     def guard_cloud_local_docker(self) -> None:
+        if self.execution_role == ExecutionRole.RUNPOD_CONTROLLER:
+            if self.verifier_backend == DockerBackend.LOCAL_DOCKER:
+                raise ConfigError(
+                    f"{E_CLOUD_LOCAL_DOCKER_FORBIDDEN}: RunPod controller mode must not run hidden verification locally. "
+                    "Configure verifier_backend=remote_ssh_docker and pass the Server-1 preflight."
+                )
+            return
         if self.execution_role not in {ExecutionRole.CLOUD_CONTROLLER, ExecutionRole.MODEL_SERVER}:
             return
         local_backends = {
@@ -274,6 +282,7 @@ def _role_from_text(text: str) -> ExecutionRole:
         "development": ExecutionRole.LOCAL_CONTROLLER,
         "verifier": ExecutionRole.VERIFIER_HOST,
         "model_server": ExecutionRole.CLOUD_CONTROLLER,
+        "runpod_controller": ExecutionRole.RUNPOD_CONTROLLER,
     }
     return aliases.get(text, ExecutionRole(text))
 

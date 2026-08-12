@@ -52,6 +52,12 @@ def build_parser() -> argparse.ArgumentParser:
     preflight.add_argument("--config", default=None, help="Remote verifier config YAML.")
     preflight.add_argument("--docker-image", default=None)
 
+    distributed_preflight = sub.add_parser("distributed-preflight", help="Check a distributed workflow execution profile without submitting verifier jobs.")
+    distributed_preflight.add_argument("--config", required=True, help="RunPod/controller execution profile YAML.")
+    distributed_preflight.add_argument("--live-remote", action="store_true", help="Contact the configured remote verifier host.")
+    distributed_preflight.add_argument("--live-workspace", action="store_true", help="Check the local Docker workspace daemon.")
+    distributed_preflight.add_argument("--import-checks", action="store_true", help="Check torch and vLLM import availability.")
+
     remote_test = sub.add_parser("remote-test", help="Run disposable remote verifier pass/fail/timeout fixtures.")
     remote_test.add_argument("--config", required=True, help="Remote verifier config YAML.")
     remote_test.add_argument("--fixtures", default="pass,fail,timeout")
@@ -230,6 +236,22 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(json.dumps(result.__dict__, indent=2, sort_keys=True))
         return 0 if result.status == "REMOTE_DOCKER_PREFLIGHT_PASSED" else 2
+
+    if args.command == "distributed-preflight":
+        from .runpod_execution import dumps_preflight, run_combined_preflight
+
+        try:
+            result = run_combined_preflight(
+                args.config,
+                live_remote=args.live_remote,
+                live_workspace=args.live_workspace,
+                import_checks=args.import_checks,
+            )
+        except (ConfigError, InfraError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(dumps_preflight(result))
+        return 0 if result.get("status") in {"passed", "partial"} else 2
 
     if args.command == "remote-test":
         from pathlib import Path

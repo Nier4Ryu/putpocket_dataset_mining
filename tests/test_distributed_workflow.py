@@ -8,13 +8,40 @@ from pathlib import Path
 from unittest.mock import patch
 
 from putpocket_dataset_mining.cli import main
-from putpocket_dataset_mining.distributed_workflow import WorkflowCheckpointStore, manual_run_stage, run_workflow
+from putpocket_dataset_mining.distributed_workflow import WorkflowCheckpointStore, _mode_engine, manual_run_stage, run_workflow
 from putpocket_dataset_mining.errors import ConfigError
 from putpocket_dataset_mining.two_turn_e2e import build_scripted_config, scripted_task
 from putpocket_dataset_mining.verifier import VerificationResult
 
 
 class DistributedWorkflowTests(unittest.TestCase):
+    def test_mode_engine_propagates_pp3_tp2_and_six_devices(self) -> None:
+        cfg = {
+            "model": {
+                "generation_model_id": "/immutable/model",
+                "tensor_parallel_size": 2,
+                "pipeline_parallel_size": 3,
+            },
+            "gpu": {"allowed_cuda_devices": [0, 1, 2, 3, 4, 5]},
+        }
+        engine = _mode_engine(cfg, None)
+        self.assertIsNotNone(engine)
+        self.assertEqual(engine.tensor_parallel_size, 2)
+        self.assertEqual(engine.pipeline_parallel_size, 3)
+        self.assertEqual(engine.gpu_devices, [0, 1, 2, 3, 4, 5])
+
+    def test_mode_engine_rejects_device_count_mismatch(self) -> None:
+        cfg = {
+            "model": {
+                "generation_model_id": "/immutable/model",
+                "tensor_parallel_size": 2,
+                "pipeline_parallel_size": 3,
+            },
+            "gpu": {"allowed_cuda_devices": [0, 1, 2]},
+        }
+        with self.assertRaisesRegex(ConfigError, "requires 6 GPU devices"):
+            _mode_engine(cfg, None)
+
     def _config(self, tmp: Path) -> Path:
         remote = tmp / "remote.yaml"
         remote.write_text(

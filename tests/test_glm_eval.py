@@ -67,6 +67,15 @@ class GLMEvalTests(unittest.TestCase):
     def test_parse_gpu_slots_assigns_one_gpu_per_worker(self) -> None:
         self.assertEqual(parse_gpu_slots("0,1,2", workers=2, profile="full"), [[0], [1]])
 
+    def test_pp3_tp2_assigns_six_devices_to_one_persistent_engine(self) -> None:
+        slots = parse_gpu_slots("0,1,2,3,4,5", workers=1, profile="full", devices_per_worker=6)
+        self.assertEqual(slots, [[0, 1, 2, 3, 4, 5]])
+        self.assertEqual(validate_eval_gpu_slots(slots, workers=1, devices_per_worker=6), slots)
+
+    def test_parallel_slot_validation_rejects_wrong_world_size(self) -> None:
+        with self.assertRaisesRegex(ConfigError, "requires 6 GPU devices"):
+            validate_eval_gpu_slots([[0, 1, 2]], workers=1, devices_per_worker=6)
+
     def test_write_summary_counts_results(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             run_root = Path(tmp)

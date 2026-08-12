@@ -12,6 +12,7 @@ from typing import Any, Protocol
 
 from .constants import ALLOWED_CUDA_DEVICES, DEFAULT_MODEL_ID, SHARED_HF_HUB_CACHE_DIR
 from .errors import DependencyError, InfraError
+from .timing import kst_now_iso, utc_now_iso
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,10 @@ class LocalVLLMEngine:
         self._sampling_params_cls: Any | None = None
         self.initialized_at_monotonic_ns: int | None = None
         self.ready_at_monotonic_ns: int | None = None
+        self.initialized_at_utc: str | None = None
+        self.initialized_at_kst: str | None = None
+        self.ready_at_utc: str | None = None
+        self.ready_at_kst: str | None = None
         self.controller_pid = os.getpid()
         self.engine_pid: int | None = None
         self.worker_pids: list[int] = []
@@ -87,6 +92,8 @@ class LocalVLLMEngine:
             try:
                 self._sampling_params_cls = SamplingParams
                 self.initialized_at_monotonic_ns = time.perf_counter_ns()
+                self.initialized_at_utc = utc_now_iso()
+                self.initialized_at_kst = kst_now_iso()
                 llm_kwargs: dict[str, Any] = {
                     "model": self.model_id,
                     "download_dir": str(self.cache_dir),
@@ -104,6 +111,8 @@ class LocalVLLMEngine:
                     **llm_kwargs,
                 )
                 self.ready_at_monotonic_ns = time.perf_counter_ns()
+                self.ready_at_utc = utc_now_iso()
+                self.ready_at_kst = kst_now_iso()
                 self.worker_pids = _child_pids(os.getpid())
                 self.engine_pid = _select_engine_pid(self.worker_pids) or os.getpid()
             except Exception as exc:  # noqa: BLE001 - preserve engine load failure.
@@ -125,12 +134,15 @@ class LocalVLLMEngine:
         if request.seed is not None:
             sampling_kwargs["seed"] = request.seed
         sampling = sampling_cls(**sampling_kwargs)
-        started = time.time()
+        started_ns = time.perf_counter_ns()
+        started_utc = utc_now_iso()
+        started_kst = kst_now_iso()
         try:
             outputs = self.llm.generate([request.rendered_prompt], sampling)
         except Exception as exc:  # noqa: BLE001
             raise InfraError(f"vLLM generation failed: {exc}") from exc
-        elapsed = time.time() - started
+        ended_ns = time.perf_counter_ns()
+        elapsed = (ended_ns - started_ns) / 1_000_000_000
         output = outputs[0].outputs[0] if outputs and outputs[0].outputs else None
         text = output.text if output is not None else ""
         token_ids = getattr(output, "token_ids", None) if output is not None else None
@@ -158,6 +170,16 @@ class LocalVLLMEngine:
                 "skip_reading_prefix_cache": self.enable_prefix_caching is False,
                 "prefix_cache_hit_tokens": 0 if self.enable_prefix_caching is False else None,
                 "elapsed_sec": elapsed,
+                "request_start_monotonic_ns": started_ns,
+                "request_end_monotonic_ns": ended_ns,
+                "request_start_utc": started_utc,
+                "request_start_kst": started_kst,
+                "request_end_utc": utc_now_iso(),
+                "request_end_kst": kst_now_iso(),
+                "time_to_first_token_sec": None,
+                "output_tokens_per_second": (
+                    completion_token_count / elapsed if completion_token_count is not None and elapsed > 0 else None
+                ),
                 "gpu_devices": self.gpu_devices,
             },
         )

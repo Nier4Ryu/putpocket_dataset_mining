@@ -619,34 +619,38 @@ def collect_trajectory_metrics(attempt_dir: Path) -> dict[str, Any]:
     }
 
 
-def parse_gpu_slots(raw: str | None, workers: int, profile: str) -> list[list[int]]:
+def parse_gpu_slots(raw: str | None, workers: int, profile: str, devices_per_worker: int = 1) -> list[list[int]]:
     if raw is None:
         raw = "0" if profile == "smoke" else "0,1,2"
     normalized = raw.replace(";", ",")
     devices = [int(item.strip()) for item in normalized.split(",") if item.strip()]
     if not devices:
         raise ConfigError("At least one GPU slot is required.")
-    if workers > len(devices):
-        raise ConfigError(f"workers={workers} requires at least {workers} GPU slots, got {devices}.")
-    return [[device] for device in devices[:workers]]
+    required = workers * devices_per_worker
+    if required > len(devices):
+        raise ConfigError(
+            f"workers={workers} with devices_per_worker={devices_per_worker} requires at least {required} GPU slots, got {devices}."
+        )
+    return [devices[index * devices_per_worker : (index + 1) * devices_per_worker] for index in range(workers)]
 
 
-def validate_eval_gpu_slots(slots: list[list[int]], workers: int) -> list[list[int]]:
+def validate_eval_gpu_slots(slots: list[list[int]], workers: int, devices_per_worker: int = 1) -> list[list[int]]:
     if workers < 1 or workers > 3:
         raise ConfigError("Evaluation workers must be between 1 and 3 on the Blackwell branch.")
     if len(slots) != workers:
         raise ConfigError(f"Worker count must match GPU slot count: workers={workers}, slots={slots}")
-    allowed = set(ALLOWED_CUDA_DEVICES)
+    allowed = set(range(devices_per_worker)) if devices_per_worker > 1 else set(ALLOWED_CUDA_DEVICES)
     seen: set[int] = set()
     for slot in slots:
-        if len(slot) != 1:
-            raise ConfigError(f"Evaluation uses tp=1/pp=1, so each worker must have one GPU: {slot}")
-        device = int(slot[0])
-        if device not in allowed:
-            raise ConfigError(f"GPU {device} is not allowed for evaluation; allowed={sorted(allowed)}")
-        if device in seen:
-            raise ConfigError(f"GPU {device} appears in more than one evaluation worker slot.")
-        seen.add(device)
+        if len(slot) != devices_per_worker:
+            raise ConfigError(f"Evaluation worker requires {devices_per_worker} GPU devices, got: {slot}")
+        for raw_device in slot:
+            device = int(raw_device)
+            if device not in allowed:
+                raise ConfigError(f"GPU {device} is not allowed for evaluation; allowed={sorted(allowed)}")
+            if device in seen:
+                raise ConfigError(f"GPU {device} appears in more than one evaluation worker slot.")
+            seen.add(device)
     return slots
 
 
@@ -740,9 +744,16 @@ def run_evaluation(args: argparse.Namespace) -> dict[str, Any]:
     selected_samples = select_samples(samples, args.profile, args.sample_id, args.max_samples)
     workers = int(args.workers or (1 if args.profile == "smoke" else min(3, len(selected_samples))))
     workers = min(workers, max(1, len(selected_samples)))
-    slots = validate_eval_gpu_slots(parse_gpu_slots(args.gpu_slots, workers, args.profile), workers)
-    if int(args.tensor_parallel_size) != 1 or int(args.pipeline_parallel_size) != 1:
-        raise ConfigError("This evaluation runner enforces tp=1 and pp=1.")
+    tensor_parallel_size = int(args.tensor_parallel_size)
+    pipeline_parallel_size = int(args.pipeline_parallel_size)
+    world_size = tensor_parallel_size * pipeline_parallel_size
+    if world_size > 1 and workers != 1:
+        raise ConfigError("Multi-dimensional model parallel evaluation requires workers=1 for one persistent engine lifecycle.")
+    slots = validate_eval_gpu_slots(
+        parse_gpu_slots(args.gpu_slots, workers, args.profile, devices_per_worker=world_size),
+        workers,
+        devices_per_worker=world_size,
+    )
 
     run_config = build_run_config(args, run_id, run_root, single_config, single_config_path, selected_samples, slots)
     dump_yaml(run_config_for_yaml(run_config), run_root / "eval_config.yaml")
@@ -762,8 +773,8 @@ def run_evaluation(args: argparse.Namespace) -> dict[str, Any]:
         engine = LocalVLLMEngine(
             model_id=str(run_config["model_id"]),
             gpu_devices=slots[0],
-            tensor_parallel_size=1,
-            pipeline_parallel_size=1,
+            tensor_parallel_size=tensor_parallel_size,
+            pipeline_parallel_size=pipeline_parallel_size,
             max_model_len=int(run_config["max_model_len"]),
             gpu_memory_utilization=float(run_config["gpu_memory_utilization"]),
             max_num_seqs=1,

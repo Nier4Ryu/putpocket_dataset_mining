@@ -300,21 +300,27 @@ def _run_sequential(cfg: dict[str, Any], store: WorkflowCheckpointStore, sample_
     results = []
     runner = SingleSampleRunner(cfg)
     engine = _mode_engine(cfg, gpu_device)
-    for sample_id in sample_ids:
-        store.transition("HISTORY1_INFERENCE_READY", sample_id=sample_id)
-        task = _task_by_sample_id(cfg, sample_id)
-        store.transition("HISTORY1_INFERENCE_RUNNING", sample_id=sample_id)
-        summary = runner.run_task(
-            task,
-            run_id=store.paths.run_root.name,
-            attempt_id=f"sequential_{sample_id}_{uuid.uuid4().hex[:8]}",
-            write_index=False,
-            dataset_version="classeval_stateful_working_v0",
-            gpu_devices=[gpu_device] if gpu_device is not None else None,
-            engine=engine,
-        )
-        _record_completed_sample_transitions(store, sample_id, summary)
-        results.append(summary)
+    try:
+        for sample_id in sample_ids:
+            store.transition("HISTORY1_INFERENCE_READY", sample_id=sample_id)
+            task = _task_by_sample_id(cfg, sample_id)
+            store.transition("HISTORY1_INFERENCE_RUNNING", sample_id=sample_id)
+            summary = runner.run_task(
+                task,
+                run_id=store.paths.run_root.name,
+                attempt_id=f"sequential_{sample_id}_{uuid.uuid4().hex[:8]}",
+                write_index=False,
+                dataset_version="classeval_stateful_working_v0",
+                gpu_devices=[gpu_device] if gpu_device is not None else None,
+                engine=engine,
+            )
+            _record_completed_sample_transitions(store, sample_id, summary)
+            results.append(summary)
+    finally:
+        shutdown = getattr(engine, "shutdown", None)
+        if callable(shutdown):
+            shutdown()
+        gc.collect()
     payload = _mode_summary("sequential", store.paths.run_root / "sequential", results, time.perf_counter() - start)
     store.append_event("workflow.sequential.completed", payload)
     return payload
@@ -689,10 +695,26 @@ def _mode_engine(config: dict[str, Any], gpu_device: int | None) -> LocalVLLMEng
     model_id = model_cfg.get("generation_model_id")
     if model_id == "scripted-two-turn-engine":
         return None
+    tensor_parallel_size = int(model_cfg.get("tensor_parallel_size", 1))
+    pipeline_parallel_size = int(model_cfg.get("pipeline_parallel_size", 1))
+    world_size = tensor_parallel_size * pipeline_parallel_size
+    configured_devices = config.get("gpu", {}).get("allowed_cuda_devices")
+    if gpu_device is not None:
+        gpu_devices = [gpu_device]
+    elif configured_devices is not None:
+        gpu_devices = [int(device) for device in configured_devices]
+    else:
+        gpu_devices = list(range(world_size))
+    if len(gpu_devices) != world_size:
+        raise ConfigError(
+            f"Configured model parallelism requires {world_size} GPU devices (pp={pipeline_parallel_size}, "
+            f"tp={tensor_parallel_size}), got {gpu_devices}."
+        )
     return LocalVLLMEngine(
         model_id=model_id,
-        gpu_devices=[gpu_device] if gpu_device is not None else None,
-        tensor_parallel_size=int(model_cfg.get("tensor_parallel_size", 1)),
+        gpu_devices=gpu_devices,
+        tensor_parallel_size=tensor_parallel_size,
+        pipeline_parallel_size=pipeline_parallel_size,
         max_model_len=int(model_cfg.get("max_model_len", 8192)),
         max_num_seqs=int(model_cfg.get("max_num_seqs", 1)),
         enable_prefix_caching=model_cfg.get("enable_prefix_caching"),

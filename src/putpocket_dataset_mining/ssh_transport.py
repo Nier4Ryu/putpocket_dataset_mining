@@ -197,13 +197,20 @@ class SshRsyncTransport:
             return TransportResult(argv, 124, exc.stdout or "", exc.stderr or "", timeout=True)
 
     def rsync_from_remote(self, remote_rel: str | Path, destination: Path, *, dry_run: bool = False) -> TransportResult:
+        remote_rel_text = str(remote_rel)
         rel = validate_relative_path(remote_rel)
         root = validate_remote_path(self.remote.job_root or "")
         source = f"{self.target}:{root}/{rel.as_posix()}"
+        if remote_rel_text.endswith("/"):
+            source += "/"
         argv = [*self.rsync_base_argv()]
         if dry_run:
             argv.append("--dry-run")
-        argv.extend([source, str(destination)])
+        destination.mkdir(parents=True, exist_ok=True)
+        # A trailing slash makes rsync place the remote directory contents in
+        # the controller mirror. Without it rsync nests a second `workspace/`
+        # directory and Workspace.read_file observes stale/missing state.
+        argv.extend([source, f"{destination}/"])
         try:
             result = subprocess.run(argv, text=True, capture_output=True, timeout=self.remote.rsync_timeout_sec)
         except subprocess.TimeoutExpired as exc:

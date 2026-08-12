@@ -11,6 +11,16 @@ from putpocket_dataset_mining.ssh_transport import SshRsyncTransport, validate_r
 
 
 class RemoteTransportTests(unittest.TestCase):
+    def test_rsync_from_remote_updates_mirror_contents_not_nested_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            destination = Path(tmp) / "mirror"
+            transport = SshRsyncTransport(RemoteDockerConfig.from_env_and_mapping({"host": "host", "user": "user", "repository_root": "/repo", "job_root": "/remote-workspace"}))
+            with patch("subprocess.run") as run:
+                run.return_value = type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+                transport.rsync_from_remote("session/workspace/", destination)
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[-2], "user@host:/remote-workspace/session/workspace/")
+        self.assertEqual(argv[-1], f"{destination}/")
     def test_rejects_unsafe_ids_and_paths(self) -> None:
         with self.assertRaises(ConfigError):
             validate_safe_id("../bad")

@@ -104,6 +104,9 @@ The canonical `runpod-dev` bootstrap owns initial provisioning. It installs
 the public CPython 3.13 torch wheel pinned by URL and SHA-256 in
 `configs/env/runpod_dev.lock.yaml`, clones the locked vLLM and LMCache SHAs,
 installs both editable, and preserves their Git worktrees clean.
+Native compiler scratch is redirected to persistent
+`/workspace/putpocket_dataset_mining/builds/tmp`; the container's small
+ephemeral `/tmp` is not used for the vLLM/LMCache build.
 
 The default `runpod-dev` architecture profile is portable across the current
 NVIDIA targets:

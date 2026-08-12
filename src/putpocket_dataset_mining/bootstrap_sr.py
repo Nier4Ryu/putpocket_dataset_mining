@@ -23,7 +23,9 @@ from .runpod_runtime import (
     ARCH_PROFILES,
     build_manifest,
     build_runpod_plan,
+    docker_build_args,
     runtime_fingerprint,
+    resolve_cuda_arch_contract,
     validate_base_image_contract,
     validate_network_volume,
     validate_torch_contract,
@@ -60,6 +62,7 @@ def run_bootstrap(argv: list[str] | None = None) -> int:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="bootstrap_sr")
+    profile_help = "CUDA architecture profile. portable-nvidia = 8.6 9.0 10.0 12.0; rtx3090 = 8.6; hopper = 9.0; blackwell-datacenter = 10.0; blackwell-rtx = 12.0; native = explicit visible-GPU detection."
     parser.add_argument("--preset", choices=["server2", "runpod-dev"], default=None, help="Canonical preset. server2 provisions/validates Putpocket_env; runpod-dev plans/validates the editable Hopper development runtime.")
     parser.add_argument("--doctor-only", action="store_true", help="Validate the selected preset without install/build mutation.")
     parser.add_argument("--force-vllm-build", action="store_true")
@@ -69,13 +72,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-gpu-smoke", action="store_true")
     parser.add_argument("--persistent-root", default=None, help="RunPod repository root. Defaults to /workspace/putpocket_dataset_mining.")
     parser.add_argument("--storage-kind", choices=["network-volume", "local", "ephemeral"], default=None)
-    parser.add_argument("--cuda-arch-profile", choices=[*ARCH_PROFILES.keys(), "native"], default="portable-nvidia")
-    parser.add_argument("--cuda-arch-list", default=None)
+    parser.add_argument("--cuda-arch-profile", choices=[*ARCH_PROFILES.keys(), "native"], default=None, help=profile_help)
+    parser.add_argument("--cuda-arch-list", default=None, help="Explicit CUDA arch list. Highest precedence; example: '8.6 9.0 10.0 12.0'.")
     parser.add_argument("--base-image-contract", default=None)
     parser.add_argument("--phase", choices=["cpu", "gpu", "all"], default=None, help="Compatibility alias for --stage core|validate|all.")
     parser.add_argument("--stage", choices=["preflight", "system", "core", "verifier", "vllm_source", "vllm_build", "validate", "all"], default=None)
-    parser.add_argument("--server-profile", choices=["server1_rtx3090", "server2_blackwell", "runpod_hopper", "custom"], default="custom")
-    parser.add_argument("--hardware-profile", choices=["auto", "cpu", "rtx3090", "blackwell", "hopper"], default="auto")
+    parser.add_argument("--server-profile", choices=["server1_rtx3090", "server2_rtxpro6000_blackwell", "server2_blackwell", "runpod_hopper", "custom"], default="custom")
+    parser.add_argument("--hardware-profile", choices=["auto", "cpu", "sm86", "sm90", "sm100", "sm120", "rtx3090", "blackwell", "hopper"], default="auto")
     parser.add_argument("--role", choices=["controller", "verifier", "model_server", "development"], default=None)
     parser.add_argument("--execution-role", choices=["local_controller", "cloud_controller", "verifier_host"], default=None)
     parser.add_argument("--workspace-backend", choices=["local_docker", "remote_ssh_docker"], default=None)
@@ -153,6 +156,12 @@ def _run_server2_preset(args: argparse.Namespace) -> int:
     stamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
     log_dir = REPO_ROOT / "logs" / "env_setup" / stamp
     run = BootstrapRun(REPO_ROOT, log_dir, bool(args.dry_run), bool(args.doctor_only))
+    resolved_profile, resolved_arch = resolve_cuda_arch_contract(
+        preset_default_profile="blackwell-rtx",
+        cli_arch_profile=args.cuda_arch_profile,
+        cli_arch_list=args.cuda_arch_list,
+        env=os.environ,
+    )
     planned = [
         "preflight",
         "uv",
@@ -178,6 +187,10 @@ def _run_server2_preset(args: argparse.Namespace) -> int:
         "force_docker_build": args.force_docker_build,
         "skip_docker": args.skip_docker,
         "skip_gpu_smoke": args.skip_gpu_smoke,
+        "cuda_arch_profile": resolved_profile,
+        "requested_cuda_arch_list": resolved_arch.split(),
+        "torch_cuda_arch_list": resolved_arch,
+        "docker_build_args": docker_build_args(resolved_arch),
         "stages": planned,
         "mutations": _server2_mutations(args),
     }
@@ -199,7 +212,7 @@ def _run_server2_preset(args: argparse.Namespace) -> int:
         _ensure_uv_available(run)
         _ensure_python_environment(run)
         _ensure_project_editable(run)
-        _ensure_externals(run, force_vllm=args.force_vllm_build)
+        _ensure_externals(run, force_vllm=args.force_vllm_build, cuda_arch_list=resolved_arch)
         if not args.skip_docker:
             _validate_docker(run, force=args.force_docker_build)
     doctor = _doctor(run, skip_docker=args.skip_docker)
@@ -259,7 +272,7 @@ def _ensure_project_editable(run: BootstrapRun) -> None:
     _command([str(py), "-m", "pip", "install", "-e", f"{REPO_ROOT}[dev]"], check=True, log=run.path("project_install.log"))
 
 
-def _ensure_externals(run: BootstrapRun, *, force_vllm: bool) -> None:
+def _ensure_externals(run: BootstrapRun, *, force_vllm: bool, cuda_arch_list: str | None = None) -> None:
     py = SERVER2_ENV / "bin" / "python"
     for name in ("vllm", "lmcache", "cline"):
         path = SERVER2_EXTERNALS / name
@@ -268,7 +281,16 @@ def _ensure_externals(run: BootstrapRun, *, force_vllm: bool) -> None:
         if (path / ".git").exists() and _command(["git", "-C", str(path), "status", "--porcelain"], check=False)["stdout"].strip():
             raise ConfigError(f"External source has uncommitted changes: {path}")
     if force_vllm:
-        _command([str(py), "-m", "pip", "install", "--no-build-isolation", "-e", str(SERVER2_EXTERNALS / "vllm")], check=True, log=run.path("externals_install.log"))
+        env = os.environ.copy()
+        if cuda_arch_list:
+            env["PUTPOCKET_CUDA_ARCH_LIST"] = cuda_arch_list
+            env["TORCH_CUDA_ARCH_LIST"] = cuda_arch_list
+        _command(
+            [str(py), "-m", "pip", "install", "--no-build-isolation", "-e", str(SERVER2_EXTERNALS / "vllm")],
+            check=True,
+            log=run.path("externals_install.log"),
+            env=env,
+        )
 
 
 def _validate_docker(run: BootstrapRun, *, force: bool) -> None:
@@ -451,13 +473,28 @@ def _run_static_multihost(args: argparse.Namespace) -> int:
         if value:
             mapping[key] = value
     server = ServerProfile(args.server_profile)
-    hardware = HardwareProfile(args.hardware_profile)
+    hardware_aliases = {"rtx3090": "sm86", "hopper": "sm90", "blackwell": "sm120"}
+    hardware = HardwareProfile(hardware_aliases.get(args.hardware_profile, args.hardware_profile))
     if hardware == HardwareProfile.AUTO:
         hardware = default_hardware_for_server(server)
-    if "TORCH_CUDA_ARCH_LIST" in os.environ:
-        mapping["cuda_arch_list"] = os.environ["TORCH_CUDA_ARCH_LIST"]
+    preset_profile = {
+        ServerProfile.SERVER1_RTX3090: "rtx3090",
+        ServerProfile.RUNPOD_HOPPER: "hopper",
+        ServerProfile.SERVER2_BLACKWELL: "blackwell-rtx",
+        ServerProfile.SERVER2_RTXPRO6000_BLACKWELL: "blackwell-rtx",
+        ServerProfile.CUSTOM: "portable-nvidia",
+    }[server]
+    resolved_profile, resolved_arch = resolve_cuda_arch_contract(
+        preset_default_profile=preset_profile,
+        cli_arch_profile=args.cuda_arch_profile,
+        cli_arch_list=args.cuda_arch_list,
+        env=os.environ,
+    )
+    mapping["cuda_arch_list"] = resolved_arch
     mapping["hardware_profile"] = hardware.value
     mapping["server_profile"] = server.value
+    mapping["cuda_arch_profile"] = resolved_profile
+    setattr(args, "_resolved_cuda_arch_profile", resolved_profile)
     config = ExecutionConfig.from_env_and_mapping(mapping)
     stages = _stages_from_args(args)
     for stage in stages:
@@ -491,6 +528,7 @@ def _stage_manifest(stage: str, config: ExecutionConfig, args: argparse.Namespac
         lock_status = validate_finalized_dataset(load_finalized_lock("configs/dataset_mining/classeval_stateful_working_v0.lock.yaml"))
     except Exception as exc:  # noqa: BLE001
         lock_status = {"status": "skipped_or_failed", "error": f"{exc.__class__.__name__}: {exc}"}
+    resolved_arch = config.cuda_arch_list or cuda_arch_for_profile(config.hardware_profile)
     manifest = {
         "schema_version": 1,
         "stage": stage,
@@ -509,7 +547,10 @@ def _stage_manifest(stage: str, config: ExecutionConfig, args: argparse.Namespac
         "allow_vllm_build": args.allow_vllm_build,
         "runtime_checks": args.runtime_checks,
         "tools": _tool_report(),
-        "cuda_arch_list": config.cuda_arch_list or cuda_arch_for_profile(config.hardware_profile),
+        "cuda_arch_profile": getattr(args, "_resolved_cuda_arch_profile", None) or getattr(args, "cuda_arch_profile", None) or "resolved",
+        "cuda_arch_list": resolved_arch,
+        "torch_cuda_arch_list": resolved_arch,
+        "docker_build_args": docker_build_args(resolved_arch) if resolved_arch else [],
         "dry_run": args.dry_run,
     }
     if extra:
@@ -532,6 +573,9 @@ def _gpu_phase(config: ExecutionConfig, args: argparse.Namespace) -> None:
         "hardware_profile": config.hardware_profile.value,
         "server_profile": config.server_profile.value,
         "target_cuda_arch_list": config.cuda_arch_list or arch,
+        "torch_cuda_arch_list": config.cuda_arch_list or arch,
+        "cuda_arch_profile": getattr(args, "_resolved_cuda_arch_profile", None) or getattr(args, "cuda_arch_profile", None) or "resolved",
+        "docker_build_args": docker_build_args(config.cuda_arch_list or arch),
         "nvidia_smi": actual,
         "vllm_profile": args.vllm_profile,
         "build_vllm": args.build_vllm,
@@ -592,8 +636,8 @@ def _execution_dict(config: ExecutionConfig) -> dict[str, Any]:
     }
 
 
-def _command(cmd: list[str], *, check: bool, log: Path | None = None) -> dict[str, Any]:
-    proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=REPO_ROOT)
+def _command(cmd: list[str], *, check: bool, log: Path | None = None, env: dict[str, str] | None = None) -> dict[str, Any]:
+    proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=REPO_ROOT, env=env)
     result = {"cmd": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
     if log:
         _write_text(log, "$ " + " ".join(cmd) + "\n" + proc.stdout + proc.stderr)

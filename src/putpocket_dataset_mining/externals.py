@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .constants import BUILD_ENV_OVERRIDES, REPO_ROOT
 from .errors import InfraError
+from .runpod_runtime import normalize_cuda_arch_list
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,8 @@ def build_env() -> dict[str, str]:
     env = os.environ.copy()
     for name, value in BUILD_ENV_OVERRIDES.items():
         env.setdefault(name, value)
+    if env.get("PUTPOCKET_CUDA_ARCH_LIST"):
+        env["TORCH_CUDA_ARCH_LIST"] = normalize_cuda_arch_list(str(env["PUTPOCKET_CUDA_ARCH_LIST"]))
     return env
 
 

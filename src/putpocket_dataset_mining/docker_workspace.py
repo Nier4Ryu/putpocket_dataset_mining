@@ -77,19 +77,25 @@ class DockerImageManager:
         if not self.dockerfile.exists():
             raise InfraError(f"Dockerfile is missing: {self.dockerfile}")
         python_build_jobs = os.environ.get("PUTPOCKET_BUILD_THREADS", "16")
+        cuda_arch_list = os.environ.get("PUTPOCKET_CUDA_ARCH_LIST")
         docker = self._docker_cmd()
-        result = subprocess.run(
-            [
+        command = [
                 docker,
                 "build",
                 "--build-arg",
                 f"PYTHON_BUILD_JOBS={python_build_jobs}",
-                "-t",
-                self.image,
-                "-f",
-                str(self.dockerfile),
-                str(self.dockerfile.parents[1]),
-            ],
+        ]
+        if cuda_arch_list:
+            command.extend(["--build-arg", f"torch_cuda_arch_list={cuda_arch_list}"])
+        command.extend([
+            "-t",
+            self.image,
+            "-f",
+            str(self.dockerfile),
+            str(self.dockerfile.parents[1]),
+        ])
+        result = subprocess.run(
+            command,
             text=True,
             capture_output=True,
             timeout=timeout_sec,

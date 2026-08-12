@@ -106,13 +106,15 @@ def build_parser() -> argparse.ArgumentParser:
     bootstrap.add_argument("--phase", choices=["cpu", "gpu", "all"], default=None)
     bootstrap.add_argument("--stage", choices=["preflight", "system", "core", "verifier", "vllm_source", "vllm_build", "validate", "all"], default=None)
     bootstrap.add_argument("--server-profile", choices=["server1_rtx3090", "server2_rtxpro6000_blackwell", "server2_blackwell", "runpod_hopper", "custom"], default="custom")
-    bootstrap.add_argument("--hardware-profile", choices=["cpu", "sm86", "sm90", "sm120", "auto"], default="auto")
+    bootstrap.add_argument("--hardware-profile", choices=["cpu", "sm86", "sm90", "sm100", "sm120", "auto"], default="auto")
     bootstrap.add_argument("--role", choices=["controller", "verifier", "model_server", "development"], default=None)
     bootstrap.add_argument("--execution-role", choices=["local_controller", "cloud_controller", "verifier_host"], default=None)
     bootstrap.add_argument("--workspace-backend", choices=["local_docker", "remote_ssh_docker"], default=None)
     bootstrap.add_argument("--verifier-backend", choices=["local_docker", "remote_ssh_docker", "disabled"], default=None)
     bootstrap.add_argument("--vllm-profile", choices=["clean", "patched", "skip"], default="patched")
     bootstrap.add_argument("--build-vllm", choices=["auto", "yes", "no"], default="auto")
+    bootstrap.add_argument("--cuda-arch-profile", default=None)
+    bootstrap.add_argument("--cuda-arch-list", default=None)
     bootstrap.add_argument("--allow-system-install", action="store_true")
     bootstrap.add_argument("--allow-docker-build", action="store_true")
     bootstrap.add_argument("--allow-vllm-build", action="store_true")
@@ -356,6 +358,10 @@ def main(argv: list[str] | None = None) -> int:
             forwarded.extend(["--workspace-backend", args.workspace_backend])
         if args.verifier_backend:
             forwarded.extend(["--verifier-backend", args.verifier_backend])
+        if args.cuda_arch_profile:
+            forwarded.extend(["--cuda-arch-profile", args.cuda_arch_profile])
+        if args.cuda_arch_list:
+            forwarded.extend(["--cuda-arch-list", args.cuda_arch_list])
         if args.dry_run:
             forwarded.append("--dry-run")
         for flag in ["allow_system_install", "allow_docker_build", "allow_vllm_build", "runtime_checks"]:

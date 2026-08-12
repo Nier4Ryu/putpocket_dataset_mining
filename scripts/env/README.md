@@ -55,3 +55,45 @@ RunPod Hopper runtimes, not in the active Server-2 Qwen environment.
 Advanced static multi-host bootstrap flags such as `--server-profile`,
 `--role`, `--stage`, and `--vllm-profile` remain available for Server-1 and
 RunPod planning. Normal Server-2 users should use `--preset server2`.
+
+CUDA architecture selection is explicit bootstrap/build configuration, not
+ordinary shell activation. Supported profiles:
+
+```text
+portable-nvidia          8.6 9.0 10.0 12.0
+rtx3090                  8.6
+hopper                   9.0
+blackwell-datacenter     10.0
+blackwell-rtx            12.0
+native                   explicitly detected visible GPU capability
+```
+
+Preset defaults:
+
+```text
+server1_rtx3090                 rtx3090
+runpod_hopper                   hopper
+runpod-dev                      portable-nvidia
+server2_blackwell               blackwell-rtx
+server2_rtxpro6000_blackwell    blackwell-rtx
+```
+
+Override precedence is:
+
+```text
+--cuda-arch-list
+--cuda-arch-profile
+PUTPOCKET_CUDA_ARCH_LIST
+PUTPOCKET_CUDA_ARCH_PROFILE
+preset default
+```
+
+Portable editable vLLM builds set:
+
+```bash
+TORCH_CUDA_ARCH_LIST="8.6 9.0 10.0 12.0"
+```
+
+The portable profile covers RTX 3090, H100/H200, B200/GB200-class Blackwell,
+and RTX PRO 6000 Blackwell Server Edition, but it is slower and larger than a
+single-architecture development build.

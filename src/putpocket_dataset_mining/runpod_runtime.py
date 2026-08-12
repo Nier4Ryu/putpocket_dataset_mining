@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -31,6 +32,21 @@ ARCH_PROFILES = {
     "hopper": "9.0",
     "blackwell-datacenter": "10.0",
     "blackwell-rtx": "12.0",
+}
+SUPPORTED_CUDA_ARCHES = ("8.6", "9.0", "10.0", "12.0")
+SM_EVIDENCE_KEYS = ("sm_86", "sm_90", "sm_100", "sm_120")
+NATIVE_CAPABILITY_TO_ARCH = {
+    "8.6": "8.6",
+    "9.0": "9.0",
+    "10.0": "10.0",
+    "12.0": "12.0",
+}
+PRESET_DEFAULT_ARCH_PROFILE = {
+    "server1_rtx3090": "rtx3090",
+    "runpod_hopper": "hopper",
+    "runpod-dev": "portable-nvidia",
+    "server2_blackwell": "blackwell-rtx",
+    "server2_rtxpro6000_blackwell": "blackwell-rtx",
 }
 
 
@@ -85,6 +101,7 @@ class RunpodPlan:
                 "write runtime fingerprint and build manifests",
             ],
             "vllm_developer_commands": vllm_developer_commands(self.repo_root),
+            "docker_build_args": docker_build_args(self.cuda_arch_list),
         }
 
     def environment(self) -> dict[str, str]:
@@ -105,14 +122,61 @@ class RunpodPlan:
         }
 
 
-def resolve_cuda_arch_list(profile: str, explicit: str | None = None) -> str:
-    if explicit:
-        return " ".join(explicit.split())
+def normalize_cuda_arch_list(value: str) -> str:
+    values = value.split()
+    if not values:
+        raise ConfigError("CUDA architecture list must not be empty")
+    seen: set[str] = set()
+    for arch in values:
+        if not re.fullmatch(r"\d+\.\d+", arch):
+            raise ConfigError(f"invalid CUDA architecture syntax: {arch}")
+        if arch not in SUPPORTED_CUDA_ARCHES:
+            raise ConfigError(f"unsupported CUDA architecture: {arch}")
+        if arch in seen:
+            raise ConfigError(f"duplicate CUDA architecture: {arch}")
+        seen.add(arch)
+    return " ".join(values)
+
+
+def resolve_cuda_arch_profile(profile: str | None) -> str:
+    profile = profile or "portable-nvidia"
     if profile == "native":
-        return detect_native_cuda_arch_list()
+        return profile
     if profile not in ARCH_PROFILES:
         raise ConfigError(f"unknown CUDA architecture profile: {profile}")
-    return ARCH_PROFILES[profile]
+    return profile
+
+
+def resolve_cuda_arch_list(profile: str, explicit: str | None = None) -> str:
+    if explicit is not None:
+        return normalize_cuda_arch_list(explicit)
+    profile = resolve_cuda_arch_profile(profile)
+    if profile == "native":
+        return detect_native_cuda_arch_list()
+    return normalize_cuda_arch_list(ARCH_PROFILES[profile])
+
+
+def resolve_cuda_arch_contract(
+    *,
+    preset_default_profile: str,
+    cli_arch_profile: str | None = None,
+    cli_arch_list: str | None = None,
+    env: dict[str, str] | None = None,
+) -> tuple[str, str]:
+    """Resolve CUDA arch settings with CLI list > CLI profile > env list > env profile > preset."""
+
+    env = env if env is not None else os.environ
+    if cli_arch_list is not None:
+        profile = cli_arch_profile or env.get("PUTPOCKET_CUDA_ARCH_PROFILE") or preset_default_profile
+        return resolve_cuda_arch_profile(profile), normalize_cuda_arch_list(cli_arch_list)
+    if cli_arch_profile is not None:
+        profile = resolve_cuda_arch_profile(cli_arch_profile)
+        return profile, resolve_cuda_arch_list(profile)
+    if env.get("PUTPOCKET_CUDA_ARCH_LIST"):
+        profile = env.get("PUTPOCKET_CUDA_ARCH_PROFILE") or preset_default_profile
+        return resolve_cuda_arch_profile(profile), normalize_cuda_arch_list(str(env["PUTPOCKET_CUDA_ARCH_LIST"]))
+    profile = resolve_cuda_arch_profile(env.get("PUTPOCKET_CUDA_ARCH_PROFILE") or preset_default_profile)
+    return profile, resolve_cuda_arch_list(profile)
 
 
 def detect_native_cuda_arch_list() -> str:
@@ -128,10 +192,14 @@ def detect_native_cuda_arch_list() -> str:
     )
     if proc.returncode != 0:
         raise ConfigError(f"native CUDA architecture detection failed: {proc.stderr.strip()}")
-    caps = sorted({line.strip() for line in proc.stdout.splitlines() if line.strip()})
+    caps = {line.strip() for line in proc.stdout.splitlines() if line.strip()}
     if not caps:
         raise ConfigError("native CUDA architecture detection found no visible GPUs")
-    return " ".join(caps)
+    unknown = [cap for cap in caps if cap not in NATIVE_CAPABILITY_TO_ARCH]
+    if unknown:
+        raise ConfigError(f"unsupported native CUDA capability: {', '.join(unknown)}")
+    detected_arches = {NATIVE_CAPABILITY_TO_ARCH[cap] for cap in caps}
+    return normalize_cuda_arch_list(" ".join(arch for arch in SUPPORTED_CUDA_ARCHES if arch in detected_arches))
 
 
 def build_runpod_plan(
@@ -139,7 +207,7 @@ def build_runpod_plan(
     repo_root: Path,
     persistent_root: str | None,
     storage_kind: str | None,
-    cuda_arch_profile: str,
+    cuda_arch_profile: str | None,
     cuda_arch_list: str | None,
     base_image_contract: str | None,
     dry_run: bool,
@@ -147,17 +215,24 @@ def build_runpod_plan(
     skip_vllm_build: bool,
     force_vllm_build: bool,
     skip_gpu_smoke: bool,
+    env: dict[str, str] | None = None,
 ) -> RunpodPlan:
-    root = Path(persistent_root or os.environ.get("PUTPOCKET_REPO_ROOT", str(RUNPOD_REPO_ROOT))).expanduser()
-    env_path = Path(os.environ.get("PUTPOCKET_ENV_PATH", str(root / "Putpocket_env"))).expanduser()
-    storage = storage_kind or os.environ.get("PUTPOCKET_STORAGE_KIND", "network-volume")
-    arch_list = resolve_cuda_arch_list(cuda_arch_profile, cuda_arch_list)
+    env = env if env is not None else os.environ
+    root = Path(persistent_root or env.get("PUTPOCKET_REPO_ROOT", str(RUNPOD_REPO_ROOT))).expanduser()
+    env_path = Path(env.get("PUTPOCKET_ENV_PATH", str(root / "Putpocket_env"))).expanduser()
+    storage = storage_kind or env.get("PUTPOCKET_STORAGE_KIND", "network-volume")
+    arch_profile, arch_list = resolve_cuda_arch_contract(
+        preset_default_profile=PRESET_DEFAULT_ARCH_PROFILE["runpod-dev"],
+        cli_arch_profile=cuda_arch_profile,
+        cli_arch_list=cuda_arch_list,
+        env=env,
+    )
     return RunpodPlan(
         repo_root=root,
         env_path=env_path,
         persistent_root=root.parent,
         storage_kind=storage,
-        cuda_arch_profile=cuda_arch_profile,
+        cuda_arch_profile=arch_profile,
         cuda_arch_list=arch_list,
         base_image_contract=repo_root / (base_image_contract or str(RUNPOD_BASE_IMAGE_CONTRACT)),
         torch_contract=repo_root / TORCH_CU129_CONTRACT,
@@ -233,6 +308,7 @@ def runtime_fingerprint(plan: RunpodPlan, base: dict[str, Any], torch_contract: 
         "project_lock_hash": _sha256(plan.repo_root / "configs" / "env" / "server2_blackwell.lock.yaml"),
         "cuda_arch_profile": plan.cuda_arch_profile,
         "cuda_arch_list": plan.cuda_arch_list,
+        "torch_cuda_arch_list": plan.cuda_arch_list,
     }
 
 
@@ -248,27 +324,69 @@ def build_manifest(plan: RunpodPlan, fingerprint: dict[str, Any]) -> dict[str, A
         "torch": fingerprint.get("torch"),
         "torch_cuda": fingerprint.get("torch_cuda"),
         "cuda_toolkit": fingerprint.get("cuda_toolkit"),
+        "cuda_arch_profile": plan.cuda_arch_profile,
+        "requested_cuda_arch_list": plan.cuda_arch_list.split(),
+        "torch_cuda_arch_list": plan.cuda_arch_list,
         "requested_architecture_profile": plan.cuda_arch_profile,
         "requested_architecture_list": plan.cuda_arch_list,
-        "actual_compiled_architecture_evidence": {
-            "sm_86": "NOT_RUN",
-            "sm_90": "NOT_RUN",
-            "sm_100": "NOT_RUN",
-            "sm_120": "NOT_RUN",
-        },
+        "actual_compiled_architecture_evidence": {key: "NOT_INSPECTED" for key in SM_EVIDENCE_KEYS},
         "heavy_multiarch_build_executed": os.environ.get("PUTPOCKET_ALLOW_HEAVY_MULTIARCH_BUILD") == "1",
+        "vllm_editable_build": {
+            "environment": {"TORCH_CUDA_ARCH_LIST": plan.cuda_arch_list},
+            "command": vllm_editable_build_command(plan.repo_root, plan.cuda_arch_list),
+            "heavy_build_required_for_portable_multiarch": plan.cuda_arch_list == ARCH_PROFILES["portable-nvidia"],
+        },
+        "docker_build_args": docker_build_args(plan.cuda_arch_list),
     }
+
+
+def vllm_editable_build_command(repo_root: Path, cuda_arch_list: str) -> str:
+    prefix = f"cd {repo_root}/externals/vllm"
+    return (
+        f"{prefix} && export TORCH_CUDA_ARCH_LIST=\"{cuda_arch_list}\" && "
+        "python use_existing_torch.py && "
+        "uv pip install -r requirements/build/cuda.txt && "
+        "CCACHE_NOHASHDIR=true uv pip install --no-build-isolation -e ."
+    )
+
+
+def docker_build_args(cuda_arch_list: str) -> list[str]:
+    return ["--build-arg", f"torch_cuda_arch_list={normalize_cuda_arch_list(cuda_arch_list)}"]
 
 
 def vllm_developer_commands(repo_root: Path) -> dict[str, str]:
     prefix = f"cd {repo_root}/externals/vllm"
+    portable = ARCH_PROFILES["portable-nvidia"]
     return {
         "python_only_change": "edit externals/vllm Python files; no reinstall required for editable install",
-        "cpp_or_cuda_change": f"{prefix} && CCACHE_NOHASHDIR=true uv pip install --no-build-isolation -e .",
-        "clean_rebuild": f"{prefix} && rm -rf build && CCACHE_NOHASHDIR=true uv pip install --no-build-isolation -e .",
-        "build_doctor": f"{prefix} && python use_existing_torch.py && uv pip install -r requirements/build/cuda.txt",
+        "cpp_or_cuda_change": vllm_editable_build_command(repo_root, portable),
+        "clean_rebuild": f"{prefix} && rm -rf build && export TORCH_CUDA_ARCH_LIST=\"{portable}\" && CCACHE_NOHASHDIR=true uv pip install --no-build-isolation -e .",
+        "build_doctor": f"{prefix} && export TORCH_CUDA_ARCH_LIST=\"{portable}\" && python use_existing_torch.py && uv pip install -r requirements/build/cuda.txt",
         "serve_later": "python -m vllm.entrypoints.openai.api_server --help",
     }
+
+
+def parse_cuobjdump_arches(output: str) -> dict[str, str]:
+    found = {key: "MISSING" for key in SM_EVIDENCE_KEYS}
+    for match in re.findall(r"sm_(86|90|100|120)", output):
+        found[f"sm_{match}"] = "PRESENT"
+    return found
+
+
+def inspect_binary_architectures(paths: list[Path], *, cuobjdump: str | None = None) -> dict[str, str]:
+    if not paths:
+        return {key: "NOT_APPLICABLE" for key in SM_EVIDENCE_KEYS}
+    tool = cuobjdump or shutil.which("cuobjdump")
+    if not tool:
+        return {key: "NOT_INSPECTED" for key in SM_EVIDENCE_KEYS}
+    combined = {key: "MISSING" for key in SM_EVIDENCE_KEYS}
+    for path in paths:
+        proc = subprocess.run([tool, "--list-elf", str(path)], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        evidence = parse_cuobjdump_arches(proc.stdout + "\n" + proc.stderr) if proc.returncode == 0 else {key: "NOT_INSPECTED" for key in SM_EVIDENCE_KEYS}
+        for key, value in evidence.items():
+            if combined[key] != "PRESENT":
+                combined[key] = value
+    return combined
 
 
 def read_structured(path: Path) -> dict[str, Any]:

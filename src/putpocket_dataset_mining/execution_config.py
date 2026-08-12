@@ -29,6 +29,7 @@ class HardwareProfile(StrEnum):
     CPU = "cpu"
     SM86 = "sm86"
     SM90 = "sm90"
+    SM100 = "sm100"
     SM120 = "sm120"
     AUTO = "auto"
 
@@ -250,6 +251,7 @@ def cuda_arch_for_profile(profile: HardwareProfile | str) -> str | None:
         HardwareProfile.CPU: None,
         HardwareProfile.SM86: "8.6",
         HardwareProfile.SM90: "9.0",
+        HardwareProfile.SM100: "10.0",
         HardwareProfile.SM120: "12.0",
         HardwareProfile.AUTO: None,
     }[profile]

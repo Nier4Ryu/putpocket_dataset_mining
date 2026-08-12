@@ -1,0 +1,32 @@
+refs/heads/agent/T20260812-001__agent-worktree-control-plane	46edffb4ff2e3b88d0ce3ad8816b930c4b20ba51	refs/remotes/origin/master	docs(agent): add task closeout handoff
+refs/heads/agent/T20260812-002__master-only-branch-consolidation	897edfdbb77effcb428d97808c4832ee90528255		fix(env): refresh editable install when agent cli is missing
+refs/heads/blackwell	988e8b4aaee5ace95604eed9cf4c8af4adf7f4c9	refs/remotes/origin/blackwell	feat(dataset-mining): add and finalize ClassEval support
+refs/heads/codex/bootstrap-entrypoint-audit-20260812_051218	b2f78f2decdb24b74ede4cf384f87b3cd30993ce	refs/remotes/origin/master	feat(workflow): finish manual and pipeline execution modes
+refs/heads/codex/canonicalize-remote-verifier-20260805_225753	a8de7caa0973ba4a8b90a85ef595c4c2d8b43df5	refs/remotes/origin/codex/canonicalize-remote-verifier-20260805_225753	fix(remote-verifier): record timeout budget and retrieve status
+refs/heads/codex/cloud-mainline-consolidation-20260812_031733	b2f78f2decdb24b74ede4cf384f87b3cd30993ce		feat(workflow): finish manual and pipeline execution modes
+refs/heads/codex/distributed-execution-modes-20260811_205028	32b0b3700059dccfa03f86ccf7e06dfc33409e6b		feat(workflow): add distributed verification modes
+refs/heads/codex/e2e-two-turn-remote-verifier-20260811_183255	042452b50254524e779c786c139c51ad001fa869		feat(evaluation): write two-turn aggregate summaries
+refs/heads/codex/finish-manual-pipeline-20260811_225947	b2f78f2decdb24b74ede4cf384f87b3cd30993ce		feat(workflow): finish manual and pipeline execution modes
+refs/heads/codex/fix-proxyjump-live-verifier-20260810_065259	33a00845908a36cff7b5c65b67927b489a258e9a	refs/remotes/origin/codex/fix-proxyjump-live-verifier-20260810_065259	fix(remote-verifier): sync workspace directory contents
+refs/heads/codex/fresh-e2e-timing-20260811_194006	7b9dc4e0f1aaf6b513ad93f1fa6a0bf4242eae10		feat(evaluation): add fresh two-turn timing instrumentation
+refs/heads/codex/multihost-bootstrap-remote-verifier-20260805_151808	7da7ba5da661c5b74bcbf9fff7359cb8af453f7d	refs/remotes/origin/codex/multihost-bootstrap-remote-verifier-20260805_151808	docs(multihost): document Phase 0 and Phase 1 setup
+refs/heads/codex/runpod-cuda129-uv-editable-runtime-20260812_173847	2992043a90322d39918d6f26bff0959f28088a9e		feat(env): add RunPod CUDA uv editable runtime contract
+refs/heads/codex/sr-multihost-cloud-20260804_151155	03b24b43c5c317921e6a11ca9ea7968e23b1428c	refs/remotes/origin/codex/sr-multihost-cloud-20260804_151155	docs(cloud): document SR multi-host RunPod deployment
+refs/heads/codex/unify-server2-bootstrap-env-20260812_142601	120353c988c0ef0b411bf67eec3cff8b1e0b4abf		refactor(env): unify Server-2 bootstrap preset
+refs/heads/master	897edfdbb77effcb428d97808c4832ee90528255	refs/remotes/origin/master	fix(env): refresh editable install when agent cli is missing
+refs/remotes/origin/HEAD	897edfdbb77effcb428d97808c4832ee90528255		fix(env): refresh editable install when agent cli is missing
+refs/remotes/origin/agent/T20260812-001__agent-worktree-control-plane	897edfdbb77effcb428d97808c4832ee90528255		fix(env): refresh editable install when agent cli is missing
+refs/remotes/origin/blackwell	a8de7caa0973ba4a8b90a85ef595c4c2d8b43df5		fix(remote-verifier): record timeout budget and retrieve status
+refs/remotes/origin/codex/canonicalize-remote-verifier-20260805_225753	a8de7caa0973ba4a8b90a85ef595c4c2d8b43df5		fix(remote-verifier): record timeout budget and retrieve status
+refs/remotes/origin/codex/cloud-mainline-consolidation-20260812_031733	b2f78f2decdb24b74ede4cf384f87b3cd30993ce		feat(workflow): finish manual and pipeline execution modes
+refs/remotes/origin/codex/e2e-two-turn-remote-verifier-20260811_183255	042452b50254524e779c786c139c51ad001fa869		feat(evaluation): write two-turn aggregate summaries
+refs/remotes/origin/codex/fix-proxyjump-live-verifier-20260810_065259	33a00845908a36cff7b5c65b67927b489a258e9a		fix(remote-verifier): sync workspace directory contents
+refs/remotes/origin/codex/fresh-e2e-timing-20260811_194006	7b9dc4e0f1aaf6b513ad93f1fa6a0bf4242eae10		feat(evaluation): add fresh two-turn timing instrumentation
+refs/remotes/origin/codex/multihost-bootstrap-remote-verifier-20260805_151808	7da7ba5da661c5b74bcbf9fff7359cb8af453f7d		docs(multihost): document Phase 0 and Phase 1 setup
+refs/remotes/origin/codex/runpod-cuda129-uv-editable-runtime-20260812_173847	2992043a90322d39918d6f26bff0959f28088a9e		feat(env): add RunPod CUDA uv editable runtime contract
+refs/remotes/origin/codex/server1-verifier-bootstrap-fix-20260805_220221	f42d8e20130513fff7500c8467aedf71d3ee576b		fix(remote-verifier): preserve timeout output text
+refs/remotes/origin/codex/sr-multihost-cloud-20260804_151155	03b24b43c5c317921e6a11ca9ea7968e23b1428c		docs(cloud): document SR multi-host RunPod deployment
+refs/remotes/origin/codex/unify-server2-bootstrap-env-20260812_142601	120353c988c0ef0b411bf67eec3cff8b1e0b4abf		refactor(env): unify Server-2 bootstrap preset
+refs/remotes/origin/master	897edfdbb77effcb428d97808c4832ee90528255		fix(env): refresh editable install when agent cli is missing
+refs/tags/cloud-deploy-ready-20260812-b2f78f2	df73a0ff7c1d2fda6ea2a53cda6a0d1ff60edb42		Cloud deploy ready b2f78f2decdb24b74ede4cf384f87b3cd30993ce
+refs/tags/server2-env-unified-20260812-120353c	f43105afa887c31f467a22cdf806f1065248f008		Server-2 environment unified at 120353c988c0ef0b411bf67eec3cff8b1e0b4abf

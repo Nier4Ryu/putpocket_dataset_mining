@@ -1,0 +1,5 @@
+Dockerfile:PASS
+Template:PASS
+BaseDigest:PASS
+ArchProfiles:PASS
+TorchFailClosed:PASS

@@ -1,0 +1,60 @@
+worktree /home/dyryu/putpocket_dataset_mining
+HEAD 897edfdbb77effcb428d97808c4832ee90528255
+branch refs/heads/master
+
+worktree /home/dyryu/putpocket_dataset_mining_20260804_151155_sr_multihost
+HEAD 03b24b43c5c317921e6a11ca9ea7968e23b1428c
+branch refs/heads/codex/sr-multihost-cloud-20260804_151155
+
+worktree /home/dyryu/putpocket_dataset_mining_worktrees/T20260812-001__agent-worktree-control-plane
+HEAD 46edffb4ff2e3b88d0ce3ad8816b930c4b20ba51
+branch refs/heads/agent/T20260812-001__agent-worktree-control-plane
+
+worktree /home/dyryu/putpocket_dataset_mining_worktrees/T20260812-002__master-only-branch-consolidation
+HEAD 897edfdbb77effcb428d97808c4832ee90528255
+branch refs/heads/agent/T20260812-002__master-only-branch-consolidation
+
+worktree /home/dyryu/worktrees/bootstrap-entrypoint-audit-20260812_051218
+HEAD b2f78f2decdb24b74ede4cf384f87b3cd30993ce
+branch refs/heads/codex/bootstrap-entrypoint-audit-20260812_051218
+
+worktree /home/dyryu/worktrees/cloud-mainline-consolidation-20260812_031733
+HEAD b2f78f2decdb24b74ede4cf384f87b3cd30993ce
+branch refs/heads/codex/cloud-mainline-consolidation-20260812_031733
+
+worktree /home/dyryu/worktrees/distributed-execution-modes-20260811_205028
+HEAD 32b0b3700059dccfa03f86ccf7e06dfc33409e6b
+branch refs/heads/codex/distributed-execution-modes-20260811_205028
+
+worktree /home/dyryu/worktrees/e2e-two-turn-remote-verifier-20260811_183255
+HEAD 042452b50254524e779c786c139c51ad001fa869
+branch refs/heads/codex/e2e-two-turn-remote-verifier-20260811_183255
+
+worktree /home/dyryu/worktrees/finish-manual-pipeline-20260811_225947
+HEAD b2f78f2decdb24b74ede4cf384f87b3cd30993ce
+branch refs/heads/codex/finish-manual-pipeline-20260811_225947
+
+worktree /home/dyryu/worktrees/fresh-e2e-timing-20260811_194006
+HEAD 7b9dc4e0f1aaf6b513ad93f1fa6a0bf4242eae10
+branch refs/heads/codex/fresh-e2e-timing-20260811_194006
+
+worktree /home/dyryu/worktrees/runpod-cuda129-uv-editable-runtime-20260812_173847
+HEAD 2992043a90322d39918d6f26bff0959f28088a9e
+branch refs/heads/codex/runpod-cuda129-uv-editable-runtime-20260812_173847
+
+worktree /home/dyryu/worktrees/sr-canonicalize-verifier-20260805_225753
+HEAD 33a00845908a36cff7b5c65b67927b489a258e9a
+branch refs/heads/codex/fix-proxyjump-live-verifier-20260810_065259
+
+worktree /home/dyryu/worktrees/sr-remote-verifier-20260805_151808
+HEAD 7da7ba5da661c5b74bcbf9fff7359cb8af453f7d
+branch refs/heads/codex/multihost-bootstrap-remote-verifier-20260805_151808
+
+worktree /home/dyryu/worktrees/unify-server2-bootstrap-env-20260812_142601
+HEAD 120353c988c0ef0b411bf67eec3cff8b1e0b4abf
+branch refs/heads/codex/unify-server2-bootstrap-env-20260812_142601
+
+worktree /home/dyryu/worktrees/unify-server2-bootstrap-env-freshcheck-20260812_142601-1786513367
+HEAD 120353c988c0ef0b411bf67eec3cff8b1e0b4abf
+detached
+

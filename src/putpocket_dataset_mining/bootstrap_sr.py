@@ -206,7 +206,8 @@ def _run_server2_preset(args: argparse.Namespace) -> int:
     _write_json(run.path("doctor.json"), doctor)
     after = _environment_manifest()
     _write_json(run.path("environment_after.json"), after)
-    _write_contract(after)
+    if not args.doctor_only:
+        _write_contract(after)
     _write_legacy_environment_manifest()
     _write_summary(run, plan, before, after, doctor)
     if doctor["status"] != "passed":

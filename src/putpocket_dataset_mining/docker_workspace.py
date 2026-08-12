@@ -283,7 +283,7 @@ class RemoteDockerWorkspace:
         )
         if result.returncode != 0:
             raise InfraError(f"Remote Docker workspace start failed: {(result.stderr or result.stdout).strip()}")
-        sync = self.transport.rsync_to_remote(self.host_workspace, f"sessions/{self.name}/workspace/")
+        sync = self.transport.rsync_to_remote(self.host_workspace, f"{self.name}/workspace/")
         if sync.returncode != 0:
             raise InfraError(f"Remote workspace initial sync failed: {sync.stderr.strip()}")
         self._started = True
@@ -304,12 +304,12 @@ class RemoteDockerWorkspace:
         return result.json_stdout()
 
     def _push_workspace(self) -> None:
-        result = self.transport.rsync_to_remote(self.host_workspace, f"sessions/{self.name}/workspace/")
+        result = self.transport.rsync_to_remote(self.host_workspace, f"{self.name}/workspace/")
         if result.returncode != 0:
             raise InfraError(f"Remote workspace sync failed: {result.stderr.strip()}")
 
     def _pull_workspace(self) -> None:
-        result = self.transport.rsync_from_remote(f"sessions/{self.name}/workspace/", self.host_workspace)
+        result = self.transport.rsync_from_remote(f"{self.name}/workspace/", self.host_workspace)
         if result.returncode != 0:
             raise InfraError(f"Remote workspace result sync failed: {result.stderr.strip()}")
 

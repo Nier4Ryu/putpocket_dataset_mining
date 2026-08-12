@@ -12,6 +12,21 @@ from putpocket_dataset_mining.execution_config import DockerBackend, ExecutionCo
 
 
 class RemoteWorkspaceWorkerTests(unittest.TestCase):
+    def test_client_and_wrapper_use_same_session_layout(self) -> None:
+        cfg = ExecutionConfig.from_env_and_mapping({
+            "execution_role": "runpod_controller", "workspace_backend": "ssh_remote_docker", "verifier_backend": "remote_ssh_docker",
+            "remote": {"host": "b", "user": "u", "repository_root": "/repo", "job_root": "/verify"},
+            "workspace_remote": {"host": "b", "user": "u", "repository_root": "/repo", "job_root": "/workspace", "wrapper": "/repo/bin/putpocket-remote-workspace"},
+        })
+        with tempfile.TemporaryDirectory() as td:
+            workspace = RemoteDockerWorkspace(Path(td), name="run.sample", execution_config=cfg)
+            with patch.object(workspace.transport, "rsync_to_remote") as push, patch.object(workspace.transport, "rsync_from_remote") as pull:
+                push.return_value = type("R", (), {"returncode": 0, "stderr": ""})()
+                pull.return_value = type("R", (), {"returncode": 0, "stderr": ""})()
+                workspace._push_workspace()
+                workspace._pull_workspace()
+        self.assertEqual(push.call_args.args[1], "run.sample/workspace/")
+        self.assertEqual(pull.call_args.args[0], "run.sample/workspace/")
     def test_exec_places_untrusted_command_only_after_docker_exec(self) -> None:
         payload = {"session_id": "run.sample.episode", "command": "touch marker", "timeout_sec": 3}
         with patch.object(remote_workspace, "_docker") as docker:

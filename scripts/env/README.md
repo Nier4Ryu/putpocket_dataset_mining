@@ -1,65 +1,57 @@
-# Putpocket Environment Scripts
+# Putpocket Server-2 Environment
 
-## First-Time Setup Or Repair
+Server-2 has one active project/runtime environment:
 
-```bash
-./scripts/env/bootstrap_env.sh
+```text
+Putpocket_env
 ```
 
-`bootstrap_env.sh` creates or repairs the repo-local `Putpocket_env`, installs
-Python dependencies, checks external repositories, builds editable vLLM/LMCache
-when needed, ensures the default Docker image, and runs smoke checks. It writes
-stage logs under `logs/env_setup/<timestamp>/`; `logs/env_setup/latest` points
-to the newest run.
-
-Useful options:
+Use one setup command:
 
 ```bash
-./scripts/env/bootstrap_env.sh --doctor-only
-./scripts/env/bootstrap_env.sh --skip-docker
-./scripts/env/bootstrap_env.sh --skip-vllm-build --skip-deepgemm-build --skip-lmcache-build
-./scripts/env/bootstrap_env.sh --force-vllm-build
-./scripts/env/bootstrap_env.sh --force-deepgemm-build
-./scripts/env/bootstrap_env.sh --force-lmcache-build
-./scripts/env/bootstrap_env.sh --force-docker-build
+./scripts/env/bootstrap_sr.sh --preset server2
 ```
 
-## Every Shell Session
+Use one activation command in every shell:
 
 ```bash
 source scripts/env/env_activate.sh
 ```
 
-`env_activate.sh` only activates the existing `Putpocket_env` and exports
-runtime/build environment variables. It does not install packages, build
-extensions, clone repositories, run Docker, or start mining jobs.
-
-Blackwell build parallelism defaults to 16 jobs and can be overridden before
-activation:
+Validate without installation or build:
 
 ```bash
-export PUTPOCKET_BUILD_THREADS=16
-export MAX_JOBS=16
-export CMAKE_BUILD_PARALLEL_LEVEL=16
-export CARGO_BUILD_JOBS=16
-source scripts/env/env_activate.sh
+./scripts/env/bootstrap_sr.sh --preset server2 --doctor-only
 ```
 
-`bootstrap_env.sh` defaults to `CUDA_HOME=/usr/local/cuda-12.9` and installs
-the CUDA 12.9 PyTorch wheel set (`cu129`) unless `TORCH_SPEC`,
-`TORCH_CUDA_TAG`, or `TORCH_INDEX_URL` are overridden. If `python3.13` is not
-available but `uv` can be installed, bootstrap installs a repo-local `uv` under
-`.local_python/bin` and asks it for Python 3.13.
+Preview the exact plan without mutation:
 
-Editable vLLM builds start at 16 build threads. If the build log shows an
-OOM-like failure, bootstrap retries with 12 threads and then 8 threads, writing
-logs such as `logs/env_setup/<timestamp>/vllm_build_threads_16.log`.
+```bash
+./scripts/env/bootstrap_sr.sh --preset server2 --dry-run
+```
 
-After vLLM is available, bootstrap installs the vLLM-pinned DeepGEMM package
-when `deep_gemm` is not already importable. GLM sparse MLA model loading needs
-that package before vLLM can reach backend selection. Use
-`--skip-deepgemm-build` only for dependency inspection or when DeepGEMM is known
-to be unavailable on the host.
+`bootstrap_sr.sh --preset server2` writes logs under
+`logs/env_setup/<timestamp>/` and maintains `logs/env_setup/latest`.
+It validates the uv-managed `Putpocket_env`, active Qwen vLLM/LMCache
+externals, Docker image presence, project imports, and CLI doctor output.
 
-The activation script does not set `CUDA_VISIBLE_DEVICES`; GPU selection belongs
-to runtime configs or per-command environment variables.
+`bootstrap_env.sh` is retained only as a compatibility wrapper that delegates
+to the canonical preset. Do not add new setup logic there.
+
+The local GLM bootstrap scripts are retired from the active Server-2 path:
+
+```text
+bootstrap_glm52_env.sh
+bootstrap_glm52_v025_env.sh
+env_activate_glm52.sh
+env_activate_glm52_v025.sh
+env_activate_ref.sh
+```
+
+They are preserved for historical inspection and require explicit opt-in where
+execution is still possible. Future full GLM-5.2 inference should run on
+RunPod Hopper runtimes, not in the active Server-2 Qwen environment.
+
+Advanced static multi-host bootstrap flags such as `--server-profile`,
+`--role`, `--stage`, and `--vllm-profile` remain available for Server-1 and
+RunPod planning. Normal Server-2 users should use `--preset server2`.

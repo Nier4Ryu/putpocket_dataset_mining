@@ -5,6 +5,12 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   exit 2
 fi
 
+if [[ "${PUTPOCKET_ALLOW_LEGACY_GLM_ENV:-}" != "1" ]]; then
+  echo "env_activate_glm52.sh is retired from the active Server-2 path." >&2
+  echo "Set PUTPOCKET_ALLOW_LEGACY_GLM_ENV=1 only for historical GLM inspection." >&2
+  return 2
+fi
+
 _putpocket_glm52_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export PUTPOCKET_DATASET_MINING_ROOT="$(cd "${_putpocket_glm52_script_dir}/../.." && pwd)"
 _putpocket_glm52_venv="${PUTPOCKET_DATASET_MINING_ROOT}/Putpocket_env_glm52"

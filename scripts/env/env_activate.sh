@@ -10,10 +10,17 @@ _putpocket_env_script="${BASH_SOURCE[0]}"
 _putpocket_env_dir="$(cd "$(dirname "${_putpocket_env_script}")" && pwd)"
 export PUTPOCKET_DATASET_MINING_ROOT="$(cd "${_putpocket_env_dir}/../.." && pwd)"
 
-_putpocket_venv="${PUTPOCKET_DATASET_MINING_ROOT}/Putpocket_env"
+_putpocket_venv="${PUTPOCKET_CANONICAL_SERVER2_ENV:-/home/dyryu/putpocket_dataset_mining/Putpocket_env}"
+case "${VIRTUAL_ENV:-}" in
+  *Putpocket_env_glm52*|*Putpocket_env_glm52_v025*)
+    echo "Refusing to activate Server-2 env from legacy GLM environment: ${VIRTUAL_ENV}" >&2
+    return 2
+    ;;
+esac
+
 if [[ ! -f "${_putpocket_venv}/bin/activate" ]]; then
   echo "Putpocket_env was not found at ${_putpocket_venv}." >&2
-  echo "Run ./scripts/env/bootstrap_env.sh first." >&2
+  echo "Run ./scripts/env/bootstrap_sr.sh --preset server2 first." >&2
   return 2
 fi
 
@@ -43,8 +50,7 @@ _putpocket_prepend_var_path() {
   esac
 }
 
-export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.9}"
-export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-${_putpocket_venv}}"
+export UV_PROJECT_ENVIRONMENT="${_putpocket_venv}"
 export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
 export TZ="${TZ:-Asia/Seoul}"
 
@@ -61,19 +67,32 @@ export CMAKE_BUILD_PARALLEL_LEVEL="${CMAKE_BUILD_PARALLEL_LEVEL:-16}"
 export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-16}"
 export NVCC_THREADS="${NVCC_THREADS:-1}"
 
-_putpocket_prepend_path "${CUDA_HOME}/bin"
+if [[ -z "${CUDA_HOME:-}" && -d "/usr/local/cuda-12.9" ]]; then
+  export CUDA_HOME="/usr/local/cuda-12.9"
+fi
+if [[ -n "${CUDA_HOME:-}" ]]; then
+  _putpocket_prepend_path "${CUDA_HOME}/bin"
+  _putpocket_prepend_var_path LD_LIBRARY_PATH "${CUDA_HOME}/lib64"
+fi
 _putpocket_prepend_path "${PUTPOCKET_DATASET_MINING_ROOT}/.local_python/bin"
-_putpocket_prepend_var_path LD_LIBRARY_PATH "${CUDA_HOME}/lib64"
 _putpocket_prepend_var_path PYTHONPATH "${PUTPOCKET_DATASET_MINING_ROOT}/src"
 
 # shellcheck disable=SC1091
 source "${_putpocket_venv}/bin/activate"
 
+case ":${PATH}:${PYTHONPATH:-}:" in
+  *Putpocket_env_glm52*|*Putpocket_env_glm52_v025*)
+    echo "Legacy GLM environment leaked into PATH/PYTHONPATH." >&2
+    return 2
+    ;;
+esac
+
 echo "Putpocket env activated"
+echo "  profile: server2"
 echo "  repo root: ${PUTPOCKET_DATASET_MINING_ROOT}"
 echo "  venv: ${_putpocket_venv}"
 echo "  python: $(command -v python)"
-echo "  CUDA_HOME: ${CUDA_HOME}"
+echo "  CUDA_HOME: ${CUDA_HOME:-unset}"
 echo "  build threads: ${PUTPOCKET_BUILD_THREADS}"
 
 unset _putpocket_env_script

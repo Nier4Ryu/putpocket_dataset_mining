@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +11,8 @@ from putpocket_dataset_mining.bootstrap_sr import run_bootstrap
 
 
 class BootstrapSrTests(unittest.TestCase):
+    repo_root = Path(__file__).resolve().parents[1]
+
     def test_cpu_phase_with_no_visible_gpu_and_disabled_verifier(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name, patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": ""}):
             code = run_bootstrap(
@@ -74,6 +77,42 @@ class BootstrapSrTests(unittest.TestCase):
                 0,
             )
             self.assertTrue(list(Path(tmp_name).glob("*_bootstrap_manifest_*.json")))
+
+    def test_server2_preset_dry_run_plans_canonical_environment(self) -> None:
+        with patch("builtins.print") as mocked_print:
+            self.assertEqual(run_bootstrap(["--preset", "server2", "--dry-run"]), 0)
+        rendered = "\n".join(str(call.args[0]) for call in mocked_print.call_args_list)
+        self.assertIn('"preset": "server2"', rendered)
+        self.assertIn('"environment":', rendered)
+        self.assertIn("Putpocket_env", rendered)
+        self.assertIn("qwen-runtime", rendered)
+
+    def test_doctor_only_plan_has_no_mutations(self) -> None:
+        with patch("builtins.print") as mocked_print:
+            self.assertEqual(run_bootstrap(["--preset", "server2", "--doctor-only", "--dry-run"]), 0)
+        rendered = "\n".join(str(call.args[0]) for call in mocked_print.call_args_list)
+        self.assertIn('"doctor_only": true', rendered)
+        self.assertIn('"mutations": []', rendered)
+
+    def test_bootstrap_env_delegates_to_canonical_preset(self) -> None:
+        script = self.repo_root / "scripts" / "env" / "bootstrap_env.sh"
+        result = subprocess.run([str(script), "--dry-run"], cwd=self.repo_root, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('"preset": "server2"', result.stdout)
+        self.assertIn("delegating to bootstrap_sr.sh --preset server2", result.stderr)
+
+    def test_legacy_glm_bootstrap_requires_explicit_opt_in(self) -> None:
+        for name in ("bootstrap_glm52_env.sh", "bootstrap_glm52_v025_env.sh"):
+            script = self.repo_root / "scripts" / "env" / name
+            result = subprocess.run([str(script), "--help"], cwd=self.repo_root, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("PUTPOCKET_ALLOW_LEGACY_GLM_ENV=1", result.stderr)
+
+    def test_activation_script_does_not_set_cuda_visible_devices(self) -> None:
+        script = self.repo_root / "scripts" / "env" / "env_activate.sh"
+        text = script.read_text(encoding="utf-8")
+        self.assertNotIn("export CUDA_VISIBLE_DEVICES", text)
+        self.assertIn("Putpocket_env_glm52", text)
 
 
 if __name__ == "__main__":

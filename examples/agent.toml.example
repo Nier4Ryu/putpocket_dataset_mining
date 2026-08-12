@@ -1,0 +1,7 @@
+[paths]
+canonical_root = "/home/example/putpocket_dataset_mining"
+worktree_root = "/home/example/putpocket_dataset_mining_worktrees"
+artifact_root = "/home/example/putpocket_dataset_mining/data/model_evaluation/runs"
+active_env = "/home/example/putpocket_dataset_mining/Putpocket_env"
+external_vllm_root = "/home/example/putpocket_dataset_mining/externals/vllm"
+external_lmcache_root = "/home/example/putpocket_dataset_mining/externals/lmcache"

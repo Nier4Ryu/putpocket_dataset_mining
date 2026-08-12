@@ -8,9 +8,35 @@ fi
 
 _putpocket_env_script="${BASH_SOURCE[0]}"
 _putpocket_env_dir="$(cd "$(dirname "${_putpocket_env_script}")" && pwd)"
-export PUTPOCKET_DATASET_MINING_ROOT="$(cd "${_putpocket_env_dir}/../.." && pwd)"
+_putpocket_script_root="$(cd "${_putpocket_env_dir}/../.." && pwd)"
+_putpocket_default_base="${HOME}"
+if [[ "${PUTPOCKET_STORAGE_KIND:-}" == "network-volume" && -d "/workspace" ]]; then
+  _putpocket_default_base="/workspace"
+fi
+_putpocket_canonical_root="${PUTPOCKET_CANONICAL_ROOT:-${_putpocket_default_base}/putpocket_dataset_mining}"
+_putpocket_worktree_root="${PUTPOCKET_WORKTREE_ROOT:-${_putpocket_default_base}/putpocket_dataset_mining_worktrees}"
+export PUTPOCKET_CANONICAL_ROOT="${_putpocket_canonical_root}"
+export PUTPOCKET_WORKTREE_ROOT="${_putpocket_worktree_root}"
 
-_putpocket_venv="${PUTPOCKET_CANONICAL_SERVER2_ENV:-/home/dyryu/putpocket_dataset_mining/Putpocket_env}"
+case "$(cd "${_putpocket_script_root}" && pwd)" in
+  "$(cd "${_putpocket_canonical_root}" 2>/dev/null && pwd 2>/dev/null)")
+    export PUTPOCKET_EXECUTION_CONTEXT="canonical-runtime"
+    export PUTPOCKET_DATASET_MINING_ROOT="${_putpocket_canonical_root}"
+    _putpocket_overlay_root=""
+    ;;
+  "${_putpocket_worktree_root}"/*)
+    export PUTPOCKET_EXECUTION_CONTEXT="task-worktree"
+    export PUTPOCKET_DATASET_MINING_ROOT="${_putpocket_canonical_root}"
+    _putpocket_overlay_root="${_putpocket_script_root}"
+    ;;
+  *)
+    export PUTPOCKET_EXECUTION_CONTEXT="unknown"
+    export PUTPOCKET_DATASET_MINING_ROOT="${_putpocket_script_root}"
+    _putpocket_overlay_root=""
+    ;;
+esac
+
+_putpocket_venv="${PUTPOCKET_ENV_PATH:-${PUTPOCKET_CANONICAL_SERVER2_ENV:-${_putpocket_canonical_root}/Putpocket_env}}"
 case "${VIRTUAL_ENV:-}" in
   *Putpocket_env_glm52*|*Putpocket_env_glm52_v025*)
     echo "Refusing to activate Server-2 env from legacy GLM environment: ${VIRTUAL_ENV}" >&2
@@ -51,8 +77,13 @@ _putpocket_prepend_var_path() {
 }
 
 export UV_PROJECT_ENVIRONMENT="${_putpocket_venv}"
+export PUTPOCKET_ENV_PATH="${_putpocket_venv}"
 export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
 export TZ="${TZ:-Asia/Seoul}"
+export PUTPOCKET_PRODUCTION_ALLOWED="0"
+if [[ "${PUTPOCKET_EXECUTION_CONTEXT}" == "canonical-runtime" ]]; then
+  export PUTPOCKET_PRODUCTION_ALLOWED="1"
+fi
 
 if [[ -d "/data/shared/hf_cache/hub" ]]; then
   export PUTPOCKET_HF_HUB_CACHE_DIR="${PUTPOCKET_HF_HUB_CACHE_DIR:-/data/shared/hf_cache/hub}"
@@ -76,6 +107,9 @@ if [[ -n "${CUDA_HOME:-}" ]]; then
 fi
 _putpocket_prepend_path "${PUTPOCKET_DATASET_MINING_ROOT}/.local_python/bin"
 _putpocket_prepend_var_path PYTHONPATH "${PUTPOCKET_DATASET_MINING_ROOT}/src"
+if [[ -n "${_putpocket_overlay_root}" ]]; then
+  _putpocket_prepend_var_path PYTHONPATH "${_putpocket_overlay_root}/src"
+fi
 
 # shellcheck disable=SC1091
 source "${_putpocket_venv}/bin/activate"
@@ -88,8 +122,12 @@ case ":${PATH}:${PYTHONPATH:-}:" in
 esac
 
 echo "Putpocket env activated"
-echo "  profile: server2"
+echo "  context: ${PUTPOCKET_EXECUTION_CONTEXT}"
 echo "  repo root: ${PUTPOCKET_DATASET_MINING_ROOT}"
+if [[ -n "${_putpocket_overlay_root}" ]]; then
+  echo "  task overlay: ${_putpocket_overlay_root}"
+  echo "  production commands: blocked by default"
+fi
 echo "  venv: ${_putpocket_venv}"
 echo "  python: $(command -v python)"
 echo "  CUDA_HOME: ${CUDA_HOME:-unset}"
@@ -97,6 +135,11 @@ echo "  build threads: ${PUTPOCKET_BUILD_THREADS}"
 
 unset _putpocket_env_script
 unset _putpocket_env_dir
+unset _putpocket_script_root
+unset _putpocket_default_base
+unset _putpocket_canonical_root
+unset _putpocket_worktree_root
 unset _putpocket_venv
+unset _putpocket_overlay_root
 unset -f _putpocket_prepend_path
 unset -f _putpocket_prepend_var_path

@@ -37,8 +37,10 @@ validation:
   - pytest tests/test_agent_control.py: PASS, 11 tests
   - focused pytest agent/bootstrap/build/runpod minus local /workspace-dependent case: PASS, 37 passed, 1 deselected, 2 subtests
   - putpocket_dataset_mining.agent_cli locks status: PASS, no active locks, no pending requests
+  - merged latest origin/master 563bde9979aab22ebc2e3f5f9e7f88a817635c3a and repeated validation: PASS
 artifacts:
   - agent/tasks/T20260813-001__advisory-lock-queue-control/
 commits:
-  - pending
+  - 42bdd8378cdd34a3b05a447397f8be3e0080045c feat(agent): add advisory coordination locks
+  - pending post-merge metadata update
 final handoff link: agent/tasks/T20260813-001__advisory-lock-queue-control/handoffs/TO_GPT_20260813-014600.md

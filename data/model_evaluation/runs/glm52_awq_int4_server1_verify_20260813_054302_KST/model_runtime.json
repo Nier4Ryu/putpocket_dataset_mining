@@ -1,0 +1,12 @@
+{
+  "model_id": "cyankiwi/GLM-5.2-AWQ-INT4",
+  "model_revision": "956f4d228e36c95f66a80058fe64b69af67360ca",
+  "model_loaded": false,
+  "model_load_wall_seconds": null,
+  "tensor_parallel_size_requested": 8,
+  "max_num_seqs_requested": 1,
+  "max_model_len_requested": 65536,
+  "expert_parallel_effective": null,
+  "prefix_caching_effective": null,
+  "model_remained_resident": false
+}

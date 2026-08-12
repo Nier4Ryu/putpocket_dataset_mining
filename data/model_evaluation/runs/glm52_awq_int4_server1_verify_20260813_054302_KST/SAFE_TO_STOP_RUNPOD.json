@@ -1,0 +1,9 @@
+{
+  "run_id": "glm52_awq_int4_server1_verify_20260813_054302_KST",
+  "final_status": "GLM52_AWQ_PREFLIGHT_BLOCKED",
+  "report_path": "/workspace/putpocket_dataset_mining/data/model_evaluation/runs/glm52_awq_int4_server1_verify_20260813_054302_KST/RUN_REPORT.md",
+  "model_resident": false,
+  "active_evaluation_processes": false,
+  "remote_jobs_still_running": false,
+  "timestamp": "2026-08-13T05:43:02+09:00"
+}

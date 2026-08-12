@@ -1,0 +1,10 @@
+{
+  "failures": [
+    {
+      "stage": "phase_a_hardware_gate",
+      "class": "RUNPOD_GLM52_HARDWARE_INSUFFICIENT",
+      "required": "8 x NVIDIA H200",
+      "observed": "6 x NVIDIA RTX PRO 6000 Blackwell Server Edition"
+    }
+  ]
+}

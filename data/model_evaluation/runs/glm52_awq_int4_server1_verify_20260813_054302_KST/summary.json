@@ -1,0 +1,19 @@
+{
+  "run_id": "glm52_awq_int4_server1_verify_20260813_054302_KST",
+  "classification": "GLM52_AWQ_PREFLIGHT_BLOCKED",
+  "blocker": "RUNPOD_GLM52_HARDWARE_INSUFFICIENT",
+  "phase_reached": "Phase A hardware gate",
+  "model_loaded": false,
+  "distributed_preflight_run": false,
+  "server1_contacted": false,
+  "smoke_started": false,
+  "full_run_started": false,
+  "samples_attempted": 0,
+  "accepted": 0,
+  "rejected": 0,
+  "uncertain": 0,
+  "infra_failed": 0,
+  "dataset_accessed": false,
+  "dataset_modified": false,
+  "local_hidden_verifier_fallback": false
+}

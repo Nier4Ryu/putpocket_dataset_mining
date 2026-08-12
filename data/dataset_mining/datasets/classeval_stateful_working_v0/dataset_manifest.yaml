@@ -1,0 +1,14 @@
+dataset_version: classeval_stateful_working_v0
+mode: local_materialized_view
+package_for_other_repo: false
+counts:
+  accepted: 18
+  rejected: 47
+  uncertain: 0
+  failed_infra: 46
+  total_attempts: 111
+files:
+- accepted.jsonl
+- rejected.jsonl
+- uncertain.jsonl
+- artifact_index.jsonl

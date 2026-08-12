@@ -46,5 +46,5 @@ artifacts:
   - agent/tasks/T20260812-001__runpod-native-build-parallelism/
 commits:
   - a0b9e47ed8cde2d43110f683d24e91afd08417bb
-  - final policy/closeout commit pending
+  - 91aa455a56b96f5166e57dd0bb8524457548a03d
 final handoff link: agent/tasks/T20260812-001__runpod-native-build-parallelism/handoffs/TO_GPT_20260812-143556.md

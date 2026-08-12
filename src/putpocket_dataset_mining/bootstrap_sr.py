@@ -131,10 +131,15 @@ def _run_runpod_dev_preset(args: argparse.Namespace) -> int:
         storage: dict[str, Any] | None = None
         if not args.doctor_only:
             storage = validate_network_volume(plan)
+            _ensure_runpod_runtime(plan, torch_contract, log_dir)
+        else:
+            _validate_installed_runpod_runtime(plan, torch_contract)
         fingerprint = runtime_fingerprint(plan, base, torch_contract)
         manifest = build_manifest(plan, fingerprint)
         if not args.doctor_only and not args.skip_vllm_build:
             _run_runpod_vllm_build(plan, manifest, log_dir)
+        if not args.doctor_only:
+            _run_runpod_lmcache_build(plan, manifest, log_dir)
         _write_json(log_dir / "runtime_fingerprint.json", fingerprint)
         _write_json(log_dir / "build_manifest.json", manifest)
         summary = {
@@ -173,10 +178,10 @@ def _run_runpod_vllm_build(plan: Any, manifest: dict[str, Any], log_dir: Path) -
 
     vllm_root = plan.repo_root / "externals" / "vllm"
     env_python = plan.env_path / "bin" / "python"
-    uv = plan.env_path / "bin" / "uv"
+    uv = Path(shutil.which("uv") or "")
     if not vllm_root.is_dir():
         raise ConfigError(f"Missing editable vLLM source: {vllm_root}")
-    if not env_python.exists() or not uv.exists():
+    if not env_python.exists() or not uv.is_file():
         raise ConfigError(f"Missing runpod-dev environment tools under: {plan.env_path}")
 
     evidence = {
@@ -194,9 +199,8 @@ def _run_runpod_vllm_build(plan: Any, manifest: dict[str, Any], log_dir: Path) -
     build_env.update(plan.environment())
     command = (
         f"cd {vllm_root} && "
-        f"{env_python} use_existing_torch.py && "
-        f"{uv} pip install -r requirements/build/cuda.txt && "
-        f"CCACHE_NOHASHDIR=true {uv} pip install --no-build-isolation -e ."
+        f"{uv} pip install --python {env_python} -r requirements/build.txt && "
+        f"CCACHE_NOHASHDIR=true {uv} pip install --python {env_python} --no-build-isolation --no-deps -e ."
     )
     result = subprocess.run(["bash", "-lc", command], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=build_env)
     build["build_end_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -211,6 +215,96 @@ def _run_runpod_vllm_build(plan: Any, manifest: dict[str, Any], log_dir: Path) -
             f"Requested/effective jobs: {plan.build_jobs_requested}/{plan.build_jobs_effective}. "
             f"See {log_dir / 'vllm_native_build.log'}"
         )
+
+
+def _ensure_runpod_runtime(plan: Any, contract: dict[str, Any], log_dir: Path) -> None:
+    uv = shutil.which("uv")
+    if not uv:
+        raise ConfigError("uv is required for runpod-dev")
+    for path in (
+        plan.repo_root / ".cache" / "uv",
+        plan.repo_root / ".cache" / "vllm",
+        plan.repo_root / ".cache" / "torch",
+        plan.repo_root / "builds",
+        plan.repo_root / "models" / "hf",
+    ):
+        path.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env.update(plan.environment())
+    if not (plan.env_path / "bin" / "python").exists():
+        _command([uv, "venv", "--python", contract["python"]["version"], str(plan.env_path)], check=True, log=log_dir / "uv_venv.log", env=env)
+    py = plan.env_path / "bin" / "python"
+    torch = contract["torch"]
+    torch_requirement = f"{torch['wheel_url']}#sha256={torch['wheel_sha256']}"
+    _command([uv, "pip", "install", "--python", str(py), torch_requirement], check=True, log=log_dir / "torch_install.log", env=env)
+    _command([uv, "pip", "install", "--python", str(py), "-e", f"{plan.repo_root}[dev]"], check=True, log=log_dir / "project_install.log", env=env)
+    for name in ("vllm", "lmcache"):
+        item = contract[name]
+        path = plan.repo_root / "externals" / name
+        _ensure_pinned_external(path, item, log_dir)
+    # Resolve runtime dependencies before native editable builds while forcing
+    # the reproducible torch wheel selected by this RunPod contract.
+    _command(
+        [uv, "pip", "install", "--python", str(py), "-r", str(plan.repo_root / "externals" / "vllm" / "requirements" / "cuda.txt"), torch_requirement],
+        check=True,
+        log=log_dir / "vllm_runtime_dependencies.log",
+        env=env,
+    )
+    _command(
+        [uv, "pip", "install", "--python", str(py), "-r", str(plan.repo_root / "externals" / "lmcache" / "requirements" / "cuda.txt")],
+        check=True,
+        log=log_dir / "lmcache_runtime_dependencies.log",
+        env=env,
+    )
+
+
+def _ensure_pinned_external(path: Path, item: dict[str, Any], log_dir: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        _command(["git", "clone", "--branch", item["branch"], "--single-branch", item["url"], str(path)], check=True, log=log_dir / f"{path.name}_clone.log")
+    if not (path / ".git").exists():
+        raise ConfigError(f"External path is not a Git checkout: {path}")
+    dirty = _command(["git", "-C", str(path), "status", "--porcelain"], check=True)["stdout"].strip()
+    if dirty:
+        raise ConfigError(f"External source has local changes: {path}")
+    _command(["git", "-C", str(path), "fetch", "origin", item["branch"]], check=True, log=log_dir / f"{path.name}_fetch.log")
+    head = _command(["git", "-C", str(path), "rev-parse", "HEAD"], check=True)["stdout"].strip()
+    if head != item["sha"]:
+        raise ConfigError(f"Pinned {path.name} SHA mismatch: expected {item['sha']}, found {head}")
+
+
+def _run_runpod_lmcache_build(plan: Any, manifest: dict[str, Any], log_dir: Path) -> None:
+    uv = shutil.which("uv")
+    py = plan.env_path / "bin" / "python"
+    root = plan.repo_root / "externals" / "lmcache"
+    if not uv or not py.exists() or not root.exists():
+        raise ConfigError("LMCache editable build prerequisites are missing")
+    env = os.environ.copy()
+    env.update(plan.environment())
+    started = time.monotonic()
+    start_time = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    result = _command([uv, "pip", "install", "--python", str(py), "--no-build-isolation", "--no-deps", "-e", str(root)], check=False, log=log_dir / "lmcache_native_build.log", env=env)
+    manifest["lmcache_editable_build"] = {
+        "build_start_time": start_time,
+        "build_end_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "build_wall_time_seconds": round(time.monotonic() - started, 3),
+        "returncode": result["returncode"],
+    }
+    if result["returncode"] != 0:
+        raise ConfigError(f"editable LMCache build failed; see {log_dir / 'lmcache_native_build.log'}")
+
+
+def _validate_installed_runpod_runtime(plan: Any, contract: dict[str, Any]) -> None:
+    py = plan.env_path / "bin" / "python"
+    if not py.exists():
+        raise ConfigError(f"RunPod environment is missing: {plan.env_path}")
+    probe = "import torch,vllm,lmcache,putpocket_dataset_mining; print(torch.__version__); print(torch.version.cuda)"
+    _command([str(py), "-c", probe], check=True)
+    for name in ("vllm", "lmcache"):
+        path = plan.repo_root / "externals" / name
+        head = _command(["git", "-C", str(path), "rev-parse", "HEAD"], check=True)["stdout"].strip()
+        if head != contract[name]["sha"]:
+            raise ConfigError(f"Installed {name} SHA does not match RunPod lock")
 
 
 def _run_server2_preset(args: argparse.Namespace) -> int:

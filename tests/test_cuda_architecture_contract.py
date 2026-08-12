@@ -99,7 +99,7 @@ class CudaArchitectureContractTests(unittest.TestCase):
     def test_vllm_and_docker_build_propagation(self) -> None:
         command = vllm_editable_build_command(Path("/workspace/putpocket_dataset_mining"), "8.6 9.0 10.0 12.0")
         self.assertIn('export TORCH_CUDA_ARCH_LIST="8.6 9.0 10.0 12.0"', command)
-        self.assertIn("uv pip install --no-build-isolation -e .", command)
+        self.assertIn("uv pip install --no-build-isolation --no-deps -e .", command)
         self.assertEqual(docker_build_args("8.6 9.0 10.0 12.0"), ["--build-arg", "torch_cuda_arch_list=8.6 9.0 10.0 12.0"])
 
     def test_docker_manager_build_arg(self) -> None:

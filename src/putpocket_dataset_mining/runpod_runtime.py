@@ -24,7 +24,7 @@ RUNPOD_UV_CACHE = RUNPOD_REPO_ROOT / ".cache" / "uv"
 RUNPOD_UV_PYTHON = RUNPOD_UV_CACHE / "python"
 RUNPOD_HF_HOME = RUNPOD_REPO_ROOT / "models" / "hf"
 RUNPOD_BASE_IMAGE_CONTRACT = Path("configs/env/runpod_base_image.lock.yaml")
-TORCH_CU129_CONTRACT = Path("configs/env/torch/torch_2_10_cu129.lock.yaml")
+RUNPOD_DEV_CONTRACT = Path("configs/env/runpod_dev.lock.yaml")
 
 ARCH_PROFILES = {
     "portable-nvidia": "8.6 9.0 10.0 12.0",
@@ -106,7 +106,7 @@ class RunpodPlan:
             "mutations": [] if self.dry_run or self.doctor_only else [
                 "create/reuse uv-managed Python under persistent UV_PYTHON_INSTALL_DIR",
                 "create/reuse Putpocket_env under the repository root",
-                "install exact torch contract only when provenance is resolved",
+                "install exact RunPod torch wheel by URL and SHA-256",
                 "install project, vLLM, and LMCache editable",
                 "write runtime fingerprint and build manifests",
             ],
@@ -291,7 +291,7 @@ def build_runpod_plan(
         cuda_arch_profile=arch_profile,
         cuda_arch_list=arch_list,
         base_image_contract=repo_root / (base_image_contract or str(RUNPOD_BASE_IMAGE_CONTRACT)),
-        torch_contract=repo_root / TORCH_CU129_CONTRACT,
+        torch_contract=repo_root / RUNPOD_DEV_CONTRACT,
         dry_run=dry_run,
         doctor_only=doctor_only,
         skip_vllm_build=skip_vllm_build,
@@ -327,10 +327,13 @@ def validate_base_image_contract(path: Path) -> dict[str, Any]:
 
 def validate_torch_contract(path: Path, *, require_resolved: bool) -> dict[str, Any]:
     data = read_structured(path)
-    if data.get("package", {}).get("version") != "2.10.0+cu129":
-        raise ConfigError("torch contract must describe torch 2.10.0+cu129")
+    torch = data.get("torch", {})
+    if data.get("python", {}).get("version") != "3.13.14" or torch.get("version") != "2.10.0":
+        raise ConfigError("RunPod contract must pin Python 3.13.14 and torch 2.10.0")
+    if not torch.get("wheel_url") or not re.fullmatch(r"[0-9a-f]{64}", str(torch.get("wheel_sha256", ""))):
+        raise ConfigError("RunPod torch contract requires a wheel URL and SHA-256")
     if require_resolved and data.get("provenance_status") != "resolved":
-        raise ConfigError("TORCH_CU129_PROVENANCE_UNRESOLVED")
+        raise ConfigError("RUNPOD_TORCH_CONTRACT_BLOCKED")
     return data
 
 
@@ -339,9 +342,9 @@ def validate_network_volume(plan: RunpodPlan) -> dict[str, Any]:
         raise ConfigError("runpod-dev requires --storage-kind network-volume")
     if plan.persistent_root != Path("/workspace"):
         raise ConfigError("runpod-dev requires the repository to live under /workspace")
-    volume_id = os.environ.get("RUNPOD_NETWORK_VOLUME_ID")
+    volume_id = os.environ.get("RUNPOD_NETWORK_VOLUME_ID") or os.environ.get("RUNPOD_VOLUME_ID")
     if not volume_id:
-        raise ConfigError("RUNPOD_NETWORK_VOLUME_ID must be set for runpod-dev before mutating the environment")
+        raise ConfigError("RUNPOD_VOLUME_ID (or legacy RUNPOD_NETWORK_VOLUME_ID) must be set for runpod-dev before mutating the environment")
     if not plan.persistent_root.exists() or not os.access(plan.persistent_root, os.W_OK):
         raise ConfigError("/workspace must exist and be writable")
     usage = shutil.disk_usage(plan.persistent_root)
@@ -360,12 +363,12 @@ def runtime_fingerprint(plan: RunpodPlan, base: dict[str, Any], torch_contract: 
         "cpu_architecture": platform.machine(),
         "glibc": platform.libc_ver(),
         "python": torch_contract.get("python", {}).get("version"),
-        "torch": torch_contract.get("package", {}).get("version"),
-        "torch_cuda": torch_contract.get("cuda", {}).get("torch_cuda"),
+        "torch": torch_contract.get("torch", {}).get("version"),
+        "torch_cuda": torch_contract.get("torch", {}).get("torch_cuda"),
         "cuda_toolkit": base.get("cuda_version"),
         "vllm_sha": _git_head(plan.repo_root / "externals" / "vllm"),
         "lmcache_sha": _git_head(plan.repo_root / "externals" / "lmcache"),
-        "project_lock_hash": _sha256(plan.repo_root / "configs" / "env" / "server2_blackwell.lock.yaml"),
+        "project_lock_hash": _sha256(plan.repo_root / RUNPOD_DEV_CONTRACT),
         "cuda_arch_profile": plan.cuda_arch_profile,
         "cuda_arch_list": plan.cuda_arch_list,
         "torch_cuda_arch_list": plan.cuda_arch_list,
@@ -431,9 +434,8 @@ def vllm_editable_build_command(repo_root: Path, cuda_arch_list: str, build_jobs
         f"{prefix} && export TORCH_CUDA_ARCH_LIST=\"{cuda_arch_list}\" && "
         f"export PUTPOCKET_BUILD_JOBS={build_jobs} MAX_JOBS={build_jobs} "
         f"CMAKE_BUILD_PARALLEL_LEVEL={build_jobs} NVCC_THREADS={nvcc_threads} && "
-        "python use_existing_torch.py && "
-        "uv pip install -r requirements/build/cuda.txt && "
-        "CCACHE_NOHASHDIR=true uv pip install --no-build-isolation -e ."
+        "uv pip install -r requirements/build.txt && "
+        "CCACHE_NOHASHDIR=true uv pip install --no-build-isolation --no-deps -e ."
     )
 
 
@@ -448,7 +450,7 @@ def vllm_developer_commands(repo_root: Path, build_jobs: int = 1, nvcc_threads: 
         "python_only_change": "edit externals/vllm Python files; no reinstall required for editable install",
         "cpp_or_cuda_change": vllm_editable_build_command(repo_root, portable, build_jobs, nvcc_threads),
         "clean_rebuild": f"{prefix} && rm -rf build && export TORCH_CUDA_ARCH_LIST=\"{portable}\" PUTPOCKET_BUILD_JOBS={build_jobs} MAX_JOBS={build_jobs} CMAKE_BUILD_PARALLEL_LEVEL={build_jobs} NVCC_THREADS={nvcc_threads} && CCACHE_NOHASHDIR=true uv pip install --no-build-isolation -e .",
-        "build_doctor": f"{prefix} && export TORCH_CUDA_ARCH_LIST=\"{portable}\" PUTPOCKET_BUILD_JOBS={build_jobs} MAX_JOBS={build_jobs} CMAKE_BUILD_PARALLEL_LEVEL={build_jobs} NVCC_THREADS={nvcc_threads} && python use_existing_torch.py && uv pip install -r requirements/build/cuda.txt",
+        "build_doctor": f"{prefix} && export TORCH_CUDA_ARCH_LIST=\"{portable}\" PUTPOCKET_BUILD_JOBS={build_jobs} MAX_JOBS={build_jobs} CMAKE_BUILD_PARALLEL_LEVEL={build_jobs} NVCC_THREADS={nvcc_threads} && uv pip install -r requirements/build.txt",
         "serve_later": "python -m vllm.entrypoints.openai.api_server --help",
     }
 

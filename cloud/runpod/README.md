@@ -96,10 +96,14 @@ export PUTPOCKET_BUILD_JOBS="$(nproc)"
 export MAX_JOBS="${PUTPOCKET_BUILD_JOBS}"
 export CMAKE_BUILD_PARALLEL_LEVEL="${PUTPOCKET_BUILD_JOBS}"
 export NVCC_THREADS=1
-python use_existing_torch.py
-uv pip install -r requirements/build/cuda.txt
-CCACHE_NOHASHDIR=true uv pip install --no-build-isolation -e .
+uv pip install -r requirements/build.txt
+CCACHE_NOHASHDIR=true uv pip install --no-build-isolation --no-deps -e .
 ```
+
+The canonical `runpod-dev` bootstrap owns initial provisioning. It installs
+the public CPython 3.13 torch wheel pinned by URL and SHA-256 in
+`configs/env/runpod_dev.lock.yaml`, clones the locked vLLM and LMCache SHAs,
+installs both editable, and preserves their Git worktrees clean.
 
 The default `runpod-dev` architecture profile is portable across the current
 NVIDIA targets:

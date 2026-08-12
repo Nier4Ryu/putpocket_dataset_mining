@@ -50,13 +50,13 @@ class RunpodRuntimeContractTests(unittest.TestCase):
         self.assertEqual(resolve_cuda_arch_list("blackwell-rtx"), "12.0")
         self.assertEqual(resolve_cuda_arch_list("hopper", "9.0 10.0"), "9.0 10.0")
 
-    def test_torch_contract_fails_closed_when_unresolved(self) -> None:
-        path = self.repo_root / "configs" / "env" / "torch" / "torch_2_10_cu129.lock.yaml"
-        contract = validate_torch_contract(path, require_resolved=False)
-        self.assertEqual(contract["package"]["version"], "2.10.0+cu129")
-        self.assertEqual(contract["provenance_status"], "unresolved")
-        with self.assertRaisesRegex(ConfigError, "TORCH_CU129_PROVENANCE_UNRESOLVED"):
-            validate_torch_contract(path, require_resolved=True)
+    def test_runpod_torch_contract_is_reproducibly_resolved(self) -> None:
+        path = self.repo_root / "configs" / "env" / "runpod_dev.lock.yaml"
+        contract = validate_torch_contract(path, require_resolved=True)
+        self.assertEqual(contract["torch"]["version"], "2.10.0")
+        self.assertEqual(contract["torch"]["torch_cuda"], "12.8")
+        self.assertEqual(len(contract["torch"]["wheel_sha256"]), 64)
+        self.assertEqual(contract["provenance_status"], "resolved")
 
     def test_runpod_dev_dry_run_emits_runtime_plan(self) -> None:
         with patch.dict(os.environ, {key: "" for key in ()}, clear=True), patch("builtins.print") as mocked_print:
@@ -65,9 +65,9 @@ class RunpodRuntimeContractTests(unittest.TestCase):
         self.assertIn('"preset": "runpod-dev"', rendered)
         self.assertIn('"PUTPOCKET_ENV_PATH": "/workspace/putpocket_dataset_mining/Putpocket_env"', rendered)
         self.assertIn('"cuda_arch_list": "8.6 9.0 10.0 12.0"', rendered)
-        self.assertIn('"torch_contract_status": "unresolved"', rendered)
+        self.assertIn('"torch_contract_status": "resolved"', rendered)
 
-    def test_runpod_dev_non_dry_run_stops_on_unresolved_torch(self) -> None:
+    def test_runpod_dev_non_dry_run_enforces_network_volume_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_name, patch.dict(
             os.environ,
             {"RUNPOD_NETWORK_VOLUME_ID": "unit-test-volume"},
@@ -100,8 +100,26 @@ class RunpodRuntimeContractTests(unittest.TestCase):
             force_vllm_build=False,
             skip_gpu_smoke=True,
         )
-        with patch.dict(os.environ, {}, clear=True), self.assertRaisesRegex(ConfigError, "RUNPOD_NETWORK_VOLUME_ID"):
+        with patch.dict(os.environ, {}, clear=True), self.assertRaisesRegex(ConfigError, "RUNPOD_VOLUME_ID"):
             validate_network_volume(plan)
+
+    def test_network_volume_guard_accepts_current_runpod_volume_id(self) -> None:
+        plan = build_runpod_plan(
+            repo_root=self.repo_root,
+            persistent_root="/workspace/putpocket_dataset_mining",
+            storage_kind="network-volume",
+            cuda_arch_profile="blackwell-rtx",
+            cuda_arch_list=None,
+            base_image_contract=None,
+            dry_run=False,
+            doctor_only=False,
+            skip_vllm_build=True,
+            force_vllm_build=False,
+            skip_gpu_smoke=True,
+            env={},
+        )
+        with patch.dict(os.environ, {"RUNPOD_VOLUME_ID": "volume-v2"}, clear=True):
+            self.assertEqual(validate_network_volume(plan)["volume_id"], "volume-v2")
 
     def test_template_does_not_auto_launch_vllm(self) -> None:
         text = (self.repo_root / "cloud" / "runpod" / "template.dev-base.example.yaml").read_text(encoding="utf-8")

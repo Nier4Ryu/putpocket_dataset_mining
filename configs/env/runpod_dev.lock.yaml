@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "provenance_status": "resolved",
+  "python": {
+    "version": "3.13.14",
+    "implementation": "cpython",
+    "manager": "uv"
+  },
+  "torch": {
+    "version": "2.10.0",
+    "source_index": "https://pypi.org/simple",
+    "wheel_filename": "torch-2.10.0-3-cp313-cp313-manylinux_2_28_x86_64.whl",
+    "wheel_url": "https://files.pythonhosted.org/packages/ab/c6/4dfe238342ffdcec5aef1c96c457548762d33c40b45a1ab7033bb26d2ff2/torch-2.10.0-3-cp313-cp313-manylinux_2_28_x86_64.whl",
+    "wheel_sha256": "80b1b5bfe38eb0e9f5ff09f206dcac0a87aadd084230d4a36eea5ec5232c115b",
+    "torch_cuda": "12.8",
+    "selection_reason": "The pinned vLLM source requires torch 2.10.0 and supports CUDA compiler 12.8+ including SM120; the public CPython 3.13 manylinux wheel is reproducible by URL and SHA-256. CUDA 12.9.1 owns native extension compilation."
+  },
+  "vllm": {
+    "url": "https://github.com/Nier4Ryu/vllm_mod.git",
+    "branch": "Putpocket-v0.19.1",
+    "sha": "b65d39ddbab966bb72110056a481d17e4726892b"
+  },
+  "lmcache": {
+    "url": "https://github.com/Nier4Ryu/LMCache_mod.git",
+    "branch": "Putpocket-v0.4.4",
+    "sha": "72eb0e375bcf0739a45046433f46ee32be361656"
+  }
+}

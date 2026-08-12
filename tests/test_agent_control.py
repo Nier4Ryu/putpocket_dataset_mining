@@ -10,10 +10,14 @@ from unittest.mock import patch
 
 from putpocket_dataset_mining.agent_control import (
     AgentConfig,
+    acquire_agent_locks,
+    active_agent_locks,
+    agent_lock_root,
     allocate_task_id,
     classify_source_ownership,
     classify_worktrees,
     detect_context,
+    pending_agent_lock_requests,
     render_task,
     require_production_allowed,
     slugify,
@@ -87,6 +91,50 @@ class AgentControlTests(unittest.TestCase):
             mocked.return_value.execution_context = "task-worktree"
             with self.assertRaises(SystemExit):
                 require_production_allowed("remote job submission", config=cfg)
+
+    def test_agent_lock_acquire_release_and_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cfg = AgentConfig(root / "repo", root / "worktrees", root / "artifacts", root / "repo/Putpocket_env", root / "repo/externals/vllm", root / "repo/externals/lmcache")
+            lock_root = root / "locks"
+            with patch.dict(os.environ, {"PUTPOCKET_AGENT_LOCK_ROOT": str(lock_root)}):
+                self.assertEqual(agent_lock_root(cfg), lock_root)
+                with acquire_agent_locks(cfg, ["build"], operation="test build"):
+                    locks = active_agent_locks(cfg)
+                    self.assertEqual(len(locks), 1)
+                    self.assertEqual(locks[0]["resource"], "build")
+                    self.assertEqual(locks[0]["operation"], "test build")
+                    self.assertFalse(locks[0]["stale"])
+                self.assertEqual(active_agent_locks(cfg), [])
+
+    def test_agent_lock_conflict_records_pending_request(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cfg = AgentConfig(root / "repo", root / "worktrees", root / "artifacts", root / "repo/Putpocket_env", root / "repo/externals/vllm", root / "repo/externals/lmcache")
+            with patch.dict(os.environ, {"PUTPOCKET_AGENT_LOCK_ROOT": str(root / "locks")}):
+                with acquire_agent_locks(cfg, ["build"], operation="first build"):
+                    with self.assertRaises(SystemExit) as caught:
+                        with acquire_agent_locks(cfg, ["build"], operation="second build", wait_seconds=0):
+                            pass
+                    self.assertIn("LOCK_HELD_PENDING_RECORDED", str(caught.exception))
+                    pending = pending_agent_lock_requests(cfg)
+                    self.assertEqual(len(pending), 1)
+                    self.assertEqual(pending[0]["status"], "pending")
+                    self.assertEqual(pending[0]["requested"]["operation"], "second build")
+                    self.assertEqual(pending[0]["blocking"]["operation"], "first build")
+
+    def test_lock_protocol_is_documented_for_agents(self) -> None:
+        text = (self.repo_root / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("putpocket-agent locks status", text)
+        self.assertIn("<git-common-dir>/putpocket-locks/", text)
+        self.assertIn("putpocket-agent task start", text)
+
+    def test_bootstrap_mutating_presets_acquire_build_lock(self) -> None:
+        text = (self.repo_root / "src" / "putpocket_dataset_mining" / "bootstrap_sr.py").read_text(encoding="utf-8")
+        self.assertIn('["canonical-runtime", "build"]', text)
+        self.assertIn('operation="bootstrap runpod-dev build"', text)
+        self.assertIn('operation="bootstrap server2 build"', text)
+        self.assertIn("_run_server2_preset_locked(args, run, plan, resolved_arch)", text)
 
     def test_worktree_audit_classifies_agent_worktree(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

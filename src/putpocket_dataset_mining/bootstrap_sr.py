@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import hashlib
 import json
 import os
@@ -19,6 +20,7 @@ except Exception:  # pragma: no cover - bootstrap can still emit JSON only.
 
 from .constants import REPO_ROOT
 from .errors import ConfigError
+from .agent_control import AgentConfig, acquire_agent_locks
 from .runpod_runtime import (
     ARCH_PROFILES,
     build_manifest,
@@ -121,6 +123,10 @@ def _run_runpod_dev_preset(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
 
+    return _run_runpod_dev_preset_locked(args, plan, payload)
+
+
+def _run_runpod_dev_preset_locked(args: argparse.Namespace, plan: Any, payload: dict[str, Any]) -> int:
     stamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
     log_dir = REPO_ROOT / "logs" / "env_setup" / f"runpod_dev_{stamp}"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -131,15 +137,21 @@ def _run_runpod_dev_preset(args: argparse.Namespace) -> int:
         storage: dict[str, Any] | None = None
         if not args.doctor_only:
             storage = validate_network_volume(plan)
-            _ensure_runpod_runtime(plan, torch_contract, log_dir)
+            with acquire_agent_locks(
+                AgentConfig.load(),
+                ["canonical-runtime", "build"],
+                operation="bootstrap runpod-dev build",
+            ):
+                _ensure_runpod_runtime(plan, torch_contract, log_dir)
+                fingerprint = runtime_fingerprint(plan, base, torch_contract)
+                manifest = build_manifest(plan, fingerprint)
+                if not args.skip_vllm_build:
+                    _run_runpod_vllm_build(plan, manifest, log_dir)
+                _run_runpod_lmcache_build(plan, manifest, log_dir)
         else:
             _validate_installed_runpod_runtime(plan, torch_contract)
-        fingerprint = runtime_fingerprint(plan, base, torch_contract)
-        manifest = build_manifest(plan, fingerprint)
-        if not args.doctor_only and not args.skip_vllm_build:
-            _run_runpod_vllm_build(plan, manifest, log_dir)
-        if not args.doctor_only:
-            _run_runpod_lmcache_build(plan, manifest, log_dir)
+            fingerprint = runtime_fingerprint(plan, base, torch_contract)
+            manifest = build_manifest(plan, fingerprint)
         _write_json(log_dir / "runtime_fingerprint.json", fingerprint)
         _write_json(log_dir / "build_manifest.json", manifest)
         summary = {
@@ -352,6 +364,19 @@ def _run_server2_preset(args: argparse.Namespace) -> int:
     if args.dry_run:
         print(json.dumps(plan, indent=2, sort_keys=True))
         return 0
+    lock_context = nullcontext()
+    if not args.doctor_only:
+        lock_context = acquire_agent_locks(
+            AgentConfig.load(),
+            ["canonical-runtime", "build"],
+            operation="bootstrap server2 build",
+        )
+    with lock_context:
+        return _run_server2_preset_locked(args, run, plan, resolved_arch)
+
+
+def _run_server2_preset_locked(args: argparse.Namespace, run: BootstrapRun, plan: dict[str, Any], resolved_arch: str) -> int:
+    log_dir = run.log_dir
     log_dir.mkdir(parents=True, exist_ok=True)
     latest = REPO_ROOT / "logs" / "env_setup" / "latest"
     latest.parent.mkdir(parents=True, exist_ok=True)

@@ -21,3 +21,11 @@ Runtime modes:
 - `audit-only`: no source or runtime mutation.
 
 Task worktrees must not run durable production workflows unless the task policy explicitly allows bounded validation.
+
+Before source-changing work, Agents must inspect `putpocket-agent locks status`
+and `putpocket-agent worktrees audit --markdown`.
+
+Lock-aware commands coordinate through `<git-common-dir>/putpocket-locks/`.
+Active locks for Git metadata, canonical runtime sync, integration, or build
+resources block new mutating work unless the user explicitly directs the Agent
+to wait. Lock conflicts must leave a pending request under the lock root.

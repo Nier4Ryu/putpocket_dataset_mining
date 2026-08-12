@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "provenance_status": "unresolved",
+  "fail_closed_error": "TORCH_CU129_PROVENANCE_UNRESOLVED",
+  "package": {
+    "name": "torch",
+    "version": "2.10.0+cu129",
+    "installer": "pip",
+    "location": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages",
+    "dist_info": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/torch-2.10.0+cu129.dist-info"
+  },
+  "python": {
+    "version": "3.13.14",
+    "abi_tag": "cp313-cp313-manylinux_2_28_x86_64"
+  },
+  "cuda": {
+    "torch_cuda": "12.9",
+    "cudnn_version": 91002,
+    "nccl_version": "2.27.5",
+    "compiled_with_cxx11_abi": true
+  },
+  "wheel": {
+    "filename": "unavailable",
+    "sha256": "unavailable",
+    "direct_url_json_present": false,
+    "wheel_cache_path": "unavailable",
+    "source_index_url": "unavailable",
+    "custom_build_status": "unknown"
+  },
+  "metadata": {
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "cuda-bindings==12.9.4",
+      "filelock",
+      "fsspec",
+      "jinja2",
+      "networkx",
+      "nvidia-cublas-cu12==12.9.1.4",
+      "nvidia-cuda-cupti-cu12==12.9.79",
+      "nvidia-cuda-nvrtc-cu12==12.9.86",
+      "nvidia-cuda-runtime-cu12==12.9.79",
+      "nvidia-cudnn-cu12==9.10.2.21",
+      "nvidia-cufft-cu12==11.4.1.4",
+      "nvidia-cufile-cu12==1.14.1.1",
+      "nvidia-curand-cu12==10.3.10.19",
+      "nvidia-cusolver-cu12==11.7.5.82",
+      "nvidia-cusparse-cu12==12.5.10.65",
+      "nvidia-cusparselt-cu12==0.7.1",
+      "nvidia-nccl-cu12==2.27.5",
+      "nvidia-nvjitlink-cu12==12.9.86",
+      "nvidia-nvshmem-cu12==3.4.5",
+      "nvidia-nvtx-cu12==12.9.79",
+      "setuptools",
+      "sympy",
+      "triton==3.6.0",
+      "typing-extensions"
+    ]
+  },
+  "reproduction_policy": {
+    "may_install_in_fresh_container": false,
+    "reason": "The active Server-2 environment contains torch 2.10.0+cu129, but no direct_url.json or cached wheel was found during read-only provenance inspection.",
+    "required_to_resolve": "Provide a secret-free wheelhouse path or authenticated package index contract with wheel filename, SHA-256, Python ABI/platform tag, and dependency index configuration."
+  }
+}

@@ -1,0 +1,68 @@
+# syntax=docker/dockerfile:1.7
+
+ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.11.31@sha256:ecd4de2f060c64bea0ff8ecb182ddf46ba3fcccdc8a60cfdbaf20d1a047d7437
+FROM --platform=linux/amd64 ${UV_IMAGE} AS uv
+
+FROM --platform=linux/amd64 nvidia/cuda:12.9.1-devel-ubuntu22.04@sha256:bd4e2680a261c212f1e2fea241606f71497dc67a417f73175d794ec8212b5ba8
+
+LABEL org.opencontainers.image.title="Putpocket RunPod CUDA 12.9 editable development base"
+LABEL org.opencontainers.image.description="CUDA-devel toolchain image only; uv owns Python, torch, Putpocket, editable vLLM, and editable LMCache on the Network Volume."
+LABEL org.opencontainers.image.base.name="nvidia/cuda:12.9.1-devel-ubuntu22.04"
+LABEL org.opencontainers.image.base.digest="sha256:bd4e2680a261c212f1e2fea241606f71497dc67a417f73175d794ec8212b5ba8"
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PUTPOCKET_REPO_ROOT=/workspace/putpocket_dataset_mining
+ENV PUTPOCKET_ENV_PATH=/workspace/putpocket_dataset_mining/Putpocket_env
+ENV PUTPOCKET_STORAGE_KIND=network-volume
+ENV UV_CACHE_DIR=/workspace/putpocket_dataset_mining/.cache/uv
+ENV UV_PYTHON_INSTALL_DIR=/workspace/putpocket_dataset_mining/.cache/uv/python
+ENV VLLM_CACHE_ROOT=/workspace/putpocket_dataset_mining/.cache/vllm
+ENV TORCH_HOME=/workspace/putpocket_dataset_mining/.cache/torch
+ENV HF_HOME=/workspace/putpocket_dataset_mining/models/hf
+ENV PUTPOCKET_CUDA_ARCH_PROFILE=portable-nvidia
+ENV PUTPOCKET_CUDA_ARCH_LIST="8.6 9.0 10.0 12.0"
+ENV TORCH_CUDA_ARCH_LIST="8.6 9.0 10.0 12.0"
+ENV CCACHE_NOHASHDIR=true
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      wget \
+      git \
+      git-lfs \
+      python3 \
+      openssh-client \
+      openssh-server \
+      rsync \
+      build-essential \
+      pkg-config \
+      cmake \
+      ninja-build \
+      ccache \
+      patchelf \
+      jq \
+      procps \
+      iproute2 \
+      less \
+      vim-tiny \
+      tmux \
+      file \
+      unzip \
+      zip \
+      libnuma-dev \
+      libibverbs-dev \
+      libssl-dev \
+      libffi-dev \
+      libaio-dev \
+    && git lfs install --system \
+    && mkdir -p /run/sshd /workspace /tmp/putpocket-build /var/tmp/putpocket \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=uv /uv /usr/local/bin/uv
+COPY --from=uv /uvx /usr/local/bin/uvx
+
+WORKDIR /workspace
+
+CMD ["sleep", "infinity"]

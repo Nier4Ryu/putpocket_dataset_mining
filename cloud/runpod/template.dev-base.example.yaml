@@ -1,0 +1,37 @@
+schema_version: 1
+name: putpocket-runpod-cuda129-editable-dev
+image:
+  repository: registry.example.com/putpocket-runpod-dev-base
+  tag: ubuntu22.04-cuda12.9.1-v1
+  platform: linux/amd64
+minimum_cuda: "12.9"
+network_volume:
+  mount_path: /workspace
+  required: true
+container_disk:
+  purpose: build scratch only
+ports:
+  - port: 22
+    protocol: tcp
+    purpose: ssh
+  - port: 8000
+    protocol: http
+    purpose: future OpenAI-compatible endpoint
+environment:
+  PUTPOCKET_REPO_ROOT: /workspace/putpocket_dataset_mining
+  PUTPOCKET_ENV_PATH: /workspace/putpocket_dataset_mining/Putpocket_env
+  PUTPOCKET_STORAGE_KIND: network-volume
+  RUNPOD_NETWORK_VOLUME_ID: "<set-by-human>"
+  UV_CACHE_DIR: /workspace/putpocket_dataset_mining/.cache/uv
+  UV_PYTHON_INSTALL_DIR: /workspace/putpocket_dataset_mining/.cache/uv/python
+  VLLM_CACHE_ROOT: /workspace/putpocket_dataset_mining/.cache/vllm
+  TORCH_HOME: /workspace/putpocket_dataset_mining/.cache/torch
+  HF_HOME: /workspace/putpocket_dataset_mining/models/hf
+  PUTPOCKET_CUDA_ARCH_PROFILE: portable-nvidia
+  PUTPOCKET_CUDA_ARCH_LIST: "8.6 9.0 10.0 12.0"
+  TORCH_CUDA_ARCH_LIST: "8.6 9.0 10.0 12.0"
+start_command: sleep infinity
+notes:
+  - The image does not include Putpocket, vLLM, LMCache, model weights, a virtual environment, or experiment artifacts.
+  - Run the repository bootstrap after cloning or attaching the Network Volume.
+  - Do not auto-launch vLLM or any model workload at Pod start.

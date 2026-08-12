@@ -13,12 +13,24 @@ _putpocket_default_base="${HOME}"
 if [[ "${PUTPOCKET_STORAGE_KIND:-}" == "network-volume" && -d "/workspace" ]]; then
   _putpocket_default_base="/workspace"
 fi
-_putpocket_canonical_root="${PUTPOCKET_CANONICAL_ROOT:-${_putpocket_default_base}/putpocket_dataset_mining}"
+
+if [[ -n "${PUTPOCKET_REPO_ROOT:-}" ]]; then
+  _putpocket_repo_root="$(cd "${PUTPOCKET_REPO_ROOT}" && pwd)"
+elif [[ -d "${_putpocket_script_root}" ]]; then
+  _putpocket_repo_root="${_putpocket_script_root}"
+elif command -v git >/dev/null 2>&1 && git rev-parse --show-toplevel >/dev/null 2>&1; then
+  _putpocket_repo_root="$(git rev-parse --show-toplevel)"
+else
+  echo "Unable to resolve Putpocket repository root. Set PUTPOCKET_REPO_ROOT." >&2
+  return 2
+fi
+
+_putpocket_canonical_root="${PUTPOCKET_CANONICAL_ROOT:-${PUTPOCKET_REPO_ROOT:-${_putpocket_default_base}/putpocket_dataset_mining}}"
 _putpocket_worktree_root="${PUTPOCKET_WORKTREE_ROOT:-${_putpocket_default_base}/putpocket_dataset_mining_worktrees}"
 export PUTPOCKET_CANONICAL_ROOT="${_putpocket_canonical_root}"
 export PUTPOCKET_WORKTREE_ROOT="${_putpocket_worktree_root}"
 
-case "$(cd "${_putpocket_script_root}" && pwd)" in
+case "$(cd "${_putpocket_repo_root}" && pwd)" in
   "$(cd "${_putpocket_canonical_root}" 2>/dev/null && pwd 2>/dev/null)")
     export PUTPOCKET_EXECUTION_CONTEXT="canonical-runtime"
     export PUTPOCKET_DATASET_MINING_ROOT="${_putpocket_canonical_root}"
@@ -35,6 +47,7 @@ case "$(cd "${_putpocket_script_root}" && pwd)" in
     _putpocket_overlay_root=""
     ;;
 esac
+export PUTPOCKET_REPO_ROOT="${PUTPOCKET_DATASET_MINING_ROOT}"
 
 _putpocket_venv="${PUTPOCKET_ENV_PATH:-${PUTPOCKET_CANONICAL_SERVER2_ENV:-${_putpocket_canonical_root}/Putpocket_env}}"
 case "${VIRTUAL_ENV:-}" in
@@ -76,10 +89,17 @@ _putpocket_prepend_var_path() {
   esac
 }
 
+export PUTPOCKET_ENV_PATH="${_putpocket_venv}"
 export UV_PROJECT_ENVIRONMENT="${_putpocket_venv}"
 export PUTPOCKET_ENV_PATH="${_putpocket_venv}"
 export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
 export TZ="${TZ:-Asia/Seoul}"
+export PUTPOCKET_STORAGE_KIND="${PUTPOCKET_STORAGE_KIND:-local}"
+export UV_CACHE_DIR="${UV_CACHE_DIR:-${PUTPOCKET_DATASET_MINING_ROOT}/.cache/uv}"
+export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-${PUTPOCKET_DATASET_MINING_ROOT}/.cache/uv/python}"
+export VLLM_CACHE_ROOT="${VLLM_CACHE_ROOT:-${PUTPOCKET_DATASET_MINING_ROOT}/.cache/vllm}"
+export TORCH_HOME="${TORCH_HOME:-${PUTPOCKET_DATASET_MINING_ROOT}/.cache/torch}"
+export HF_HOME="${HF_HOME:-${PUTPOCKET_DATASET_MINING_ROOT}/models/hf}"
 export PUTPOCKET_PRODUCTION_ALLOWED="0"
 if [[ "${PUTPOCKET_EXECUTION_CONTEXT}" == "canonical-runtime" ]]; then
   export PUTPOCKET_PRODUCTION_ALLOWED="1"
@@ -88,7 +108,7 @@ fi
 if [[ -d "/data/shared/hf_cache/hub" ]]; then
   export PUTPOCKET_HF_HUB_CACHE_DIR="${PUTPOCKET_HF_HUB_CACHE_DIR:-/data/shared/hf_cache/hub}"
 else
-  export PUTPOCKET_HF_HUB_CACHE_DIR="${PUTPOCKET_HF_HUB_CACHE_DIR:-${HOME}/.cache/huggingface/hub}"
+  export PUTPOCKET_HF_HUB_CACHE_DIR="${PUTPOCKET_HF_HUB_CACHE_DIR:-${HF_HOME}/hub}"
 fi
 
 export RANDOM_SEED="${RANDOM_SEED:-42}"
@@ -123,6 +143,7 @@ esac
 
 echo "Putpocket env activated"
 echo "  context: ${PUTPOCKET_EXECUTION_CONTEXT}"
+echo "  profile: ${PUTPOCKET_ACTIVE_PROFILE:-server2}"
 echo "  repo root: ${PUTPOCKET_DATASET_MINING_ROOT}"
 if [[ -n "${_putpocket_overlay_root}" ]]; then
   echo "  task overlay: ${_putpocket_overlay_root}"
@@ -136,6 +157,7 @@ echo "  build threads: ${PUTPOCKET_BUILD_THREADS}"
 unset _putpocket_env_script
 unset _putpocket_env_dir
 unset _putpocket_script_root
+unset _putpocket_repo_root
 unset _putpocket_default_base
 unset _putpocket_canonical_root
 unset _putpocket_worktree_root

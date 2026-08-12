@@ -19,13 +19,14 @@ except Exception:  # pragma: no cover - bootstrap can still emit JSON only.
 
 from .constants import REPO_ROOT
 from .errors import ConfigError
-from .execution_config import (
-    DOCKER_DISABLED_FOR_STATIC_ONLY,
-    HardwareProfile,
-    ServerProfile,
-    cuda_arch_for_profile,
-    default_hardware_for_server,
-    ExecutionConfig,
+from .runpod_runtime import (
+    ARCH_PROFILES,
+    build_manifest,
+    build_runpod_plan,
+    runtime_fingerprint,
+    validate_base_image_contract,
+    validate_network_volume,
+    validate_torch_contract,
 )
 
 
@@ -52,21 +53,29 @@ def run_bootstrap(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.preset == "server2":
         return _run_server2_preset(args)
+    if args.preset == "runpod-dev":
+        return _run_runpod_dev_preset(args)
     return _run_static_multihost(args)
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="bootstrap_sr")
-    parser.add_argument("--preset", choices=["server2"], default=None, help="Canonical preset. server2 provisions/validates Putpocket_env.")
+    parser.add_argument("--preset", choices=["server2", "runpod-dev"], default=None, help="Canonical preset. server2 provisions/validates Putpocket_env; runpod-dev plans/validates the editable Hopper development runtime.")
     parser.add_argument("--doctor-only", action="store_true", help="Validate the selected preset without install/build mutation.")
     parser.add_argument("--force-vllm-build", action="store_true")
     parser.add_argument("--force-docker-build", action="store_true")
     parser.add_argument("--skip-docker", action="store_true")
+    parser.add_argument("--skip-vllm-build", action="store_true", help="For runpod-dev, do not perform editable vLLM native build.")
     parser.add_argument("--skip-gpu-smoke", action="store_true")
+    parser.add_argument("--persistent-root", default=None, help="RunPod repository root. Defaults to /workspace/putpocket_dataset_mining.")
+    parser.add_argument("--storage-kind", choices=["network-volume", "local", "ephemeral"], default=None)
+    parser.add_argument("--cuda-arch-profile", choices=[*ARCH_PROFILES.keys(), "native"], default="portable-nvidia")
+    parser.add_argument("--cuda-arch-list", default=None)
+    parser.add_argument("--base-image-contract", default=None)
     parser.add_argument("--phase", choices=["cpu", "gpu", "all"], default=None, help="Compatibility alias for --stage core|validate|all.")
     parser.add_argument("--stage", choices=["preflight", "system", "core", "verifier", "vllm_source", "vllm_build", "validate", "all"], default=None)
-    parser.add_argument("--server-profile", choices=[x.value for x in ServerProfile], default="custom")
-    parser.add_argument("--hardware-profile", choices=[x.value for x in HardwareProfile], default="auto")
+    parser.add_argument("--server-profile", choices=["server1_rtx3090", "server2_blackwell", "runpod_hopper", "custom"], default="custom")
+    parser.add_argument("--hardware-profile", choices=["auto", "cpu", "rtx3090", "blackwell", "hopper"], default="auto")
     parser.add_argument("--role", choices=["controller", "verifier", "model_server", "development"], default=None)
     parser.add_argument("--execution-role", choices=["local_controller", "cloud_controller", "verifier_host"], default=None)
     parser.add_argument("--workspace-backend", choices=["local_docker", "remote_ssh_docker"], default=None)
@@ -80,6 +89,64 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--manifest-dir", default="logs/bootstrap_sr")
     return parser
+
+
+def _run_runpod_dev_preset(args: argparse.Namespace) -> int:
+    plan = build_runpod_plan(
+        repo_root=REPO_ROOT,
+        persistent_root=args.persistent_root,
+        storage_kind=args.storage_kind,
+        cuda_arch_profile=args.cuda_arch_profile,
+        cuda_arch_list=args.cuda_arch_list,
+        base_image_contract=args.base_image_contract,
+        dry_run=bool(args.dry_run),
+        doctor_only=bool(args.doctor_only),
+        skip_vllm_build=bool(args.skip_vllm_build),
+        force_vllm_build=bool(args.force_vllm_build),
+        skip_gpu_smoke=bool(args.skip_gpu_smoke),
+    )
+    payload = plan.as_dict()
+    if args.dry_run:
+        base = validate_base_image_contract(plan.base_image_contract)
+        torch_contract = validate_torch_contract(plan.torch_contract, require_resolved=False)
+        payload["base_image_contract_status"] = "passed"
+        payload["torch_contract_status"] = torch_contract.get("provenance_status", "unknown")
+        payload["runtime_fingerprint"] = runtime_fingerprint(plan, base, torch_contract)
+        payload["build_manifest"] = build_manifest(plan, payload["runtime_fingerprint"])
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+
+    stamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+    log_dir = REPO_ROOT / "logs" / "env_setup" / f"runpod_dev_{stamp}"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(log_dir / "plan.json", payload)
+    try:
+        base = validate_base_image_contract(plan.base_image_contract)
+        torch_contract = validate_torch_contract(plan.torch_contract, require_resolved=not args.doctor_only)
+        storage: dict[str, Any] | None = None
+        if not args.doctor_only:
+            storage = validate_network_volume(plan)
+        fingerprint = runtime_fingerprint(plan, base, torch_contract)
+        manifest = build_manifest(plan, fingerprint)
+        _write_json(log_dir / "runtime_fingerprint.json", fingerprint)
+        _write_json(log_dir / "build_manifest.json", manifest)
+        summary = {
+            "schema_version": 1,
+            "preset": "runpod-dev",
+            "status": "passed",
+            "log_dir": str(log_dir),
+            "storage": storage,
+            "torch_provenance": torch_contract.get("provenance_status"),
+            "uv_bootstrap_ready": torch_contract.get("provenance_status") == "resolved",
+        }
+        _write_json(log_dir / "summary.json", summary)
+        print(json.dumps(summary, indent=2, sort_keys=True))
+        return 0
+    except ConfigError as exc:
+        summary = {"schema_version": 1, "preset": "runpod-dev", "status": "failed", "error": str(exc), "log_dir": str(log_dir)}
+        _write_json(log_dir / "summary.json", summary)
+        print(json.dumps(summary, indent=2, sort_keys=True))
+        return 2
 
 
 def _run_server2_preset(args: argparse.Namespace) -> int:
@@ -373,6 +440,8 @@ def _write_summary(run: BootstrapRun, plan: dict[str, Any], before: dict[str, An
 
 
 def _run_static_multihost(args: argparse.Namespace) -> int:
+    from .execution_config import ExecutionConfig, HardwareProfile, ServerProfile, default_hardware_for_server
+
     mapping: dict[str, Any] = {}
     if args.role and not args.execution_role:
         mapping["execution_role"] = args.role
@@ -402,6 +471,8 @@ def _run_static_multihost(args: argparse.Namespace) -> int:
 
 
 def _stage_manifest(stage: str, config: ExecutionConfig, args: argparse.Namespace, extra: dict[str, Any] | None = None) -> None:
+    from .execution_config import DOCKER_DISABLED_FOR_STATIC_ONLY, cuda_arch_for_profile
+
     if os.environ.get("CUDA_VISIBLE_DEVICES") == "":
         gpu_state = "hidden"
     else:
@@ -446,6 +517,8 @@ def _stage_manifest(stage: str, config: ExecutionConfig, args: argparse.Namespac
 
 
 def _gpu_phase(config: ExecutionConfig, args: argparse.Namespace) -> None:
+    from .execution_config import HardwareProfile, cuda_arch_for_profile
+
     if config.hardware_profile == HardwareProfile.CPU:
         raise ConfigError("GPU bootstrap phase requires a non-cpu hardware profile.")
     actual = _nvidia_smi_query()

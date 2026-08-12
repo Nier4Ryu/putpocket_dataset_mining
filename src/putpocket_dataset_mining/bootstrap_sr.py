@@ -184,7 +184,9 @@ def _ensure_project_editable(run: BootstrapRun) -> None:
         raise ConfigError(f"Missing canonical Python: {py}")
     _command([str(py), "-m", "pip", "install", "setuptools==80.9.0"], check=True, log=run.path("package_sync.log"))
     probe = _command([str(py), "-c", "import putpocket_dataset_mining; print(putpocket_dataset_mining.__file__)"], check=False)
-    if probe["returncode"] == 0 and str(REPO_ROOT / "src") in probe["stdout"]:
+    console_scripts = ["putpocket-dataset-mining", "putpocket-remote-verifier", "putpocket-agent"]
+    console_ok = all((SERVER2_ENV / "bin" / name).exists() for name in console_scripts)
+    if probe["returncode"] == 0 and str(REPO_ROOT / "src") in probe["stdout"] and console_ok:
         return
     _command([str(py), "-m", "pip", "install", "-e", f"{REPO_ROOT}[dev]"], check=True, log=run.path("project_install.log"))
 

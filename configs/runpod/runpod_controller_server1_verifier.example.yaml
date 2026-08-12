@@ -1,0 +1,67 @@
+schema_version: 1
+name: runpod_controller_server1_verifier
+
+controller_host: runpod
+inference_backend: local_vllm
+verifier_backend: ssh_rsync
+verifier_target: server1
+verifier_route: proxy_jump
+local_hidden_verifier_fallback: false
+
+run_root: ${PUTPOCKET_REPO_ROOT}/data/model_evaluation/runs
+local_workspace_backend: local_docker
+
+workflow:
+  supported_modes:
+    - sequential
+    - pipeline
+    - manual
+  verification1_policy: history1_pytest_only
+  verification2_policy: history2_pytest_then_judge
+  accepted_requires_judge_pass: true
+  kv_continuity: not_claimed
+  sr_reuse: not_implemented
+
+execution:
+  execution_role: runpod_controller
+  workspace_backend: local_docker
+  verifier_backend: remote_ssh_docker
+  allow_local_fallback: false
+  inference_host_role: runpod
+  inference_backend: local_vllm
+  verifier_host_role: server1
+  verifier_timeout_sec: 3600
+  verifier_remote_grace_sec: 120
+  remote:
+    host: 10.0.0.5
+    user: dyryu
+    port: 42
+    route: proxy_jump
+    jump_hosts:
+      - host: 141.223.145.88
+        user: dyryu
+        port: 4500
+      - host: 141.223.25.156
+        user: dyryu
+        port: 42
+    repository_root: /home/dyryu/putpocket_dataset_mining
+    job_root: /home/dyryu/putpocket_dataset_mining/data/remote_verifier
+    identity_file: /root/.ssh/putpocket_server1_ed25519
+    known_hosts_file: /root/.ssh/putpocket_sr/known_hosts
+    strict_host_key_checking: true
+    connection_timeout_sec: 10
+    command_timeout_sec: 3720
+    rsync_timeout_sec: 300
+    wrapper: /home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier
+    docker_image: putpocket-classeval-python:ubuntu22.04-py313-v1
+    dockerfile: docker/classeval_python/Dockerfile
+    max_concurrent_jobs: 1
+
+runtime_environment:
+  SR_REMOTE_SSH_CONFIG: /root/.ssh/putpocket_sr/config
+  SR_REMOTE_SSH_ALIAS: server1-via-proxy-a-c
+  SR_REMOTE_WRAPPER: /home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier
+  SR_REMOTE_JOB_ROOT: /home/dyryu/putpocket_dataset_mining/data/remote_verifier
+  PUTPOCKET_REPO_ROOT: /workspace/putpocket_dataset_mining
+  PUTPOCKET_ENV_PATH: /workspace/putpocket_dataset_mining/Putpocket_env
+  PUTPOCKET_STORAGE_KIND: network-volume

@@ -342,7 +342,7 @@ def _run_pipeline(cfg: dict[str, Any], store: WorkflowCheckpointStore, sample_id
                 async_submit=True,
             )
             infer_end = time.perf_counter()
-            intervals.append({"host": "montblanc", "resource": "server2_gpu", "sample_id": sample_id, "stage": "history1_inference", "start": infer_start, "end": infer_end})
+            intervals.append({"host": _inference_host_role(cfg), "resource": "local_vllm_gpu", "sample_id": sample_id, "stage": "history1_inference", "start": infer_start, "end": infer_end})
             inflight[sample_id] = {"history1": detail}
 
         while len(completed_v1) < len(sample_ids):
@@ -358,8 +358,8 @@ def _run_pipeline(cfg: dict[str, Any], store: WorkflowCheckpointStore, sample_id
                 result = _retrieve_stage(cfg=cfg, run_root=store.paths.run_root, sample_id=sample_id, stage="history1", mode="pipeline")
                 retrieve_end = time.perf_counter()
                 detail = inflight[sample_id]["history1"]
-                intervals.append({"host": "cerrotorre", "resource": "server1_pytest", "sample_id": sample_id, "stage": "verification1_inflight", "start": detail["submit_end_perf"], "end": retrieve_end})
-                intervals.append({"host": "montblanc", "resource": "transport", "sample_id": sample_id, "stage": "history1_retrieve", "start": retrieve_start, "end": retrieve_end})
+                intervals.append({"host": _verifier_host_role(cfg), "resource": "server1_pytest", "sample_id": sample_id, "stage": "verification1_inflight", "start": detail["submit_end_perf"], "end": retrieve_end})
+                intervals.append({"host": _inference_host_role(cfg), "resource": "transport", "sample_id": sample_id, "stage": "history1_retrieve", "start": retrieve_start, "end": retrieve_end})
                 completed_v1.add(sample_id)
                 progressed = True
                 if not result.passed:
@@ -380,7 +380,7 @@ def _run_pipeline(cfg: dict[str, Any], store: WorkflowCheckpointStore, sample_id
                 )
                 h2_end = time.perf_counter()
                 inflight[sample_id]["history2"] = h2_detail
-                intervals.append({"host": "montblanc", "resource": "server2_gpu", "sample_id": sample_id, "stage": "history2_inference", "start": h2_start, "end": h2_end})
+                intervals.append({"host": _inference_host_role(cfg), "resource": "local_vllm_gpu", "sample_id": sample_id, "stage": "history2_inference", "start": h2_start, "end": h2_end})
             if not progressed:
                 time.sleep(2)
 
@@ -400,8 +400,8 @@ def _run_pipeline(cfg: dict[str, Any], store: WorkflowCheckpointStore, sample_id
                 retrieve_end = time.perf_counter()
                 detail = inflight[sample_id]["history2"]
                 resource = "server1_judge" if (result.remote_result or {}).get("judge", {}).get("executed") else "server1_pytest"
-                intervals.append({"host": "cerrotorre", "resource": resource, "sample_id": sample_id, "stage": "verification2_inflight", "start": detail["submit_end_perf"], "end": retrieve_end})
-                intervals.append({"host": "montblanc", "resource": "transport", "sample_id": sample_id, "stage": "history2_retrieve", "start": retrieve_start, "end": retrieve_end})
+                intervals.append({"host": _verifier_host_role(cfg), "resource": resource, "sample_id": sample_id, "stage": "verification2_inflight", "start": detail["submit_end_perf"], "end": retrieve_end})
+                intervals.append({"host": _inference_host_role(cfg), "resource": "transport", "sample_id": sample_id, "stage": "history2_retrieve", "start": retrieve_start, "end": retrieve_end})
                 completed_h2.add(sample_id)
                 progressed = True
                 final = "accepted" if result.passed and (result.remote_result or {}).get("judge", {}).get("decision") == "pass" else "uncertain" if result.final_status == "uncertain" else "failed_infra" if result.final_status == "infra_failed" else "rejected"
@@ -433,6 +433,9 @@ def _workflow_config(config_path: Path, remote_config: Path | None, run_root: Pa
     cfg["execution"]["workspace_backend"] = "local_docker"
     cfg["execution"]["verifier_backend"] = "remote_ssh_docker"
     cfg["execution"]["allow_local_fallback"] = False
+    cfg["execution"].setdefault("inference_host_role", "server2")
+    cfg["execution"].setdefault("inference_backend", "local_vllm")
+    cfg["execution"].setdefault("verifier_host_role", "server1")
     cfg["execution"]["verifier_timeout_sec"] = 3600
     if remote_config is not None:
         cfg["execution"]["remote_config"] = str(remote_config)
@@ -554,6 +557,10 @@ def _run_history_and_submit(
     detail = {
         "attempt_dir": str(attempt_dir),
         "stage": stage,
+        "inference_host_role": _inference_host_role(cfg),
+        "inference_backend": cfg.get("execution", {}).get("inference_backend", "local_vllm"),
+        "verifier_host_role": _verifier_host_role(cfg),
+        "verifier_backend": cfg.get("execution", {}).get("verifier_backend", "remote_ssh_docker"),
         "job_id": receipt["job_id"],
         "receipt": str(attempt_dir / "verification" / stage / "submission_receipt.json"),
         "checkpoint": str(checkpoint),
@@ -644,11 +651,13 @@ def _sample_summary(run_root: Path, mode: str, sample_id: str, final_status: str
         "artifact_path": str(attempt),
         "remote_job_id": result.remote_job_id,
         "verifier_host": result.verifier_host,
+        "verifier_host_role": "server1",
+        "inference_backend": "local_vllm",
     }
 
 
 def _calculate_overlap(intervals: list[dict[str, Any]]) -> dict[str, Any]:
-    gpu = [i for i in intervals if i.get("resource") == "server2_gpu"]
+    gpu = [i for i in intervals if i.get("resource") in {"server2_gpu", "local_vllm_gpu"}]
     pytest_or_judge = [i for i in intervals if i.get("resource") in {"server1_pytest", "server1_judge"}]
     exact = []
     total = 0.0
@@ -704,7 +713,17 @@ def _write_common(run_root: Path, cfg: dict[str, Any], sample_ids: list[str], re
     common.mkdir(parents=True, exist_ok=True)
     dump_yaml(cfg, common / "config_snapshot.yaml")
     _atomic_write_json(common / "sample_list.json", {"sample_ids": sample_ids})
-    _atomic_write_json(common / "environment_manifest.json", {"source_revision": _git_head_or_unknown(), "remote_config": str(remote_config) if remote_config else None})
+    _atomic_write_json(
+        common / "environment_manifest.json",
+        {
+            "source_revision": _git_head_or_unknown(),
+            "remote_config": str(remote_config) if remote_config else None,
+            "inference_host_role": _inference_host_role(cfg),
+            "inference_backend": cfg.get("execution", {}).get("inference_backend", "local_vllm"),
+            "verifier_host_role": _verifier_host_role(cfg),
+            "verifier_backend": cfg.get("execution", {}).get("verifier_backend", "remote_ssh_docker"),
+        },
+    )
 
 
 def _mode_summary(mode: str, root: Path, results: list[dict[str, Any]], wall_sec: float) -> dict[str, Any]:
@@ -763,6 +782,14 @@ def _terminal_state(final_status: Any) -> str:
     if final_status == "failed_infra":
         return "INFRA_FAILED"
     return "REJECTED"
+
+
+def _inference_host_role(cfg: dict[str, Any]) -> str:
+    return str(cfg.get("execution", {}).get("inference_host_role") or "server2")
+
+
+def _verifier_host_role(cfg: dict[str, Any]) -> str:
+    return str(cfg.get("execution", {}).get("verifier_host_role") or "server1")
 
 
 def _record_completed_sample_transitions(store: WorkflowCheckpointStore, sample_id: str, summary: dict[str, Any]) -> None:

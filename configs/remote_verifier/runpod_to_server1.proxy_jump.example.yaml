@@ -1,0 +1,27 @@
+backend: remote_ssh_docker
+target:
+  host: 10.0.0.5
+  user: dyryu
+  port: 42
+route: proxy_jump
+jump_hosts:
+  - host: 141.223.145.88
+    user: dyryu
+    port: 4500
+  - host: 141.223.25.156
+    user: dyryu
+    port: 42
+repository_root: /home/dyryu/putpocket_dataset_mining
+job_root: /home/dyryu/putpocket_dataset_mining/data/remote_verifier
+identity_file: /root/.ssh/putpocket_server1_ed25519
+known_hosts_file: /root/.ssh/putpocket_sr/known_hosts
+strict_host_key_checking: true
+connection_timeout_sec: 10
+command_timeout_sec: 3720
+rsync_timeout_sec: 300
+wrapper: /home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier
+docker_image: putpocket-classeval-python:ubuntu22.04-py313-v1
+dockerfile: docker/classeval_python/Dockerfile
+max_concurrent_jobs: 1
+verifier:
+  timeout_sec: 3600

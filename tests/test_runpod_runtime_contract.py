@@ -118,7 +118,14 @@ class RunpodRuntimeContractTests(unittest.TestCase):
             skip_gpu_smoke=True,
             env={},
         )
-        with patch.dict(os.environ, {"RUNPOD_VOLUME_ID": "volume-v2"}, clear=True):
+        usage = type("Usage", (), {"free": 1024, "total": 2048})()
+        with patch.dict(os.environ, {"RUNPOD_VOLUME_ID": "volume-v2"}, clear=True), patch(
+            "putpocket_dataset_mining.runpod_runtime.Path.exists",
+            return_value=True,
+        ), patch("putpocket_dataset_mining.runpod_runtime.os.access", return_value=True), patch(
+            "putpocket_dataset_mining.runpod_runtime.shutil.disk_usage",
+            return_value=usage,
+        ):
             self.assertEqual(validate_network_volume(plan)["volume_id"], "volume-v2")
 
     def test_template_does_not_auto_launch_vllm(self) -> None:

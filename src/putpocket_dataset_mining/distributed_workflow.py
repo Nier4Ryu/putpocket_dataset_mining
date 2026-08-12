@@ -436,7 +436,7 @@ def _workflow_config(config_path: Path, remote_config: Path | None, run_root: Pa
     cfg = load_yaml(config_path)
     cfg.setdefault("run", {})["output_root"] = str(run_root.parent)
     cfg.setdefault("execution", {})
-    cfg["execution"]["workspace_backend"] = "local_docker"
+    cfg["execution"].setdefault("workspace_backend", "local_docker")
     cfg["execution"]["verifier_backend"] = "remote_ssh_docker"
     cfg["execution"]["allow_local_fallback"] = False
     cfg["execution"].setdefault("inference_host_role", "server2")

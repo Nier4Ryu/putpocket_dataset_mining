@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ V2_POLICY = "history2_pytest_then_judge"
 
 RUNPOD_LOCAL_INFERENCE_PREFLIGHT_FAILED = "RUNPOD_LOCAL_INFERENCE_PREFLIGHT_FAILED"
 RUNPOD_LOCAL_WORKSPACE_BACKEND_UNAVAILABLE = "RUNPOD_LOCAL_WORKSPACE_BACKEND_UNAVAILABLE"
+SERVER_B_WORKSPACE_PREFLIGHT_FAILED = "SERVER_B_WORKSPACE_PREFLIGHT_FAILED"
 SERVER1_SSH_CONNECTION_FAILED = "SERVER1_SSH_CONNECTION_FAILED"
 SERVER1_HOST_KEY_FAILED = "SERVER1_HOST_KEY_FAILED"
 SERVER1_WRAPPER_PREFLIGHT_FAILED = "SERVER1_WRAPPER_PREFLIGHT_FAILED"
@@ -55,12 +57,16 @@ class RunpodExecutionProfile:
     def topology(self) -> dict[str, Any]:
         return {
             "controller_host": self.controller_host,
-            "inference_host_role": "runpod",
+            "controller_role": "server_a",
+            "inference_host_role": "server_a",
             "inference_backend": self.inference_backend,
-            "verifier_host_role": "server1",
+            "verifier_host_role": "server_b",
+            "workspace_host_role": "server_b",
+            "workspace_backend": str(self.execution_config.workspace_backend),
             "verifier_backend": self.verifier_backend,
             "verifier_route": "Proxy-A -> Proxy-C -> Server-1",
             "verifier_target": self.verifier_target,
+            "deployment_mapping": {"server_a": "runpod", "server_b": "server1"},
             "verification1_policy": V1_POLICY,
             "verification2_policy": V2_POLICY,
             "local_hidden_verifier_fallback": self.local_hidden_verifier_fallback,
@@ -75,9 +81,10 @@ class RunpodExecutionProfile:
             "workspace_backend": str(self.execution_config.workspace_backend),
             "verifier_backend": str(self.execution_config.verifier_backend),
             "allow_local_fallback": False,
-            "inference_host_role": "runpod",
+            "inference_host_role": "server_a",
             "inference_backend": "local_vllm",
-            "verifier_host_role": "server1",
+            "workspace_host_role": "server_b",
+            "verifier_host_role": "server_b",
             "remote": {
                 "host": remote.host,
                 "user": remote.user,
@@ -100,6 +107,7 @@ class RunpodExecutionProfile:
                 "dockerfile": remote.dockerfile,
                 "max_concurrent_jobs": remote.max_concurrent_jobs,
             },
+            "workspace_remote": _remote_mapping(self.execution_config.workspace_remote or remote),
         }
 
 
@@ -139,8 +147,12 @@ def validate_runpod_execution_profile(profile: RunpodExecutionProfile) -> None:
     remote = profile.execution_config.remote
     if profile.execution_config.verifier_backend != DockerBackend.REMOTE_SSH_DOCKER:
         raise ConfigError("RunPod execution profile requires remote_ssh_docker verifier backend.")
-    if profile.execution_config.workspace_backend != DockerBackend.LOCAL_DOCKER:
-        raise ConfigError("RunPod controller profile currently requires local_docker workspace backend.")
+    if profile.execution_config.workspace_backend not in {DockerBackend.SSH_REMOTE_DOCKER, DockerBackend.REMOTE_SSH_DOCKER}:
+        raise ConfigError("RunPod controller profile requires ssh_remote_docker workspace backend.")
+    workspace_remote = profile.execution_config.workspace_remote
+    if workspace_remote is None:
+        raise ConfigError("RunPod controller profile requires workspace_remote configuration.")
+    workspace_remote.require_complete()
     remote.require_complete()
     if remote.route != RemoteRoute.PROXY_JUMP:
         raise ConfigError("RunPod-to-Server-1 verifier route must be proxy_jump.")
@@ -162,11 +174,16 @@ def redact_profile_for_logs(profile: RunpodExecutionProfile) -> dict[str, Any]:
         "run_root": profile.run_root,
         "local_workspace_backend": profile.local_workspace_backend,
         "remote": profile.workflow_execution_mapping()["remote"],
+        "workspace_remote": profile.workflow_execution_mapping()["workspace_remote"],
     }
     remote = payload["remote"]
     for key in ("identity_file", "known_hosts_file"):
         if remote.get(key):
             remote[key] = f"<runtime-path:{Path(str(remote[key])).name}>"
+    workspace_remote = payload.get("workspace_remote", {})
+    for key in ("identity_file", "known_hosts_file"):
+        if workspace_remote.get(key):
+            workspace_remote[key] = f"<runtime-path:{Path(str(workspace_remote[key])).name}>"
     return payload
 
 
@@ -179,7 +196,7 @@ def run_combined_preflight(
 ) -> dict[str, Any]:
     profile = load_runpod_execution_profile(profile_path)
     local = _local_preflight(profile, live_workspace=live_workspace, import_checks=import_checks)
-    server1 = _server1_preflight(profile, live_remote=live_remote)
+    server1 = _server1_preflight(profile, live_remote=live_remote, live_workspace=live_workspace)
     failure_classes = [
         item
         for item in (
@@ -209,7 +226,8 @@ def _local_preflight(profile: RunpodExecutionProfile, *, live_workspace: bool, i
         "torch": _import_available("torch") if import_checks else "not_checked",
         "vllm": _import_available("vllm") if import_checks else "not_checked",
     }
-    workspace_ready = _local_workspace_backend_ready(live_workspace)
+    remote_workspace = profile.execution_config.workspace_backend in {DockerBackend.SSH_REMOTE_DOCKER, DockerBackend.REMOTE_SSH_DOCKER}
+    workspace_ready = True if remote_workspace else _local_workspace_backend_ready(live_workspace)
     failure_class = None
     if not python_ok or (import_checks and not all(value is True for value in imports.values())):
         failure_class = RUNPOD_LOCAL_INFERENCE_PREFLIGHT_FAILED
@@ -226,12 +244,13 @@ def _local_preflight(profile: RunpodExecutionProfile, *, live_workspace: bool, i
         "gpu_visibility": "not_checked",
         "local_workspace_backend": profile.local_workspace_backend,
         "local_workspace_backend_ready": workspace_ready,
-        "local_workspace_backend_checked": live_workspace,
+        "local_workspace_backend_checked": live_workspace and not remote_workspace,
+        "local_docker_required": not remote_workspace,
         "failure_class": failure_class,
     }
 
 
-def _server1_preflight(profile: RunpodExecutionProfile, *, live_remote: bool) -> dict[str, Any]:
+def _server1_preflight(profile: RunpodExecutionProfile, *, live_remote: bool, live_workspace: bool = False) -> dict[str, Any]:
     remote = profile.execution_config.remote
     static = {
         "checked": live_remote,
@@ -249,6 +268,32 @@ def _server1_preflight(profile: RunpodExecutionProfile, *, live_remote: bool) ->
     }
     if not live_remote:
         return static
+    workspace_payload: dict[str, Any] = {"checked": True, "ready": False}
+    if profile.execution_config.workspace_backend in {DockerBackend.SSH_REMOTE_DOCKER, DockerBackend.REMOTE_SSH_DOCKER}:
+        workspace_remote = profile.execution_config.workspace_remote
+        assert workspace_remote is not None
+        try:
+            workspace_result = SshRsyncTransport(workspace_remote).run_wrapper(
+                "preflight", {"docker_image": workspace_remote.docker_image}
+            )
+            data = workspace_result.json_stdout()
+            workspace_payload = {"checked": True, "ready": workspace_result.returncode == 0 and bool(data.get("docker_ok")), **data}
+            if workspace_payload["ready"] and live_workspace:
+                session_id = f"preflight-{uuid.uuid4().hex[:12]}"
+                transport = SshRsyncTransport(workspace_remote)
+                create = transport.run_wrapper("create", {"session_id": session_id, "docker_image": workspace_remote.docker_image, "cpus": 1, "memory": "512m"}, timeout_sec=120)
+                execute = transport.run_wrapper("exec", {"session_id": session_id, "command": "printf SERVER_B_WORKSPACE_READY", "timeout_sec": 30}) if create.returncode == 0 else create
+                snap = transport.run_wrapper("snapshot", {"session_id": session_id, "snapshot_id": "preflight"}) if execute.returncode == 0 else execute
+                destroy = transport.run_wrapper("destroy", {"session_id": session_id})
+                workspace_payload["disposable_smoke"] = {
+                    "create": create.returncode == 0,
+                    "exec": execute.returncode == 0 and "SERVER_B_WORKSPACE_READY" in execute.stdout,
+                    "snapshot": snap.returncode == 0,
+                    "destroy": destroy.returncode == 0,
+                }
+                workspace_payload["ready"] = all(workspace_payload["disposable_smoke"].values())
+        except Exception as exc:  # noqa: BLE001
+            workspace_payload = {"checked": True, "ready": False, "detail": _redact(str(exc))}
     try:
         result = SshRsyncTransport(remote).lightweight_preflight(remote.docker_image)
     except Exception as exc:  # noqa: BLE001 - preflight must classify external failures.
@@ -256,7 +301,9 @@ def _server1_preflight(profile: RunpodExecutionProfile, *, live_remote: bool) ->
         failure = SERVER1_HOST_KEY_FAILED if "host key" in text or "known_hosts" in text else SERVER1_SSH_CONNECTION_FAILED
         return {**static, "checked": True, "ssh_ok": False, "failure_class": failure, "detail": _redact(str(exc))}
     failure = None
-    if not result.wrapper_ok:
+    if not workspace_payload.get("ready"):
+        failure = SERVER_B_WORKSPACE_PREFLIGHT_FAILED
+    elif not result.wrapper_ok:
         failure = SERVER1_WRAPPER_PREFLIGHT_FAILED
     elif not result.docker_ok:
         failure = SERVER1_DOCKER_PREFLIGHT_FAILED
@@ -270,6 +317,7 @@ def _server1_preflight(profile: RunpodExecutionProfile, *, live_remote: bool) ->
         "image_ok": result.image_ok,
         "failure_class": failure,
         "detail": _redact(result.detail or ""),
+        "workspace": workspace_payload,
     }
 
 
@@ -303,3 +351,17 @@ def _redact(text: str) -> str:
 
 def dumps_preflight(payload: dict[str, Any]) -> str:
     return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def _remote_mapping(remote: Any) -> dict[str, Any]:
+    return {
+        "host": remote.host, "user": remote.user, "port": remote.port,
+        "route": str(remote.route),
+        "jump_hosts": [{"host": h.host, "user": h.user, "port": h.port} for h in remote.jump_hosts],
+        "repository_root": remote.repository_root, "job_root": remote.job_root,
+        "identity_file": remote.identity_file, "known_hosts_file": remote.known_hosts_file,
+        "strict_host_key_checking": remote.strict_host_key_checking,
+        "connection_timeout_sec": remote.connection_timeout_sec,
+        "command_timeout_sec": remote.command_timeout_sec, "rsync_timeout_sec": remote.rsync_timeout_sec,
+        "wrapper": remote.wrapper, "docker_image": remote.docker_image,
+    }

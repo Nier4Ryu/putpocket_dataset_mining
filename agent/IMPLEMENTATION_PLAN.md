@@ -1,5 +1,11 @@
 # Implementation Plan
 
+## Distributed SR execution
+
+- Canonical role topology: Server-A inference/controller; Server-B remote workspace and verifier.
+- First live mode: sequential with one persistent remote workspace lineage across History-1 and History-2.
+- Preserve pipeline and Staged Forward compatibility through serializable session identity; validate those modes without claiming KV continuity.
+
 Normal production sequence:
 
 ```bash

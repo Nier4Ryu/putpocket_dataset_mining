@@ -9,7 +9,7 @@ verifier_route: proxy_jump
 local_hidden_verifier_fallback: false
 
 run_root: ${PUTPOCKET_REPO_ROOT}/data/model_evaluation/runs
-local_workspace_backend: local_docker
+local_workspace_backend: not_required
 
 workflow:
   supported_modes:
@@ -24,12 +24,14 @@ workflow:
 
 execution:
   execution_role: runpod_controller
-  workspace_backend: local_docker
+  workspace_backend: ssh_remote_docker
   verifier_backend: remote_ssh_docker
   allow_local_fallback: false
-  inference_host_role: runpod
+  controller_role: server_a
+  inference_host_role: server_a
   inference_backend: local_vllm
-  verifier_host_role: server1
+  workspace_host_role: server_b
+  verifier_host_role: server_b
   verifier_timeout_sec: 3600
   verifier_remote_grace_sec: 120
   remote:
@@ -46,8 +48,8 @@ execution:
         port: 42
     repository_root: /home/dyryu/putpocket_dataset_mining
     job_root: /home/dyryu/putpocket_dataset_mining/data/remote_verifier
-    identity_file: /root/.ssh/putpocket_server1_ed25519
-    known_hosts_file: /root/.ssh/putpocket_sr/known_hosts
+    identity_file: /root/.ssh/pod_id_rsa
+    known_hosts_file: /root/.ssh/known_hosts
     strict_host_key_checking: true
     connection_timeout_sec: 10
     command_timeout_sec: 3720
@@ -56,6 +58,24 @@ execution:
     docker_image: putpocket-classeval-python:ubuntu22.04-py313-v1
     dockerfile: docker/classeval_python/Dockerfile
     max_concurrent_jobs: 1
+  workspace_remote:
+    host: 10.0.0.5
+    user: dyryu
+    port: 42
+    route: proxy_jump
+    jump_hosts:
+      - {host: 141.223.145.88, user: dyryu, port: 4500}
+      - {host: 141.223.25.156, user: dyryu, port: 42}
+    repository_root: /home/dyryu/putpocket_dataset_mining
+    job_root: /home/dyryu/putpocket_dataset_mining/data/remote_workspace
+    identity_file: /root/.ssh/pod_id_rsa
+    known_hosts_file: /root/.ssh/known_hosts
+    strict_host_key_checking: true
+    connection_timeout_sec: 10
+    command_timeout_sec: 3720
+    rsync_timeout_sec: 300
+    wrapper: /home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-workspace
+    docker_image: putpocket-classeval-python:ubuntu22.04-py313-v1
 
 runtime_environment:
   SR_REMOTE_SSH_CONFIG: /root/.ssh/putpocket_sr/config

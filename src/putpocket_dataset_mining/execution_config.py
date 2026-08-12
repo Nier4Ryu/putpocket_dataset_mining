@@ -22,6 +22,7 @@ class ExecutionRole(StrEnum):
 
 class DockerBackend(StrEnum):
     LOCAL_DOCKER = "local_docker"
+    SSH_REMOTE_DOCKER = "ssh_remote_docker"
     REMOTE_SSH_DOCKER = "remote_ssh_docker"
     DISABLED = "disabled"
 
@@ -148,6 +149,7 @@ class ExecutionConfig:
     verifier_timeout_sec: int = DEFAULT_VERIFIER_TIMEOUT_SEC
     verifier_remote_grace_sec: int = DEFAULT_VERIFIER_REMOTE_GRACE_SEC
     remote: RemoteDockerConfig = RemoteDockerConfig()
+    workspace_remote: RemoteDockerConfig | None = None
 
     @classmethod
     def from_env_and_mapping(cls, mapping: dict[str, Any] | None = None) -> "ExecutionConfig":
@@ -170,7 +172,7 @@ class ExecutionConfig:
         role_default = "model_server" if _looks_like_runpod() else "controller"
         return cls(
             execution_role=_role_from_text(pick("execution_role", "SR_EXECUTION_ROLE", role_default)),
-            workspace_backend=DockerBackend(pick("workspace_backend", "SR_WORKSPACE_BACKEND", "local_docker")),
+            workspace_backend=_docker_backend_from_text(pick("workspace_backend", "SR_WORKSPACE_BACKEND", "local_docker")),
             verifier_backend=DockerBackend(pick("verifier_backend", "SR_VERIFIER_BACKEND", "local_docker")),
             hardware_profile=HardwareProfile(pick("hardware_profile", "SR_HARDWARE_PROFILE", "auto")),
             server_profile=ServerProfile(pick("server_profile", "SR_SERVER_PROFILE", "custom")),
@@ -184,6 +186,10 @@ class ExecutionConfig:
                 remote_mapping
                 or (mapping.get("remote") if isinstance(mapping.get("remote"), dict) else None)
             ),
+            workspace_remote=RemoteDockerConfig.from_env_and_mapping(
+                mapping.get("workspace_remote") if isinstance(mapping.get("workspace_remote"), dict) else
+                (remote_mapping or (mapping.get("remote") if isinstance(mapping.get("remote"), dict) else None))
+            ) if pick("workspace_backend", "SR_WORKSPACE_BACKEND", "local_docker") in {"ssh_remote_docker", "remote_ssh_docker"} else None,
         )
 
     @classmethod
@@ -193,6 +199,7 @@ class ExecutionConfig:
         timeout_sec = mapping.get("timeout_sec") or verifier.get("timeout_sec")
         return cls.from_env_and_mapping(
             {
+                "execution_role": "local_controller",
                 "verifier_backend": mapping.get("backend", "remote_ssh_docker"),
                 "verifier_timeout_sec": timeout_sec or DEFAULT_VERIFIER_TIMEOUT_SEC,
                 "remote": remote,
@@ -203,12 +210,15 @@ class ExecutionConfig:
         self.guard_cloud_local_docker()
         if self.workspace_backend == DockerBackend.DISABLED or self.verifier_backend == DockerBackend.DISABLED:
             raise ConfigError(f"{EVALUATION_BLOCKED_NO_DOCKER_BACKEND}: evaluation requires workspace and verifier Docker backends.")
-        if self.workspace_backend == DockerBackend.REMOTE_SSH_DOCKER or self.verifier_backend == DockerBackend.REMOTE_SSH_DOCKER:
+        if self.workspace_backend in {DockerBackend.SSH_REMOTE_DOCKER, DockerBackend.REMOTE_SSH_DOCKER}:
+            assert self.workspace_remote is not None
+            self.workspace_remote.require_complete()
+        if self.verifier_backend == DockerBackend.REMOTE_SSH_DOCKER:
             self.remote.require_complete()
             self.validate_remote_timeout_budget(self.verifier_timeout_sec)
 
     def validate_remote_timeout_budget(self, verifier_timeout_sec: int | None = None) -> None:
-        if self.verifier_backend != DockerBackend.REMOTE_SSH_DOCKER and self.workspace_backend != DockerBackend.REMOTE_SSH_DOCKER:
+        if self.verifier_backend != DockerBackend.REMOTE_SSH_DOCKER and self.workspace_backend not in {DockerBackend.SSH_REMOTE_DOCKER, DockerBackend.REMOTE_SSH_DOCKER}:
             return
         effective = int(verifier_timeout_sec or self.verifier_timeout_sec)
         minimum = effective + int(self.verifier_remote_grace_sec)
@@ -285,6 +295,13 @@ def _role_from_text(text: str) -> ExecutionRole:
         "runpod_controller": ExecutionRole.RUNPOD_CONTROLLER,
     }
     return aliases.get(text, ExecutionRole(text))
+
+
+def _docker_backend_from_text(text: str) -> DockerBackend:
+    # remote_ssh_docker remains accepted for older workspace configurations.
+    if text == "remote_ssh_docker":
+        return DockerBackend.REMOTE_SSH_DOCKER
+    return DockerBackend(text)
 
 
 def _safe_optional_text(value: Any, field: str) -> str | None:

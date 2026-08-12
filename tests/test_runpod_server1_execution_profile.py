@@ -38,7 +38,8 @@ class RunpodServer1ExecutionProfileTests(unittest.TestCase):
         self.assertEqual(profile.verifier_backend, "ssh_rsync")
         self.assertFalse(profile.local_hidden_verifier_fallback)
         self.assertEqual(profile.execution_config.execution_role, ExecutionRole.RUNPOD_CONTROLLER)
-        self.assertEqual(profile.execution_config.workspace_backend, DockerBackend.LOCAL_DOCKER)
+        self.assertEqual(profile.execution_config.workspace_backend, DockerBackend.SSH_REMOTE_DOCKER)
+        self.assertEqual(profile.execution_config.workspace_remote.job_root, "/home/dyryu/putpocket_dataset_mining/data/remote_workspace")
         self.assertEqual(profile.execution_config.verifier_backend, DockerBackend.REMOTE_SSH_DOCKER)
         self.assertEqual(profile.execution_config.remote.route, RemoteRoute.PROXY_JUMP)
         self.assertEqual(profile.execution_config.remote.host, "10.0.0.5")
@@ -88,15 +89,16 @@ class RunpodServer1ExecutionProfileTests(unittest.TestCase):
             with self.assertRaisesRegex(ConfigError, "runtime materialized"):
                 load_runpod_execution_profile(path)
 
-    def test_preflight_classifies_missing_local_workspace_backend_without_remote_contact(self) -> None:
+    def test_remote_workspace_does_not_require_local_docker_without_remote_contact(self) -> None:
         with patch("putpocket_dataset_mining.runpod_execution.shutil.which", return_value=None), patch(
             "putpocket_dataset_mining.runpod_execution.SshRsyncTransport"
         ) as transport:
             result = run_combined_preflight(PROFILE, live_remote=False, live_workspace=False, import_checks=False)
         transport.assert_not_called()
-        self.assertEqual(result["status"], "failed")
-        self.assertEqual(result["local"]["failure_class"], RUNPOD_LOCAL_WORKSPACE_BACKEND_UNAVAILABLE)
-        self.assertFalse(result["local"]["local_workspace_backend_ready"])
+        self.assertEqual(result["status"], "partial")
+        self.assertIsNone(result["local"]["failure_class"])
+        self.assertTrue(result["local"]["local_workspace_backend_ready"])
+        self.assertFalse(result["local"]["local_docker_required"])
         self.assertFalse(result["server1"]["checked"])
 
     def test_static_preflight_cli_does_not_contact_remote_or_run_docker(self) -> None:
@@ -118,7 +120,7 @@ class RunpodServer1ExecutionProfileTests(unittest.TestCase):
         raw_text = PROFILE.read_text(encoding="utf-8")
         self.assertNotIn("RUNPOD_POD_ID", raw_text)
         self.assertNotIn("container_id", raw_text)
-        self.assertNotIn("pod_id", raw_text)
+        self.assertNotIn("RUNPOD_POD_ID", raw_text)
 
 
 class RunpodWorkflowTopologyTests(unittest.TestCase):

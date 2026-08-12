@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import uuid
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,8 @@ class CommandResult:
     stdout: str
     stderr: str
     timeout: bool = False
+    remote_docker_exec_sec: float | None = None
+    total_sec: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -32,6 +35,8 @@ class CommandResult:
             "stdout": self.stdout,
             "stderr": self.stderr,
             "timeout": self.timeout,
+            "remote_docker_exec_sec": self.remote_docker_exec_sec,
+            "total_sec": self.total_sec,
         }
 
 
@@ -244,7 +249,8 @@ class RemoteDockerWorkspace:
         self.name = validate_safe_id(name or f"putpocket-remote-{uuid.uuid4().hex[:12]}", "workspace_session")
         self.startup_timeout_sec = startup_timeout_sec
         self.execution_config = execution_config or ExecutionConfig.from_env_and_mapping()
-        self.transport = SshRsyncTransport(self.execution_config.remote)
+        remote = self.execution_config.workspace_remote or self.execution_config.remote
+        self.transport = SshRsyncTransport(remote, wrapper=remote.wrapper)
         self._started = False
 
     def __enter__(self) -> "RemoteDockerWorkspace":
@@ -255,12 +261,16 @@ class RemoteDockerWorkspace:
         self.stop(remove=True)
 
     def start(self) -> None:
-        if self.execution_config.workspace_backend != DockerBackend.REMOTE_SSH_DOCKER:
-            raise InfraError("RemoteDockerWorkspace requires workspace_backend=remote_ssh_docker.")
+        if self.execution_config.workspace_backend not in {DockerBackend.SSH_REMOTE_DOCKER, DockerBackend.REMOTE_SSH_DOCKER}:
+            raise InfraError("RemoteDockerWorkspace requires workspace_backend=ssh_remote_docker.")
         self.host_workspace.mkdir(parents=True, exist_ok=True)
-        preflight = self.transport.lightweight_preflight(self.image)
-        if not preflight.docker_ok:
-            raise InfraError(f"REMOTE_DOCKER_PREFLIGHT_FAILED: {preflight.detail or preflight.error_class}")
+        preflight = self.transport.run_wrapper("preflight", {"docker_image": self.image})
+        try:
+            preflight_payload = preflight.json_stdout()
+        except json.JSONDecodeError as exc:
+            raise InfraError(f"SERVER_B_WORKSPACE_PREFLIGHT_FAILED: invalid wrapper response: {exc}") from exc
+        if preflight.returncode != 0 or not preflight_payload.get("docker_ok"):
+            raise InfraError(f"SERVER_B_WORKSPACE_PREFLIGHT_FAILED: {(preflight.stderr or preflight.stdout).strip()}")
         result = self.transport.run_wrapper(
             "workspace-create",
             {
@@ -285,6 +295,14 @@ class RemoteDockerWorkspace:
             self.transport.run_wrapper("workspace-destroy", {"session_id": self.name}, timeout_sec=30)
         self._started = False
 
+    def snapshot(self, snapshot_id: str) -> dict[str, Any]:
+        result = self.transport.run_wrapper(
+            "snapshot", {"session_id": self.name, "snapshot_id": validate_safe_id(snapshot_id, "snapshot_id")}
+        )
+        if result.returncode != 0:
+            raise InfraError(f"Remote workspace snapshot failed: {(result.stderr or result.stdout).strip()}")
+        return result.json_stdout()
+
     def _push_workspace(self) -> None:
         result = self.transport.rsync_to_remote(self.host_workspace, f"sessions/{self.name}/workspace/")
         if result.returncode != 0:
@@ -296,6 +314,7 @@ class RemoteDockerWorkspace:
             raise InfraError(f"Remote workspace result sync failed: {result.stderr.strip()}")
 
     def exec(self, command: str, timeout_sec: int = 120) -> CommandResult:
+        started = time.perf_counter()
         self._push_workspace()
         result = self.transport.run_wrapper(
             "workspace-exec",
@@ -310,6 +329,7 @@ class RemoteDockerWorkspace:
             timeout_sec=timeout_sec + 30,
         )
         self._pull_workspace()
+        total_sec = time.perf_counter() - started
         try:
             payload = json.loads(result.stdout or "{}")
         except json.JSONDecodeError:
@@ -320,6 +340,8 @@ class RemoteDockerWorkspace:
             str(payload.get("stdout", "")),
             str(payload.get("stderr", result.stderr)),
             bool(payload.get("timeout", result.timeout)),
+            float(payload["remote_docker_exec_sec"]) if payload.get("remote_docker_exec_sec") is not None else None,
+            total_sec,
         )
 
     def read_file(self, path: str) -> str:
@@ -370,7 +392,7 @@ def workspace_from_execution_config(
 ) -> DockerWorkspace | RemoteDockerWorkspace:
     execution_config = execution_config or ExecutionConfig.from_env_and_mapping()
     execution_config.guard_cloud_local_docker()
-    if execution_config.workspace_backend == DockerBackend.REMOTE_SSH_DOCKER:
+    if execution_config.workspace_backend in {DockerBackend.SSH_REMOTE_DOCKER, DockerBackend.REMOTE_SSH_DOCKER}:
         return RemoteDockerWorkspace(
             host_workspace=host_workspace,
             image=image,

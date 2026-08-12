@@ -58,5 +58,5 @@ artifacts:
 commits:
   - d2895c3d2a4bdaf92d48574bc64fe85e404d11a9
   - 897edfdbb77effcb428d97808c4832ee90528255
-  - closeout commit pending
+  - 53968cc (cherry-picked from 46edffb)
 final handoff link: agent/tasks/T20260812-001__agent-worktree-control-plane/handoffs/TO_GPT_20260812-181840.md

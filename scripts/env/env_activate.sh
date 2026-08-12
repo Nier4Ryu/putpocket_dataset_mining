@@ -49,7 +49,7 @@ case "$(cd "${_putpocket_repo_root}" && pwd)" in
 esac
 export PUTPOCKET_REPO_ROOT="${PUTPOCKET_DATASET_MINING_ROOT}"
 
-_putpocket_venv="${PUTPOCKET_ENV_PATH:-${PUTPOCKET_CANONICAL_SERVER2_ENV:-${_putpocket_canonical_root}/Putpocket_env}}"
+_putpocket_venv="${PUTPOCKET_ENV_PATH:-${PUTPOCKET_CANONICAL_SERVER2_ENV:-${PUTPOCKET_DATASET_MINING_ROOT}/Putpocket_env}}"
 case "${VIRTUAL_ENV:-}" in
   *Putpocket_env_glm52*|*Putpocket_env_glm52_v025*)
     echo "Refusing to activate Server-2 env from legacy GLM environment: ${VIRTUAL_ENV}" >&2
@@ -91,7 +91,6 @@ _putpocket_prepend_var_path() {
 
 export PUTPOCKET_ENV_PATH="${_putpocket_venv}"
 export UV_PROJECT_ENVIRONMENT="${_putpocket_venv}"
-export PUTPOCKET_ENV_PATH="${_putpocket_venv}"
 export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
 export TZ="${TZ:-Asia/Seoul}"
 export PUTPOCKET_STORAGE_KIND="${PUTPOCKET_STORAGE_KIND:-local}"

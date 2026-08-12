@@ -12,7 +12,7 @@ ARG ZELLIJ_SHA256=0f7c346788627f506c0a28296517768633cff24fc822a739f8264b640ecad7
 ARG CODEX_VERSION=0.147.0
 ARG BUILD_CREATED=unknown
 ARG BUILD_REVISION=unknown
-ARG IMAGE_VERSION=cuda12.9.1-ubuntu22.04-agent-v1
+ARG IMAGE_VERSION=cuda12.9.1-ubuntu22.04-agent-v2
 ARG TOOL_LOCK_SHA256=unknown
 
 LABEL org.opencontainers.image.title="Putpocket RunPod CUDA 12.9 editable development base"

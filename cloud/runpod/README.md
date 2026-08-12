@@ -29,7 +29,7 @@ docker buildx build \
 Use immutable tags such as:
 
 ```text
-cuda12.9.1-ubuntu22.04-agent-v1
+cuda12.9.1-ubuntu22.04-agent-v2
 git-<short-sha>
 ```
 
@@ -54,6 +54,9 @@ with mode `0700` when `/workspace` is mounted, writes only non-secret Codex CLI
 configuration, prints tool versions, and then runs `sleep infinity`. It does
 not clone the repository, build vLLM, download models, start a server, run
 Codex, or authenticate Codex.
+
+For the published v2 image, leave the RunPod Start Command blank. The Docker
+image CMD already runs `/usr/local/bin/putpocket-runpod-start`.
 
 Codex authentication is a runtime action on a trusted private Pod:
 

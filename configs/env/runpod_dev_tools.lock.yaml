@@ -23,6 +23,14 @@ uv:
 base_image:
   tag: "nvidia/cuda:12.9.1-devel-ubuntu22.04"
   digest: "sha256:bd4e2680a261c212f1e2fea241606f71497dc67a417f73175d794ec8212b5ba8"
+published_image:
+  repository: "docker.io/nier4ryu/putpocket-runpod-dev"
+  version_tag: "cuda12.9.1-ubuntu22.04-agent-v2"
+  git_tag: "git-4f3e310"
+  source_revision: "4f3e310abc9d94d208f3319ecd5a12641e3b4d2e"
+  remote_index_digest: "sha256:2185c3aa20246557347d8bdbba776bbf7b2f3438c1bba82a71b8e2404780653c"
+  amd64_manifest_digest: "sha256:6c37797869c24c2623a789ad2b704ad61565200962d9ba57980921eca9bf2d99"
+  published_at: "2026-08-12T14:48:00Z"
 verified_at: "2026-08-12T20:30:00+09:00"
 verification_sources:
   node: "https://nodejs.org/dist/v24.19.0/SHASUMS256.txt"

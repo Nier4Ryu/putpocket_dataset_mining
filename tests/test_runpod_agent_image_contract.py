@@ -35,6 +35,14 @@ class RunpodAgentImageContractTests(unittest.TestCase):
         self.assertEqual(lock["codex"]["version"], "0.147.0")
         self.assertIn("sha512-", lock["codex"]["package_integrity"])
         self.assertEqual(lock["uv"]["version"], "0.11.31")
+        published = lock["published_image"]
+        self.assertEqual(published["repository"], "docker.io/nier4ryu/putpocket-runpod-dev")
+        self.assertEqual(published["version_tag"], "cuda12.9.1-ubuntu22.04-agent-v2")
+        self.assertEqual(
+            published["remote_index_digest"],
+            "sha256:2185c3aa20246557347d8bdbba776bbf7b2f3438c1bba82a71b8e2404780653c",
+        )
+        self.assertEqual(published["git_tag"], "git-4f3e310")
 
     def test_dockerfile_keeps_cuda_devel_and_installs_pinned_tools(self) -> None:
         text = (ROOT / "cloud" / "runpod" / "Dockerfile.dev-base").read_text(encoding="utf-8")
@@ -109,8 +117,14 @@ class RunpodAgentImageContractTests(unittest.TestCase):
     def test_template_uses_codex_home_and_no_plaintext_api_key(self) -> None:
         text = (ROOT / "cloud" / "runpod" / "template.dev-base.example.yaml").read_text(encoding="utf-8")
         self.assertIn("CODEX_HOME: /workspace/.private/codex", text)
-        self.assertIn("start_command: /usr/local/bin/putpocket-runpod-start", text)
-        self.assertIn("digest: sha256:<set-after-push>", text)
+        self.assertIn("repository: docker.io/nier4ryu/putpocket-runpod-dev", text)
+        self.assertIn("tag: cuda12.9.1-ubuntu22.04-agent-v2", text)
+        self.assertIn(
+            "digest: sha256:2185c3aa20246557347d8bdbba776bbf7b2f3438c1bba82a71b8e2404780653c",
+            text,
+        )
+        self.assertIn('start_command: ""', text)
+        self.assertNotIn("digest: sha256:<set-after-push>", text)
         self.assertIn("OPENAI_API_KEY: \"<runpod-secret-reference-optional>\"", text)
         self.assertNotIn("sk-", text)
         self.assertNotIn("auth.json:", text)

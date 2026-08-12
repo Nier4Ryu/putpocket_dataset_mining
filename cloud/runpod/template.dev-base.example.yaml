@@ -1,11 +1,11 @@
 schema_version: 1
 name: putpocket-runpod-cuda129-editable-dev
 image:
-  # Replace with the published immutable Docker Hub reference when available:
-  # <dockerhub-user>/putpocket-runpod-dev:cuda12.9.1-ubuntu22.04-agent-v1@sha256:<remote-digest>
-  repository: docker.io/<dockerhub-user>/putpocket-runpod-dev
-  tag: cuda12.9.1-ubuntu22.04-agent-v1
-  digest: sha256:<set-after-push>
+  # Immutable Docker Hub reference:
+  # nier4ryu/putpocket-runpod-dev:cuda12.9.1-ubuntu22.04-agent-v2@sha256:2185c3aa20246557347d8bdbba776bbf7b2f3438c1bba82a71b8e2404780653c
+  repository: docker.io/nier4ryu/putpocket-runpod-dev
+  tag: cuda12.9.1-ubuntu22.04-agent-v2
+  digest: sha256:2185c3aa20246557347d8bdbba776bbf7b2f3438c1bba82a71b8e2404780653c
   platform: linux/amd64
 minimum_cuda: "12.9"
 network_volume:
@@ -34,7 +34,7 @@ environment:
   PUTPOCKET_CUDA_ARCH_PROFILE: portable-nvidia
   PUTPOCKET_CUDA_ARCH_LIST: "8.6 9.0 10.0 12.0"
   TORCH_CUDA_ARCH_LIST: "8.6 9.0 10.0 12.0"
-start_command: /usr/local/bin/putpocket-runpod-start
+start_command: ""
 runtime_secrets:
   # Optional automation mode only. Configure this as a RunPod Secret, never as
   # plaintext in the template, Dockerfile, image labels, or logs.
@@ -46,4 +46,5 @@ notes:
   - CODEX_HOME is /workspace/.private/codex and must remain outside the Git repository root.
   - RunPod blocks the user namespace required by bubblewrap; Codex therefore uses sandbox_mode danger-full-access with approval_policy on-request inside the outer Docker container.
   - Bubblewrap is installed for general Linux compatibility, not as a working inner Codex sandbox on RunPod.
+  - Leave the RunPod Start Command blank; the image CMD runs /usr/local/bin/putpocket-runpod-start and then sleep infinity.
   - Do not auto-launch vLLM or any model workload at Pod start.

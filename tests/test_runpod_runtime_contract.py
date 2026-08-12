@@ -105,7 +105,8 @@ class RunpodRuntimeContractTests(unittest.TestCase):
 
     def test_template_does_not_auto_launch_vllm(self) -> None:
         text = (self.repo_root / "cloud" / "runpod" / "template.dev-base.example.yaml").read_text(encoding="utf-8")
-        self.assertIn("start_command: /usr/local/bin/putpocket-runpod-start", text)
+        self.assertIn('start_command: ""', text)
+        self.assertIn("image CMD runs /usr/local/bin/putpocket-runpod-start", text)
         self.assertNotIn("api_server", text)
 
     def test_activation_uses_repo_relative_defaults_and_no_mutation(self) -> None:

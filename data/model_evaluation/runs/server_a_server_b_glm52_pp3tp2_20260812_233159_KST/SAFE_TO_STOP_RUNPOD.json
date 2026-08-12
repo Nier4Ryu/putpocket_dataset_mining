@@ -1,0 +1,9 @@
+{
+  "run_id": "server_a_server_b_glm52_pp3tp2_20260812_233159_KST",
+  "final_status": "GLM52_PP3_TP2_MODEL_LOAD_BLOCKED",
+  "engine_active": false,
+  "telemetry_active": false,
+  "remote_jobs_active": false,
+  "artifacts_flushed": true,
+  "dataset_modified": false
+}

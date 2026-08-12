@@ -1,0 +1,8 @@
+{
+  "backend": "codex_cli",
+  "decision": "skipped",
+  "failure_class": null,
+  "reason": "infra.vllm_generation_failed",
+  "stderr": "",
+  "stdout": ""
+}

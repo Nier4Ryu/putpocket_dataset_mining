@@ -1,0 +1,11 @@
+{
+  "server_a": "RunPod",
+  "server_a_roles": ["inference", "controller"],
+  "server_a_local_docker_required": false,
+  "server_b": "Server-1 / cerrotorre",
+  "server_b_roles": ["isolated_workspace", "hidden_verifier", "codex_judge"],
+  "workspace_backend": "ssh_remote_docker",
+  "workspace_root": "/home/dyryu/putpocket_dataset_mining/data/remote_workspace",
+  "verifier_backend": "remote_ssh_docker",
+  "local_hidden_verifier_fallback": false
+}

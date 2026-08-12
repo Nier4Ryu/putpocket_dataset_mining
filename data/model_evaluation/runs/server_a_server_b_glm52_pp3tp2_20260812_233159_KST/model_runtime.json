@@ -1,0 +1,19 @@
+{
+  "model": "cyankiwi/GLM-5.2-AWQ-INT4",
+  "revision": "956f4d228e36c95f66a80058fe64b69af67360ca",
+  "architecture": "GlmMoeDsaForCausalLM",
+  "quantization": "compressed-tensors",
+  "linear_kernel": "MarlinLinearKernel",
+  "pipeline_parallel_size": 3,
+  "tensor_parallel_size": 2,
+  "world_size": 6,
+  "max_model_len": 8192,
+  "max_num_seqs": 1,
+  "prefix_caching": true,
+  "execution_mode": "eager",
+  "model_load": "FAIL",
+  "engine_init_outer_wall_sec": 118,
+  "model_weight_load_wall_sec": "NOT_SEPARATELY_OBSERVABLE",
+  "failure_class": "GLM52_PP3_TP2_MODEL_LOAD_BLOCKED",
+  "failure": "Sparse Attention Indexer CUDA op requires DeepGEMM to be installed."
+}

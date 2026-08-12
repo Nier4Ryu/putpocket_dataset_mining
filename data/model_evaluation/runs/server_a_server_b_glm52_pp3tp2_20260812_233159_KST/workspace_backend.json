@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "protocol": "sr-remote-workspace-v1",
+  "docker": "PASS",
+  "create_exec_read": "PASS",
+  "disconnect_reconnect": "PASS",
+  "h1_h2_continuity": "PASS",
+  "snapshot": "PASS",
+  "cleanup": "PASS",
+  "snapshot_sha256": "4277922e0b2da96da4ea0648d45ffc6ca736b4d21b45df0e28fb3dbaffc2d7da"
+}

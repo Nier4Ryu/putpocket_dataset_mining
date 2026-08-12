@@ -1,0 +1,774 @@
+HTTP Error 429 thrown while requesting HEAD https://huggingface.co/datasets/FudanSELab/ClassEval/resolve/main/README.md
+Retrying in 1s [Retry 1/5].
+HTTP Error 429 thrown while requesting HEAD https://huggingface.co/datasets/FudanSELab/ClassEval/resolve/main/README.md
+Retrying in 2s [Retry 2/5].
+HTTP Error 429 thrown while requesting HEAD https://huggingface.co/datasets/FudanSELab/ClassEval/resolve/main/README.md
+Retrying in 4s [Retry 3/5].
+HTTP Error 429 thrown while requesting HEAD https://huggingface.co/datasets/FudanSELab/ClassEval/resolve/main/README.md
+Retrying in 8s [Retry 4/5].
+HTTP Error 429 thrown while requesting HEAD https://huggingface.co/datasets/FudanSELab/ClassEval/resolve/main/README.md
+Retrying in 8s [Retry 5/5].
+Generating test split:   0%|          | 0/100 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 100/100 [00:00<00:00, 1173.83 examples/s]
+INFO 08-12 23:36:38 [utils.py:233] non-default args: {'trust_remote_code': True, 'download_dir': '/workspace/putpocket_dataset_mining/models/hf/hub', 'max_model_len': 8192, 'pipeline_parallel_size': 3, 'tensor_parallel_size': 2, 'enable_prefix_caching': True, 'gpu_memory_utilization': 0.85, 'max_num_seqs': 1, 'disable_log_stats': True, 'enforce_eager': True, 'model': '/workspace/model_weights/glm-5.2/cyankiwi__GLM-5.2-AWQ-INT4/956f4d228e36c95f66a80058fe64b69af67360ca'}
+INFO 08-12 23:38:08 [model.py:549] Resolved architecture: GlmMoeDsaForCausalLM
+INFO 08-12 23:38:08 [model.py:1678] Using max model len 8192
+INFO 08-12 23:38:15 [scheduler.py:238] Chunked prefill is enabled with max_num_batched_tokens=8192.
+INFO 08-12 23:38:15 [vllm.py:790] Asynchronous scheduling is enabled.
+WARNING 08-12 23:38:15 [vllm.py:848] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+WARNING 08-12 23:38:15 [vllm.py:859] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+INFO 08-12 23:38:15 [vllm.py:1025] Cudagraph is disabled under eager mode
+INFO 08-12 23:38:15 [compilation.py:292] Enabled custom fusions: norm_quant, act_quant
+[transformers] The following generation flags are not valid and may be ignored: ['top_p']. Set `TRANSFORMERS_VERBOSITY=info` for more details.
+(EngineCore pid=19007) INFO 08-12 23:38:17 [core.py:105] Initializing a V1 LLM engine (v0.1.dev15375+gb65d39ddb) with config: model='/workspace/model_weights/glm-5.2/cyankiwi__GLM-5.2-AWQ-INT4/956f4d228e36c95f66a80058fe64b69af67360ca', speculative_config=None, tokenizer='/workspace/model_weights/glm-5.2/cyankiwi__GLM-5.2-AWQ-INT4/956f4d228e36c95f66a80058fe64b69af67360ca', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=True, dtype=torch.bfloat16, max_seq_len=8192, download_dir='/workspace/putpocket_dataset_mining/models/hf/hub', load_format=auto, tensor_parallel_size=2, pipeline_parallel_size=3, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=False, quantization=compressed-tensors, enforce_eager=True, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False), seed=0, served_model_name=/workspace/model_weights/glm-5.2/cyankiwi__GLM-5.2-AWQ-INT4/956f4d228e36c95f66a80058fe64b69af67360ca, enable_prefix_caching=True, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.NONE: 0>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['all'], 'splitting_ops': [], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_images_per_batch': 0, 'compile_sizes': [], 'compile_ranges_endpoints': [8192], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'size_asserts': False, 'alignment_asserts': False, 'scalar_asserts': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.NONE: 0>, 'cudagraph_num_of_warmups': 0, 'cudagraph_capture_sizes': [], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': True, 'fuse_act_quant': True, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False}, 'max_cudagraph_capture_size': 0, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': True, 'static_all_moe_layers': []}
+(EngineCore pid=19007) WARNING 08-12 23:38:17 [multiproc_executor.py:1014] Reducing Torch parallelism from 128 threads to 1 to avoid unnecessary CPU contention. Set OMP_NUM_THREADS in the external environment to tune this value as needed.
+(EngineCore pid=19007) INFO 08-12 23:38:17 [multiproc_executor.py:134] DP group leader: node_rank=0, node_rank_within_dp=0, master_addr=127.0.0.1, mq_connect_ip=172.21.0.2 (local), world_size=6, local_world_size=6
+(Worker pid=19013) INFO 08-12 23:38:20 [parallel_state.py:1400] world_size=6 rank=0 local_rank=0 distributed_init_method=tcp://127.0.0.1:60885 backend=nccl
+(Worker pid=19017) INFO 08-12 23:38:20 [parallel_state.py:1400] world_size=6 rank=4 local_rank=4 distributed_init_method=tcp://127.0.0.1:60885 backend=nccl
+(Worker pid=19016) INFO 08-12 23:38:20 [parallel_state.py:1400] world_size=6 rank=3 local_rank=3 distributed_init_method=tcp://127.0.0.1:60885 backend=nccl
+(Worker pid=19018) INFO 08-12 23:38:20 [parallel_state.py:1400] world_size=6 rank=5 local_rank=5 distributed_init_method=tcp://127.0.0.1:60885 backend=nccl
+(Worker pid=19015) INFO 08-12 23:38:20 [parallel_state.py:1400] world_size=6 rank=2 local_rank=2 distributed_init_method=tcp://127.0.0.1:60885 backend=nccl
+(Worker pid=19014) INFO 08-12 23:38:20 [parallel_state.py:1400] world_size=6 rank=1 local_rank=1 distributed_init_method=tcp://127.0.0.1:60885 backend=nccl
+(Worker pid=19014) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
+(Worker pid=19016) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
+(Worker pid=19014) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
+(Worker pid=19016) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
+(Worker pid=19013) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
+(Worker pid=19015) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
+(Worker pid=19013) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
+(Worker pid=19015) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
+(Worker pid=19018) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
+(Worker pid=19018) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
+(Worker pid=19017) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
+(Worker pid=19017) <frozen importlib._bootstrap_external>:1325: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
+(Worker pid=19013) INFO 08-12 23:38:31 [pynccl.py:111] vLLM is using nccl==2.27.5
+(Worker pid=19016) WARNING 08-12 23:38:31 [symm_mem.py:66] SymmMemCommunicator: Device capability 12.0 not supported, communicator is not available.
+(Worker pid=19015) WARNING 08-12 23:38:31 [symm_mem.py:66] SymmMemCommunicator: Device capability 12.0 not supported, communicator is not available.
+(Worker pid=19013) WARNING 08-12 23:38:32 [symm_mem.py:66] SymmMemCommunicator: Device capability 12.0 not supported, communicator is not available.
+(Worker pid=19014) WARNING 08-12 23:38:32 [symm_mem.py:66] SymmMemCommunicator: Device capability 12.0 not supported, communicator is not available.
+(Worker pid=19017) WARNING 08-12 23:38:32 [symm_mem.py:66] SymmMemCommunicator: Device capability 12.0 not supported, communicator is not available.
+(Worker pid=19018) WARNING 08-12 23:38:32 [symm_mem.py:66] SymmMemCommunicator: Device capability 12.0 not supported, communicator is not available.
+(Worker pid=19013) INFO 08-12 23:38:32 [parallel_state.py:1716] rank 0 in world size 6 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0, EPLB rank N/A
+(Worker_PP0_TP0 pid=19013) INFO 08-12 23:38:33 [gpu_model_runner.py:4735] Starting to load model /workspace/model_weights/glm-5.2/cyankiwi__GLM-5.2-AWQ-INT4/956f4d228e36c95f66a80058fe64b69af67360ca...
+(Worker_PP1_TP0 pid=19015) INFO 08-12 23:38:34 [compressed_tensors_wNa16.py:112] Using MarlinLinearKernel for CompressedTensorsWNA16
+(Worker_PP2_TP1 pid=19018) INFO 08-12 23:38:34 [compressed_tensors_wNa16.py:112] Using MarlinLinearKernel for CompressedTensorsWNA16
+(Worker_PP2_TP0 pid=19017) INFO 08-12 23:38:34 [compressed_tensors_wNa16.py:112] Using MarlinLinearKernel for CompressedTensorsWNA16
+(Worker_PP1_TP1 pid=19016) INFO 08-12 23:38:34 [compressed_tensors_wNa16.py:112] Using MarlinLinearKernel for CompressedTensorsWNA16
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857] WorkerProc failed to start.
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857] Traceback (most recent call last):
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 826, in worker_main
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     worker = WorkerProc(*args, **kwargs)
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 613, in __init__
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.worker.load_model()
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_worker.py", line 323, in load_model
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model_runner.load_model(load_dummy_weights=load_dummy_weights)
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_model_runner.py", line 4751, in load_model
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = model_loader.load_model(
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=self.vllm_config, model_config=self.model_config
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = initialize_model(
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         model_config=model_config,
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=prefix,
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/utils.py", line 57, in initialize_model
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = model_class(vllm_config=vllm_config, prefix=prefix)
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1339, in __init__
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = self.model_cls(
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config, prefix=maybe_prefix(prefix, "model")
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/compilation/decorators.py", line 379, in __init__
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     old_init(self, *args, **kwargs)
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1176, in __init__
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.start_layer, self.end_layer, self.layers = make_layers(
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                                                     ~~~~~~~~~~~^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         config.num_hidden_layers,
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<3 lines>...
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=f"{prefix}.layers",
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 652, in make_layers
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     + get_offloader().wrap_modules(
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/offloader/base.py", line 90, in wrap_modules
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return list(modules_generator)
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 653, in <genexpr>
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1178, in <lambda>
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     lambda prefix: DeepseekV2DecoderLayer(
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config, prefix, topk_indices_buffer=topk_indices_buffer
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ),
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1050, in __init__
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.self_attn = attn_cls(
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                      ~~~~~~~~^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<12 lines>...
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         topk_indices_buffer=topk_indices_buffer,
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 950, in __init__
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer = Indexer(
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config,
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         f"{prefix}.indexer",
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 677, in __init__
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer_op = SparseAttnIndexer(
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                       ~~~~~~~~~~~~~~~~~^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.k_cache,
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.topk_indices_buffer,
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/layers/sparse_attn_indexer.py", line 324, in __init__
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     raise RuntimeError(
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         "Sparse Attention Indexer CUDA op requires DeepGEMM to be installed."
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP0 pid=19013) ERROR 08-12 23:38:35 [multiproc_executor.py:857] RuntimeError: Sparse Attention Indexer CUDA op requires DeepGEMM to be installed.
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857] WorkerProc failed to start.
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857] Traceback (most recent call last):
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 826, in worker_main
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     worker = WorkerProc(*args, **kwargs)
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 613, in __init__
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.worker.load_model()
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_worker.py", line 323, in load_model
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model_runner.load_model(load_dummy_weights=load_dummy_weights)
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_model_runner.py", line 4751, in load_model
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = model_loader.load_model(
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=self.vllm_config, model_config=self.model_config
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = initialize_model(
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         model_config=model_config,
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=prefix,
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/utils.py", line 57, in initialize_model
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = model_class(vllm_config=vllm_config, prefix=prefix)
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1339, in __init__
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = self.model_cls(
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config, prefix=maybe_prefix(prefix, "model")
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/compilation/decorators.py", line 379, in __init__
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     old_init(self, *args, **kwargs)
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1176, in __init__
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.start_layer, self.end_layer, self.layers = make_layers(
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                                                     ~~~~~~~~~~~^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         config.num_hidden_layers,
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<3 lines>...
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=f"{prefix}.layers",
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 652, in make_layers
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     + get_offloader().wrap_modules(
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/offloader/base.py", line 90, in wrap_modules
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return list(modules_generator)
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 653, in <genexpr>
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1178, in <lambda>
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     lambda prefix: DeepseekV2DecoderLayer(
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config, prefix, topk_indices_buffer=topk_indices_buffer
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ),
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1050, in __init__
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.self_attn = attn_cls(
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                      ~~~~~~~~^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<12 lines>...
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         topk_indices_buffer=topk_indices_buffer,
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 950, in __init__
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer = Indexer(
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config,
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         f"{prefix}.indexer",
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 677, in __init__
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer_op = SparseAttnIndexer(
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                       ~~~~~~~~~~~~~~~~~^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.k_cache,
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.topk_indices_buffer,
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/layers/sparse_attn_indexer.py", line 324, in __init__
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     raise RuntimeError(
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         "Sparse Attention Indexer CUDA op requires DeepGEMM to be installed."
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP0_TP1 pid=19014) ERROR 08-12 23:38:35 [multiproc_executor.py:857] RuntimeError: Sparse Attention Indexer CUDA op requires DeepGEMM to be installed.
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857] WorkerProc failed to start.
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857] Traceback (most recent call last):
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 826, in worker_main
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     worker = WorkerProc(*args, **kwargs)
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 613, in __init__
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.worker.load_model()
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_worker.py", line 323, in load_model
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model_runner.load_model(load_dummy_weights=load_dummy_weights)
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_model_runner.py", line 4751, in load_model
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = model_loader.load_model(
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=self.vllm_config, model_config=self.model_config
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = initialize_model(
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         model_config=model_config,
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=prefix,
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/utils.py", line 57, in initialize_model
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = model_class(vllm_config=vllm_config, prefix=prefix)
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1339, in __init__
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = self.model_cls(
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config, prefix=maybe_prefix(prefix, "model")
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/compilation/decorators.py", line 379, in __init__
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     old_init(self, *args, **kwargs)
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1176, in __init__
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.start_layer, self.end_layer, self.layers = make_layers(
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                                                     ~~~~~~~~~~~^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         config.num_hidden_layers,
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<3 lines>...
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=f"{prefix}.layers",
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 652, in make_layers
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     + get_offloader().wrap_modules(
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/offloader/base.py", line 90, in wrap_modules
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return list(modules_generator)
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 653, in <genexpr>
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1178, in <lambda>
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     lambda prefix: DeepseekV2DecoderLayer(
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config, prefix, topk_indices_buffer=topk_indices_buffer
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ),
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1050, in __init__
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.self_attn = attn_cls(
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                      ~~~~~~~~^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<12 lines>...
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         topk_indices_buffer=topk_indices_buffer,
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 950, in __init__
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer = Indexer(
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config,
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         f"{prefix}.indexer",
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 677, in __init__
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer_op = SparseAttnIndexer(
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                       ~~~~~~~~~~~~~~~~~^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.k_cache,
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.topk_indices_buffer,
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/layers/sparse_attn_indexer.py", line 324, in __init__
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     raise RuntimeError(
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         "Sparse Attention Indexer CUDA op requires DeepGEMM to be installed."
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP1 pid=19018) ERROR 08-12 23:38:35 [multiproc_executor.py:857] RuntimeError: Sparse Attention Indexer CUDA op requires DeepGEMM to be installed.
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857] WorkerProc failed to start.
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857] Traceback (most recent call last):
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 826, in worker_main
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     worker = WorkerProc(*args, **kwargs)
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 613, in __init__
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.worker.load_model()
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_worker.py", line 323, in load_model
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model_runner.load_model(load_dummy_weights=load_dummy_weights)
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_model_runner.py", line 4751, in load_model
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = model_loader.load_model(
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=self.vllm_config, model_config=self.model_config
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = initialize_model(
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         model_config=model_config,
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=prefix,
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/utils.py", line 57, in initialize_model
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = model_class(vllm_config=vllm_config, prefix=prefix)
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1339, in __init__
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = self.model_cls(
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config, prefix=maybe_prefix(prefix, "model")
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/compilation/decorators.py", line 379, in __init__
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     old_init(self, *args, **kwargs)
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1176, in __init__
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.start_layer, self.end_layer, self.layers = make_layers(
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                                                     ~~~~~~~~~~~^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         config.num_hidden_layers,
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<3 lines>...
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=f"{prefix}.layers",
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 652, in make_layers
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     + get_offloader().wrap_modules(
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/offloader/base.py", line 90, in wrap_modules
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return list(modules_generator)
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 653, in <genexpr>
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1178, in <lambda>
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     lambda prefix: DeepseekV2DecoderLayer(
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config, prefix, topk_indices_buffer=topk_indices_buffer
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ),
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1050, in __init__
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.self_attn = attn_cls(
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                      ~~~~~~~~^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<12 lines>...
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         topk_indices_buffer=topk_indices_buffer,
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 950, in __init__
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer = Indexer(
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config,
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         f"{prefix}.indexer",
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 677, in __init__
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer_op = SparseAttnIndexer(
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                       ~~~~~~~~~~~~~~~~~^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.k_cache,
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.topk_indices_buffer,
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/layers/sparse_attn_indexer.py", line 324, in __init__
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     raise RuntimeError(
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         "Sparse Attention Indexer CUDA op requires DeepGEMM to be installed."
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP2_TP0 pid=19017) ERROR 08-12 23:38:35 [multiproc_executor.py:857] RuntimeError: Sparse Attention Indexer CUDA op requires DeepGEMM to be installed.
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857] WorkerProc failed to start.
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857] Traceback (most recent call last):
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 826, in worker_main
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     worker = WorkerProc(*args, **kwargs)
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 613, in __init__
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.worker.load_model()
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_worker.py", line 323, in load_model
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model_runner.load_model(load_dummy_weights=load_dummy_weights)
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_model_runner.py", line 4751, in load_model
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = model_loader.load_model(
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=self.vllm_config, model_config=self.model_config
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = initialize_model(
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         model_config=model_config,
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=prefix,
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/utils.py", line 57, in initialize_model
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = model_class(vllm_config=vllm_config, prefix=prefix)
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1339, in __init__
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = self.model_cls(
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config, prefix=maybe_prefix(prefix, "model")
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/compilation/decorators.py", line 379, in __init__
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     old_init(self, *args, **kwargs)
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1176, in __init__
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.start_layer, self.end_layer, self.layers = make_layers(
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                                                     ~~~~~~~~~~~^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         config.num_hidden_layers,
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<3 lines>...
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=f"{prefix}.layers",
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 652, in make_layers
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     + get_offloader().wrap_modules(
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/offloader/base.py", line 90, in wrap_modules
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return list(modules_generator)
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 653, in <genexpr>
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1178, in <lambda>
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     lambda prefix: DeepseekV2DecoderLayer(
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config, prefix, topk_indices_buffer=topk_indices_buffer
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ),
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1050, in __init__
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.self_attn = attn_cls(
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                      ~~~~~~~~^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<12 lines>...
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         topk_indices_buffer=topk_indices_buffer,
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 950, in __init__
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer = Indexer(
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config,
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         f"{prefix}.indexer",
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 677, in __init__
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer_op = SparseAttnIndexer(
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                       ~~~~~~~~~~~~~~~~~^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.k_cache,
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.topk_indices_buffer,
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/layers/sparse_attn_indexer.py", line 324, in __init__
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     raise RuntimeError(
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         "Sparse Attention Indexer CUDA op requires DeepGEMM to be installed."
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP0 pid=19015) ERROR 08-12 23:38:35 [multiproc_executor.py:857] RuntimeError: Sparse Attention Indexer CUDA op requires DeepGEMM to be installed.
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857] WorkerProc failed to start.
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857] Traceback (most recent call last):
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 826, in worker_main
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     worker = WorkerProc(*args, **kwargs)
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 613, in __init__
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.worker.load_model()
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_worker.py", line 323, in load_model
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model_runner.load_model(load_dummy_weights=load_dummy_weights)
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/worker/gpu_model_runner.py", line 4751, in load_model
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = model_loader.load_model(
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=self.vllm_config, model_config=self.model_config
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = initialize_model(
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         model_config=model_config,
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=prefix,
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return func(*args, **kwargs)
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/model_loader/utils.py", line 57, in initialize_model
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     model = model_class(vllm_config=vllm_config, prefix=prefix)
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1339, in __init__
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.model = self.model_cls(
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                  ~~~~~~~~~~~~~~^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config, prefix=maybe_prefix(prefix, "model")
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/compilation/decorators.py", line 379, in __init__
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     old_init(self, *args, **kwargs)
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1176, in __init__
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.start_layer, self.end_layer, self.layers = make_layers(
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                                                     ~~~~~~~~~~~^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         config.num_hidden_layers,
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<3 lines>...
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         prefix=f"{prefix}.layers",
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 652, in make_layers
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     + get_offloader().wrap_modules(
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/offloader/base.py", line 90, in wrap_modules
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     return list(modules_generator)
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/utils.py", line 653, in <genexpr>
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     layer_fn(prefix=f"{prefix}.{idx}") for idx in range(start_layer, end_layer)
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1178, in <lambda>
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     lambda prefix: DeepseekV2DecoderLayer(
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~~~~~~~~~~~~~~~~^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config, prefix, topk_indices_buffer=topk_indices_buffer
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ),
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 1050, in __init__
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.self_attn = attn_cls(
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                      ~~~~~~~~^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config=vllm_config,
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<12 lines>...
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         topk_indices_buffer=topk_indices_buffer,
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 950, in __init__
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer = Indexer(
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                    ~~~~~~~^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         vllm_config,
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         f"{prefix}.indexer",
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/models/deepseek_v2.py", line 677, in __init__
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     self.indexer_op = SparseAttnIndexer(
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]                       ~~~~~~~~~~~~~~~~~^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.k_cache,
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ...<6 lines>...
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         self.topk_indices_buffer,
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         ^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     ^
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/model_executor/layers/sparse_attn_indexer.py", line 324, in __init__
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     raise RuntimeError(
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]         "Sparse Attention Indexer CUDA op requires DeepGEMM to be installed."
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857]     )
+(Worker_PP1_TP1 pid=19016) ERROR 08-12 23:38:35 [multiproc_executor.py:857] RuntimeError: Sparse Attention Indexer CUDA op requires DeepGEMM to be installed.
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108] EngineCore failed to start.
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108] Traceback (most recent call last):
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/engine/core.py", line 1082, in run_engine_core
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     return func(*args, **kwargs)
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/engine/core.py", line 848, in __init__
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     super().__init__(
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     ~~~~~~~~~~~~~~~~^
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]         vllm_config,
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]         ^^^^^^^^^^^^
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     ...<3 lines>...
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]         internal_dp_balancing,
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]         ^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     )
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     ^
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/engine/core.py", line 114, in __init__
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     self.model_executor = executor_class(vllm_config)
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]                           ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 101, in __init__
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     super().__init__(vllm_config)
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     return func(*args, **kwargs)
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/abstract.py", line 103, in __init__
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     self._init_executor()
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     ~~~~~~~~~~~~~~~~~~~^^
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 190, in _init_executor
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     self.workers = WorkerProc.wait_for_ready(unready_workers)
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]                    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 736, in wait_for_ready
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108]     raise e from None
+(EngineCore pid=19007) ERROR 08-12 23:38:36 [core.py:1108] Exception: WorkerProc initialization failed due to an exception in a background process. See stack trace for root cause.
+(EngineCore pid=19007) Process EngineCore:
+(EngineCore pid=19007) Traceback (most recent call last):
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/.cache/uv/python/cpython-3.13.14-linux-x86_64-gnu/lib/python3.13/multiprocessing/process.py", line 313, in _bootstrap
+(EngineCore pid=19007)     self.run()
+(EngineCore pid=19007)     ~~~~~~~~^^
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/.cache/uv/python/cpython-3.13.14-linux-x86_64-gnu/lib/python3.13/multiprocessing/process.py", line 108, in run
+(EngineCore pid=19007)     self._target(*self._args, **self._kwargs)
+(EngineCore pid=19007)     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/engine/core.py", line 1112, in run_engine_core
+(EngineCore pid=19007)     raise e
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/engine/core.py", line 1082, in run_engine_core
+(EngineCore pid=19007)     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=19007)     return func(*args, **kwargs)
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/engine/core.py", line 848, in __init__
+(EngineCore pid=19007)     super().__init__(
+(EngineCore pid=19007)     ~~~~~~~~~~~~~~~~^
+(EngineCore pid=19007)         vllm_config,
+(EngineCore pid=19007)         ^^^^^^^^^^^^
+(EngineCore pid=19007)     ...<3 lines>...
+(EngineCore pid=19007)         internal_dp_balancing,
+(EngineCore pid=19007)         ^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=19007)     )
+(EngineCore pid=19007)     ^
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/engine/core.py", line 114, in __init__
+(EngineCore pid=19007)     self.model_executor = executor_class(vllm_config)
+(EngineCore pid=19007)                           ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 101, in __init__
+(EngineCore pid=19007)     super().__init__(vllm_config)
+(EngineCore pid=19007)     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=19007)     return func(*args, **kwargs)
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/abstract.py", line 103, in __init__
+(EngineCore pid=19007)     self._init_executor()
+(EngineCore pid=19007)     ~~~~~~~~~~~~~~~~~~~^^
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 190, in _init_executor
+(EngineCore pid=19007)     self.workers = WorkerProc.wait_for_ready(unready_workers)
+(EngineCore pid=19007)                    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+(EngineCore pid=19007)   File "/workspace/putpocket_dataset_mining/externals/vllm/vllm/v1/executor/multiproc_executor.py", line 736, in wait_for_ready
+(EngineCore pid=19007)     raise e from None
+(EngineCore pid=19007) Exception: WorkerProc initialization failed due to an exception in a background process. See stack trace for root cause.
+/workspace/putpocket_dataset_mining/.cache/uv/python/cpython-3.13.14-linux-x86_64-gnu/lib/python3.13/multiprocessing/resource_tracker.py:479: UserWarning: resource_tracker: There appear to be 4 leaked shared_memory objects to clean up at shutdown: {'/psm_4d0b54f8', '/psm_cb55ebd7', '/psm_bfaa8d10', '/psm_94d69343'}
+  warnings.warn(
+illegal workflow transition: VERIFICATION1_SUBMITTED -> VERIFICATION1_FAILED

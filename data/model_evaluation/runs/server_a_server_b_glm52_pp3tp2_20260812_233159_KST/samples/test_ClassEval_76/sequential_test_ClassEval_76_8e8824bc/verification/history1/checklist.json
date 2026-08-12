@@ -1,0 +1,12 @@
+{
+  "checks": [
+    {
+      "name": "hidden_mbpp_pytest",
+      "passed": false,
+      "skipped": true
+    }
+  ],
+  "failure_class": "infra.vllm_generation_failed",
+  "final_status": "skipped",
+  "stage": "history1"
+}

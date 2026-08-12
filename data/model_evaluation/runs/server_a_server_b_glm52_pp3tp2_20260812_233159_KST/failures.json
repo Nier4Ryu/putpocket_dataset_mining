@@ -1,0 +1,10 @@
+{
+  "model_runtime": [{
+    "class": "GLM52_PP3_TP2_MODEL_LOAD_BLOCKED",
+    "component": "vLLM SparseAttnIndexer",
+    "evidence": "All six PP/TP workers raised: Sparse Attention Indexer CUDA op requires DeepGEMM to be installed.",
+    "log": "logs/workflow.log"
+  }],
+  "workspace": [],
+  "remote_verifier": []
+}

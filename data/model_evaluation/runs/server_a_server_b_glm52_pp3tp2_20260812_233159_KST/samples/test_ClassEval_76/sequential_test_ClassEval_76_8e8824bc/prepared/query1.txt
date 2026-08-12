@@ -1,0 +1,6 @@
+Complete the Python class implementation `SignInSystem` in solution.py.
+
+You are given a class skeleton with constructor, fields, method signatures, and docstrings.
+Preserve the class name and all public method signatures.
+Implement all pass/TODO methods so the class behaves according to the skeleton documentation.
+Do not add test files. Do not modify hidden tests. Keep the implementation self-contained.

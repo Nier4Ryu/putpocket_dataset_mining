@@ -1,0 +1,8 @@
+{
+  "inference_backend": "local_vllm",
+  "inference_host_role": "server_a",
+  "remote_config": null,
+  "source_revision": "a768075e9bf595ca6d167a5acd1d1d772b4daf74",
+  "verifier_backend": "remote_ssh_docker",
+  "verifier_host_role": "server_b"
+}

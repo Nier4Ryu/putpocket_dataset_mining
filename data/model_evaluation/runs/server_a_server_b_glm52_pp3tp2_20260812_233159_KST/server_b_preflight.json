@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "route": "Proxy-A -> Proxy-C -> Server-1",
+  "strict_host_keys": "PASS",
+  "workspace_wrapper": "PASS",
+  "workspace_docker": "PASS",
+  "verifier_wrapper": "PASS",
+  "verifier_docker": "PASS",
+  "verifier_image": "PASS",
+  "codex_judge": "PASS",
+  "server_b_sha": "a768075e9bf595ca6d167a5acd1d1d772b4daf74"
+}

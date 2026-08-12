@@ -1,0 +1,149 @@
+{
+  "artifact_hashes": {},
+  "configuration_digest": "7b33cd9bb29ab20264931c83bd48c02fa7599a07a53ed30c33d6f9bf03199d09",
+  "current_state": "VERIFICATION1_SUBMITTED",
+  "execution_mode": "sequential",
+  "history1_job_id": null,
+  "history2_job_id": null,
+  "last_error": null,
+  "next_legal_actions": [
+    "VERIFICATION1_COMPLETED",
+    "VERIFICATION1_QUEUED",
+    "VERIFICATION1_RUNNING"
+  ],
+  "previous_state": "VERIFICATION1_BUNDLE_READY",
+  "run_uuid": "server_a_server_b_glm52_pp3tp2_20260812_233159_KST",
+  "sample_ids": [
+    "test_ClassEval_76",
+    "test_ClassEval_37",
+    "test_ClassEval_30",
+    "test_ClassEval_21",
+    "test_ClassEval_80",
+    "test_ClassEval_83",
+    "test_ClassEval_8",
+    "test_ClassEval_47",
+    "test_ClassEval_63",
+    "test_ClassEval_60",
+    "test_ClassEval_99",
+    "test_ClassEval_7",
+    "test_ClassEval_19",
+    "test_ClassEval_64",
+    "test_ClassEval_11",
+    "test_ClassEval_13",
+    "test_ClassEval_86",
+    "test_ClassEval_3"
+  ],
+  "samples": {
+    "test_ClassEval_11": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_13": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_19": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_21": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_3": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_30": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_37": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_47": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_60": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_63": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_64": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_7": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_76": {
+      "current_state": "VERIFICATION1_SUBMITTED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_8": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_80": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_83": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_86": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    },
+    "test_ClassEval_99": {
+      "current_state": "CREATED",
+      "history1_job_id": null,
+      "history2_job_id": null,
+      "last_error": null
+    }
+  },
+  "schema_version": 1,
+  "source_revision": "a768075e9bf595ca6d167a5acd1d1d772b4daf74",
+  "transition_timestamp": "2026-08-12T23:38:46Z"
+}

@@ -1,0 +1,9 @@
+{
+  "add_generation_prompt": true,
+  "chat_template_applied_inside_putpocket": true,
+  "model_id": "/workspace/model_weights/glm-5.2/cyankiwi__GLM-5.2-AWQ-INT4/956f4d228e36c95f66a80058fe64b69af67360ca",
+  "prompt_sha256": "c2e84db7f7d24a92b571213713e030ace9af4f745cca2eac78df7221e2cd406e",
+  "token_count": 367,
+  "tokenizer_class": "TokenizersBackend",
+  "vllm_internal_chat_template_allowed": false
+}

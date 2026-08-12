@@ -1,0 +1,4 @@
+{
+  "failed_before_tokenization": true,
+  "failure_class": "infra.vllm_generation_failed"
+}

@@ -36,7 +36,7 @@ docker:
   episode_images:
   - tag: putpocket-default-python:ubuntu22.04-py313-v1
 cache:
-  huggingface_home: ''
+  huggingface_home: /data/shared/hf_cache/hub
 build:
   max_jobs: '16'
   cmake_parallel_level: '16'

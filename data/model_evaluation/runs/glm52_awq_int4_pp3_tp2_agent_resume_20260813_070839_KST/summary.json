@@ -1,0 +1,12 @@
+{
+  "run_id": "glm52_awq_int4_pp3_tp2_agent_resume_20260813_070839_KST",
+  "classification": "GLM52_AWQ_PP3_TP2_LOCAL_WORKSPACE_BLOCKED",
+  "primary_blocker": "RUNPOD_LOCAL_WORKSPACE_BACKEND_UNAVAILABLE",
+  "independent_remote_blocker": "SERVER1_WRAPPER_PREFLIGHT_FAILED",
+  "checkpoint_structural_check": "PASS",
+  "dataset_check": "PASS",
+  "nccl_six_rank_smoke": "PASS",
+  "model_load_attempted": false,
+  "unique_samples_attempted": 0,
+  "local_hidden_verifier_fallback": false
+}

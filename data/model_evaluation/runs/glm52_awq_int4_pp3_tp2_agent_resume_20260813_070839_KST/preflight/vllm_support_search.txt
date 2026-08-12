@@ -1,0 +1,120 @@
+externals/vllm/vllm/_custom_ops.py:838:        from vllm.model_executor.layers.quantization.compressed_tensors.triton_scaled_mm import (  # noqa
+externals/vllm/vllm/platforms/rocm.py:362:        "compressed-tensors",
+externals/vllm/vllm/benchmarks/sweep/plot_pareto.py:89:    pp_size = _get_numeric(run_data, ["pipeline_parallel_size", "pp"])
+externals/vllm/vllm/benchmarks/sweep/plot_pareto.py:362:            "or tensor_parallel_size * pipeline_parallel_size.",
+externals/vllm/vllm/v1/executor/multiproc_executor.py:247:        pp_size = self.parallel_config.pipeline_parallel_size
+externals/vllm/vllm/v1/executor/multiproc_executor.py:471:        pp_size = self.parallel_config.pipeline_parallel_size
+externals/vllm/vllm/v1/executor/ray_executor.py:113:        pp_size = self.parallel_config.pipeline_parallel_size
+externals/vllm/vllm/v1/executor/ray_executor.py:396:        for pp_rank in range(self.parallel_config.pipeline_parallel_size):
+externals/vllm/vllm/v1/metrics/perf.py:70:    "compressed-tensors": 0.5,
+externals/vllm/vllm/v1/metrics/perf.py:347:        args.pp_size = vllm_config.parallel_config.pipeline_parallel_size
+externals/vllm/vllm/v1/metrics/perf.py:1200:        self.pp_size = vllm_config.parallel_config.pipeline_parallel_size
+externals/vllm/vllm/v1/utils.py:405:            "pipeline_parallel_size": parallel_config.pipeline_parallel_size,
+externals/vllm/vllm/model_executor/model_loader/bitsandbytes_loader.py:704:        from vllm.model_executor.models.utils import is_pp_missing_parameter
+externals/vllm/vllm/model_executor/model_loader/bitsandbytes_loader.py:708:            if is_pp_missing_parameter(quant_param_name, model):
+externals/vllm/vllm/model_executor/parameter.py:303:        # compressed-tensors scales do have a shape
+externals/vllm/vllm/envs.py:1388:    # generations on machines < 100 for compressed-tensors
+externals/vllm/vllm/model_executor/model_loader/weight_utils.py:275:        # compressed-tensors uses a compressions_config
+externals/vllm/vllm/model_executor/model_loader/weight_utils.py:281:        and hf_quant_config.get("quant_method") == "compressed-tensors"
+externals/vllm/vllm/model_executor/models/AXK1.py:78:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/AXK1.py:1035:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/AXK1.py:1106:                        if is_pp_missing_parameter(name_mapped, self):
+externals/vllm/vllm/model_executor/models/AXK1.py:1146:                        if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/afmoe.py:51:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/afmoe.py:533:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/afmoe.py:555:                    if is_pp_missing_parameter(name_mapped, self):
+externals/vllm/vllm/model_executor/models/afmoe.py:592:                    if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/v1/core/sched/scheduler.py:244:        self.use_pp = self.parallel_config.pipeline_parallel_size > 1
+externals/vllm/vllm/model_executor/models/apertus.py:74:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/apertus.py:458:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/apertus.py:470:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/arcee.py:45:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/arcee.py:324:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/arcee.py:341:            if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/kernels/linear/scaled_mm/triton.py:8:from vllm.model_executor.layers.quantization.compressed_tensors.triton_scaled_mm import (  # noqa: E501
+externals/vllm/vllm/model_executor/models/arctic.py:46:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/arctic.py:552:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/arctic.py:563:                    if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/arctic.py:574:                        if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/arctic.py:585:                        if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/aria.py:51:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/aria.py:390:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/aria.py:406:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/sarvam.py:62:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/sarvam.py:580:                if is_pp_missing_parameter(new_name, self):
+externals/vllm/vllm/model_executor/models/sarvam.py:600:                    if is_pp_missing_parameter(new_name, self):
+externals/vllm/vllm/model_executor/models/sarvam.py:627:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/seed_oss.py:64:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/seed_oss.py:398:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/seed_oss.py:412:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/baichuan.py:63:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/baichuan.py:364:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/baichuan.py:374:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/phimoe.py:60:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/phimoe.py:559:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/phimoe.py:572:                    if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/phimoe.py:589:                    if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/bailing_moe.py:65:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/bailing_moe.py:517:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/bailing_moe.py:531:                    if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/bailing_moe.py:551:                    if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py:694:        pp_size = vllm_config.parallel_config.pipeline_parallel_size
+externals/vllm/vllm/model_executor/models/bailing_moe_linear.py:68:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/bailing_moe_linear.py:1036:            if name not in params_dict or is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/plamo2.py:63:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/plamo2.py:981:            if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/config/parallel.py:99:    pipeline_parallel_size: int = 1
+externals/vllm/vllm/config/parallel.py:218:    (multiprocessing). If the product of pipeline_parallel_size and tensor_parallel_size
+externals/vllm/vllm/config/parallel.py:633:            self.pipeline_parallel_size
+externals/vllm/vllm/config/parallel.py:645:            if self.pipeline_parallel_size > 1:
+externals/vllm/vllm/config/parallel.py:648:                    f"(pipeline_parallel_size={self.pipeline_parallel_size})."
+externals/vllm/vllm/v1/worker/gpu/model_runner.py:136:        self.use_pp = self.parallel_config.pipeline_parallel_size > 1
+externals/vllm/vllm/model_executor/models/bamba.py:51:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/bamba.py:376:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/bamba.py:386:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/qwen.py:42:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/qwen.py:325:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/qwen.py:336:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/solar.py:61:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/solar.py:383:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/solar.py:400:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/qwen2.py:76:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/qwen2.py:494:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/qwen2.py:516:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/config/vllm.py:134:        and cfg.parallel_config.pipeline_parallel_size == 1
+externals/vllm/vllm/config/vllm.py:656:            * self.parallel_config.pipeline_parallel_size
+externals/vllm/vllm/config/vllm.py:1120:            if self.parallel_config.pipeline_parallel_size > 1 or not is_fullgraph:
+externals/vllm/vllm/config/vllm.py:1685:            f"pipeline_parallel_size={self.parallel_config.pipeline_parallel_size}, "  # noqa
+externals/vllm/vllm/config/speculative.py:758:            pipeline_parallel_size=target_parallel_config.pipeline_parallel_size,
+externals/vllm/vllm/model_executor/models/stablelm.py:54:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/stablelm.py:288:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/stablelm.py:298:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/config/model.py:1121:        pipeline_parallel_size = parallel_config.pipeline_parallel_size
+externals/vllm/vllm/config/model.py:1122:        if pipeline_parallel_size > 1 and not self.registry.is_pp_supported_model(
+externals/vllm/vllm/config/model.py:1168:                "or pipeline_parallel_size > 1."
+externals/vllm/vllm/config/model.py:1250:        ) % parallel_config.pipeline_parallel_size
+externals/vllm/vllm/config/model.py:1251:        pp_size = parallel_config.pipeline_parallel_size
+externals/vllm/vllm/config/model.py:1821:            self.quantization == "compressed-tensors"
+externals/vllm/vllm/model_executor/models/starcoder2.py:57:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/starcoder2.py:290:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/starcoder2.py:300:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/layers/quantization/__init__.py:25:    "compressed-tensors",
+externals/vllm/vllm/model_executor/layers/quantization/__init__.py:111:    from .compressed_tensors.compressed_tensors import (
+externals/vllm/vllm/model_executor/layers/quantization/__init__.py:148:        "compressed-tensors": CompressedTensorsConfig,
+externals/vllm/vllm/model_executor/models/step1.py:43:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/step1.py:263:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/step1.py:273:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/transformers_utils/configs/mistral.py:210:            == "compressed-tensors"
+externals/vllm/vllm/transformers_utils/configs/mistral.py:212:            # Pass through compressed-tensors config, while normalizing
+externals/vllm/vllm/transformers_utils/configs/mistral.py:214:            quantization["quant_method"] = "compressed-tensors"
+externals/vllm/vllm/model_executor/models/step3_text.py:44:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/step3_text.py:489:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/step3_text.py:503:                    if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/step3_text.py:533:                        if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/step3_text.py:546:                        if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/qwen2_moe.py:65:    is_pp_missing_parameter,
+externals/vllm/vllm/model_executor/models/qwen2_moe.py:466:                if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/qwen2_moe.py:483:                    if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/model_executor/models/qwen2_moe.py:507:                    if is_pp_missing_parameter(name, self):
+externals/vllm/vllm/engine/arg_utils.py:411:    pipeline_parallel_size: int = ParallelConfig.pipeline_parallel_size
+externals/vllm/vllm/engine/arg_utils.py:838:            **parallel_kwargs["pipeline_parallel_size"],

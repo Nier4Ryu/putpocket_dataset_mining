@@ -1,0 +1,17 @@
+{
+  "controller_host": "runpod",
+  "failure_class": "RUNPOD_LOCAL_WORKSPACE_BACKEND_UNAVAILABLE",
+  "gpu_visibility": "not_checked",
+  "inference_backend": "local_vllm",
+  "inference_imports": {
+    "torch": true,
+    "vllm": true
+  },
+  "local_workspace_backend": "local_docker",
+  "local_workspace_backend_checked": true,
+  "local_workspace_backend_ready": false,
+  "python_executable": "/workspace/putpocket_dataset_mining/Putpocket_env/bin/python",
+  "python_ok": true,
+  "repo_root": "/workspace/putpocket_dataset_mining",
+  "run_root": "/workspace/putpocket_dataset_mining/data/model_evaluation/runs"
+}

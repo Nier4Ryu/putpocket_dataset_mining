@@ -1,0 +1,10 @@
+{
+  "previous_runs": [
+    {"run_id": "glm52_awq_int4_server1_verify_20260813_054302_KST", "blocker": "obsolete mandatory 8xH200 gate"},
+    {"run_id": "glm52_awq_int4_pp3_tp2_server1_verify_20260813_062447_KST", "blocker": "false-positive checkpoint physical-size equality gate"},
+    {"run_id": "glm52_awq_int4_pp3_tp2_resume_20260813_065004_KST", "blocker": "local workspace unavailable, frozen dataset absent, route synchronization incomplete"}
+  ],
+  "start_timestamp_utc": "2026-08-12T22:08:39Z",
+  "start_timestamp_kst": "2026-08-13T07:08:39+09:00",
+  "initial_git_sha": "ec2b22642a1976501f06e560968153da2af090ca"
+}

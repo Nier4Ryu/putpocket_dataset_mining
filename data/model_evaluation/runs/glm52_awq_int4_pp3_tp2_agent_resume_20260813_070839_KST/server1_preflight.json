@@ -1,0 +1,16 @@
+{
+  "checked": true,
+  "detail": "Warning: Identity file /root/.ssh/putpocket_server1_ed25519 not accessible: No such file or directory.\nHost key verification failed.\nkex_exchange_identification: Connection closed by remote host\nConnection closed by UNKNOWN port 65535\nkex_exchange_identification: Connection closed by remote host\nConnection closed by UNKNOWN port 65535\n",
+  "docker_ok": false,
+  "failure_class": "SERVER1_WRAPPER_PREFLIGHT_FAILED",
+  "image_ok": null,
+  "job_root": "/home/dyryu/putpocket_dataset_mining/data/remote_verifier",
+  "judge_preflight": "not_checked",
+  "route": "Proxy-A -> Proxy-C -> Server-1",
+  "rsync_ok": false,
+  "ssh_ok": false,
+  "target": "dyryu@10.0.0.5:42",
+  "verifier_host_role": "server1",
+  "wrapper": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier",
+  "wrapper_ok": false
+}

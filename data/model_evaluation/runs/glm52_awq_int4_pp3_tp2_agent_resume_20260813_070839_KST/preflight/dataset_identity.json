@@ -1,0 +1,27 @@
+{
+  "tracked": true,
+  "path": "/workspace/putpocket_dataset_mining/data/dataset_mining/datasets/classeval_stateful_working_v0/accepted.jsonl",
+  "rows": 18,
+  "sha256": "6031d368ee8359c9dfc3c7b785d5c30e4db9ae5b2969bfba3a7e09512a46b30d",
+  "duplicate_sample_ids": [],
+  "ordered_sample_ids": [
+    "test_ClassEval_76",
+    "test_ClassEval_37",
+    "test_ClassEval_30",
+    "test_ClassEval_21",
+    "test_ClassEval_80",
+    "test_ClassEval_83",
+    "test_ClassEval_8",
+    "test_ClassEval_47",
+    "test_ClassEval_63",
+    "test_ClassEval_60",
+    "test_ClassEval_99",
+    "test_ClassEval_7",
+    "test_ClassEval_19",
+    "test_ClassEval_64",
+    "test_ClassEval_11",
+    "test_ClassEval_13",
+    "test_ClassEval_86",
+    "test_ClassEval_3"
+  ]
+}

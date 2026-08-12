@@ -1,0 +1,13 @@
+
+*****************************************
+Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+*****************************************
+/workspace/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0]:[W812 22:10:39.924086076 ProcessGroupNCCL.cpp:5138] Guessing device ID based on global rank. This can cause a hang if rank to GPU mapping is heterogeneous. You can specify device_id in init_process_group()
+{"rank": 2, "local_rank": 2, "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition", "uuid_index": 2, "all_reduce_result": 21.0, "expected": 21.0, "elapsed_sec": 2.681547006}{"rank": 1, "local_rank": 1, "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition", "uuid_index": 1, "all_reduce_result": 21.0, "expected": 21.0, "elapsed_sec": 2.432691822}{"rank": 3, "local_rank": 3, "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition", "uuid_index": 3, "all_reduce_result": 21.0, "expected": 21.0, "elapsed_sec": 2.544682645}
+{"rank": 0, "local_rank": 0, "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition", "uuid_index": 0, "all_reduce_result": 21.0, "expected": 21.0, "elapsed_sec": 2.592103065}{"rank": 5, "local_rank": 5, "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition", "uuid_index": 5, "all_reduce_result": 21.0, "expected": 21.0, "elapsed_sec": 3.124444326}
+{"rank": 4, "local_rank": 4, "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition", "uuid_index": 4, "all_reduce_result": 21.0, "expected": 21.0, "elapsed_sec": 2.817256875}
+
+
+

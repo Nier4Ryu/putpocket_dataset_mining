@@ -1,0 +1,88 @@
+{
+  "failure_classes": [
+    "RUNPOD_LOCAL_WORKSPACE_BACKEND_UNAVAILABLE",
+    "SERVER1_WRAPPER_PREFLIGHT_FAILED"
+  ],
+  "local": {
+    "controller_host": "runpod",
+    "failure_class": "RUNPOD_LOCAL_WORKSPACE_BACKEND_UNAVAILABLE",
+    "gpu_visibility": "not_checked",
+    "inference_backend": "local_vllm",
+    "inference_imports": {
+      "torch": true,
+      "vllm": true
+    },
+    "local_workspace_backend": "local_docker",
+    "local_workspace_backend_checked": true,
+    "local_workspace_backend_ready": false,
+    "python_executable": "/workspace/putpocket_dataset_mining/Putpocket_env/bin/python",
+    "python_ok": true,
+    "repo_root": "/workspace/putpocket_dataset_mining",
+    "run_root": "/workspace/putpocket_dataset_mining/data/model_evaluation/runs"
+  },
+  "profile": {
+    "controller_host": "runpod",
+    "inference_backend": "local_vllm",
+    "inference_host_role": "runpod",
+    "kv_continuity": "not_claimed",
+    "local_hidden_verifier_fallback": false,
+    "local_workspace_backend": "local_docker",
+    "name": "runpod_controller_server1_verifier",
+    "remote": {
+      "command_timeout_sec": 3720,
+      "connection_timeout_sec": 10,
+      "docker_image": "putpocket-classeval-python:ubuntu22.04-py313-v1",
+      "dockerfile": "docker/classeval_python/Dockerfile",
+      "host": "10.0.0.5",
+      "identity_file": "<runtime-path:putpocket_server1_ed25519>",
+      "job_root": "/home/dyryu/putpocket_dataset_mining/data/remote_verifier",
+      "jump_hosts": [
+        {
+          "host": "141.223.145.88",
+          "port": 4500,
+          "user": "dyryu"
+        },
+        {
+          "host": "141.223.25.156",
+          "port": 42,
+          "user": "dyryu"
+        }
+      ],
+      "known_hosts_file": "<runtime-path:known_hosts>",
+      "max_concurrent_jobs": 1,
+      "port": 42,
+      "repository_root": "/home/dyryu/putpocket_dataset_mining",
+      "route": "proxy_jump",
+      "rsync_timeout_sec": 300,
+      "strict_host_key_checking": true,
+      "user": "dyryu",
+      "wrapper": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier"
+    },
+    "run_root": "${PUTPOCKET_REPO_ROOT}/data/model_evaluation/runs",
+    "sr_reuse": "not_implemented",
+    "verification1_policy": "history1_pytest_only",
+    "verification2_policy": "history2_pytest_then_judge",
+    "verifier_backend": "ssh_rsync",
+    "verifier_host_role": "server1",
+    "verifier_route": "Proxy-A -> Proxy-C -> Server-1",
+    "verifier_target": "server1"
+  },
+  "schema_version": 1,
+  "server1": {
+    "checked": true,
+    "detail": "Warning: Identity file /root/.ssh/putpocket_server1_ed25519 not accessible: No such file or directory.\nHost key verification failed.\nkex_exchange_identification: Connection closed by remote host\nConnection closed by UNKNOWN port 65535\nkex_exchange_identification: Connection closed by remote host\nConnection closed by UNKNOWN port 65535\n",
+    "docker_ok": false,
+    "failure_class": "SERVER1_WRAPPER_PREFLIGHT_FAILED",
+    "image_ok": null,
+    "job_root": "/home/dyryu/putpocket_dataset_mining/data/remote_verifier",
+    "judge_preflight": "not_checked",
+    "route": "Proxy-A -> Proxy-C -> Server-1",
+    "rsync_ok": false,
+    "ssh_ok": false,
+    "target": "dyryu@10.0.0.5:42",
+    "verifier_host_role": "server1",
+    "wrapper": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier",
+    "wrapper_ok": false
+  },
+  "status": "failed"
+}

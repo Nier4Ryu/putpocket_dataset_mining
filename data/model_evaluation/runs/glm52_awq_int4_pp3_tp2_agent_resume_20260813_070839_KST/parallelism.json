@@ -1,0 +1,11 @@
+{
+  "pipeline_parallel_size": 3,
+  "tensor_parallel_size": 2,
+  "data_parallel_size": 1,
+  "world_size": 6,
+  "pp_stage_layer_allocation": [26, 26, 26],
+  "nccl_version": "2.27.5",
+  "nccl_smoke": "PASS",
+  "nccl_smoke_wall_sec": 24.651768,
+  "all_reduce_result_all_ranks": 21.0
+}

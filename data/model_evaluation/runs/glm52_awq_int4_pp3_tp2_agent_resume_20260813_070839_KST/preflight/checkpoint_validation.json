@@ -1,0 +1,12 @@
+{
+  "bad_shards": [],
+  "checkpoint_structural_check": "PASS",
+  "header_overhead_total": 29104120,
+  "index_total_size": 474194040288,
+  "payload_minus_index": 0,
+  "physical_file_total": 474223144408,
+  "physical_minus_index": 29104120,
+  "shards_expected": 83,
+  "shards_structurally_bad": 0,
+  "tensor_payload_total": 474194040288
+}

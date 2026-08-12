@@ -1,0 +1,13 @@
+{
+  "query1_total_inference_sec": null,
+  "query1_mean_inference_sec": null,
+  "query1_median_inference_sec": null,
+  "query2_total_inference_sec": null,
+  "query2_mean_inference_sec": null,
+  "query2_median_inference_sec": null,
+  "workspace1_total_sec": null,
+  "workspace2_total_sec": null,
+  "verification1_total_sec": null,
+  "verification2_pytest_total_sec": null,
+  "verification2_judge_total_sec": null
+}

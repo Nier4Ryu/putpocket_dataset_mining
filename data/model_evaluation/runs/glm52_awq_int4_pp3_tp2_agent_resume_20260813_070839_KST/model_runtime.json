@@ -1,0 +1,13 @@
+{
+  "model_id": "cyankiwi/GLM-5.2-AWQ-INT4",
+  "model_revision": "956f4d228e36c95f66a80058fe64b69af67360ca",
+  "vllm_sha": "b65d39ddbab966bb72110056a481d17e4726892b",
+  "model_load_attempted": false,
+  "engine_init_wall_sec": null,
+  "model_weight_load_wall_sec": "NOT_SEPARATELY_OBSERVABLE",
+  "tiny_generation": "NOT_RUN",
+  "model_remained_resident": false,
+  "requested_max_model_len": 65536,
+  "effective_max_model_len": 65536,
+  "tokenizer_preprocessing_status": "PASS"
+}

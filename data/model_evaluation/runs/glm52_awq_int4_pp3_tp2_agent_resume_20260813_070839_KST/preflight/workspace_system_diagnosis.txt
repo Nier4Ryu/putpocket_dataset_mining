@@ -1,0 +1,24 @@
+CLI
+SOCKETS
+ls: cannot access '/var/run/docker.sock': No such file or directory
+ls: cannot access '/run/docker.sock': No such file or directory
+DOCKER_HOST
+PROCESSES
+   9450 root     /bin/bash -c set -o pipefail run_root=data/model_evaluation/runs/glm52_awq_int4_pp3_tp2_agent_resume_20260813_070839_KST {  echo 'CLI'; command -v docker || true; command -v dockerd || true; command -v containerd || true; command -v nerdctl || true; command -v podman || true; command -v crun || true; command -v runc || true  echo 'SOCKETS'; ls -l /var/run/docker.sock /run/docker.sock 2>&1 || true  echo 'DOCKER_HOST'; printenv DOCKER_HOST || true  echo 'PROCESSES'; ps -eo pid,user,cmd | rg '[d]ockerd|[c]ontainerd|[p]odman' || true  echo 'CGROUP'; stat -fc %T /sys/fs/cgroup; cat /proc/self/cgroup; sed -n '1,120p' /proc/self/status | rg 'Cap(Inh|Prm|Eff|Bnd|Amb)|NoNewPrivs|Seccomp'  echo 'MOUNTS'; findmnt -T /sys/fs/cgroup; findmnt -T /var/run 2>&1 || true } | tee "$run_root/preflight/workspace_system_diagnosis.txt" printf '%s\n' BACKENDS rg -n 'workspace_from_execution_config|WorkspaceBackend|workspace_backend|DockerWorkspace|SubprocessWorkspace|remote.*workspace|sandbox.*workspace|class .*Workspace' src configs tests | tee "$run_root/preflight/workspace_backend_source_search.txt" | head -300 printf '%s\n' SSH_CANDIDATES find /workspace/.private /root/.ssh -maxdepth 4 -type f -printf '%p mode=%m size=%s\n' 2>/dev/null | rg -i 'ssh|key|id_|server|proxy' | sort
+   9451 root     /bin/bash -c set -o pipefail run_root=data/model_evaluation/runs/glm52_awq_int4_pp3_tp2_agent_resume_20260813_070839_KST {  echo 'CLI'; command -v docker || true; command -v dockerd || true; command -v containerd || true; command -v nerdctl || true; command -v podman || true; command -v crun || true; command -v runc || true  echo 'SOCKETS'; ls -l /var/run/docker.sock /run/docker.sock 2>&1 || true  echo 'DOCKER_HOST'; printenv DOCKER_HOST || true  echo 'PROCESSES'; ps -eo pid,user,cmd | rg '[d]ockerd|[c]ontainerd|[p]odman' || true  echo 'CGROUP'; stat -fc %T /sys/fs/cgroup; cat /proc/self/cgroup; sed -n '1,120p' /proc/self/status | rg 'Cap(Inh|Prm|Eff|Bnd|Amb)|NoNewPrivs|Seccomp'  echo 'MOUNTS'; findmnt -T /sys/fs/cgroup; findmnt -T /var/run 2>&1 || true } | tee "$run_root/preflight/workspace_system_diagnosis.txt" printf '%s\n' BACKENDS rg -n 'workspace_from_execution_config|WorkspaceBackend|workspace_backend|DockerWorkspace|SubprocessWorkspace|remote.*workspace|sandbox.*workspace|class .*Workspace' src configs tests | tee "$run_root/preflight/workspace_backend_source_search.txt" | head -300 printf '%s\n' SSH_CANDIDATES find /workspace/.private /root/.ssh -maxdepth 4 -type f -printf '%p mode=%m size=%s\n' 2>/dev/null | rg -i 'ssh|key|id_|server|proxy' | sort
+CGROUP
+cgroup2fs
+0::/
+CapInh:	0000000000000000
+CapPrm:	00000000a80425fb
+CapEff:	00000000a80425fb
+CapBnd:	00000000a80425fb
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	2
+Seccomp_filters:	1
+MOUNTS
+TARGET         SOURCE FSTYPE  OPTIONS
+/sys/fs/cgroup cgroup cgroup2 rw,nosuid,nodev,noexec,relatime,nsdelegate,memory_recursiveprot
+TARGET SOURCE  FSTYPE  OPTIONS
+/      overlay overlay rw,relatime,lowerdir=/var/lib/docker/100000.100000/overlay2/l/5DUWOITGGLL2DEOWXSJRKIJTOU:/var/lib/docker/100000.100000/overlay2/l/SV2QI3AZ24LG5AAU6HKSBQ5ORB:/var/lib/docker/100000.100000/overlay2/l/MU2ISB2JCNDRGANKBUSW3JOYIH:/var/lib/docker/100000.100000/overlay2/l/XJSBIBUG7PXDD4TI25LRRCA4ED:/var/lib/docker/100000.100000/overlay2/l/FVR4YO3GNFVFL7OXZSPRIHZ2MT:/var/lib/docker/100000.100000/overlay2/l/FIVWVQBLZW4NPF44V7O7U7VALK:/var/lib/docker/100000.100000/overlay2/l/45NNG6VVFDY3LASRPIWSMLQ2BX:/var/lib/docker/100000.100000/overlay2/l/3AB5YN67SAPWEUBLGSYGJWE3TK:/var/lib/docker/100000.100000/overlay2/l/XEHTSIN6BKOLBC4755HNGMVAI7:/var/lib/docker/100000.100000/overlay2/l/BZ2GOG4DFB4K6Y734NM2HTWKHH:/var/lib/docker/100000.100000/overlay2/l/X7MKU7ZJ6VKZPRTMIEWNNI4QJ7:/var/lib/docker/100000.100000/overlay2/l/ULBFE22RME2F5JKMJ5SU5LSURT:/var/lib/docker/100000.100000/overlay2/l/TCVJFLN3HAAXVOQ2FJIJMODW34:/var/lib/docker/100000.100000/overlay2/l/JTEJZJFK2TN4NA2YA25JKWPR7O:/var/lib/docker/100000.100000/overlay2/l/F6E3MR5VSSAB5X2AYYRMI4JSRR:/var/lib/docker/100000.100000/overlay2/l/X37RT4X2PKLU7XP2GDWVGAOWJA:/var/lib/docker/100000.100000/overlay2/l/6MX6ER44KIB74NTHRGHVU4TMM5:/var/lib/docker/100000.100000/overlay2/l/DOVI4VXDI2AEFN445MVJCF62LW:/var/lib/docker/100000.100000/overlay2/l/PC2L3G7WKJPML5RTJ57JPNQB3F:/var/lib/docker/100000.100000/overlay2/l/QKLAU3PZCWHY54Z6XDBQJ2U6OL:/var/lib/docker/100000.100000/overlay2/l/F6JX7EOBSMUP23EPKOFYQICS2O,upperdir=/var/lib/docker/100000.100000/overlay2/41d08eb2da2c83035403a629546504050125c8753f4bd8965ce38951f3c867a7/diff,workdir=/var/lib/docker/100000.100000/overlay2/41d08eb2da2c83035403a629546504050125c8753f4bd8965ce38951f3c867a7/work,nouserxattr

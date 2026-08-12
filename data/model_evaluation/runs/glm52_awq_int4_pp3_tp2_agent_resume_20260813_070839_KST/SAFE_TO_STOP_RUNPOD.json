@@ -1,0 +1,10 @@
+{
+  "run_id": "glm52_awq_int4_pp3_tp2_agent_resume_20260813_070839_KST",
+  "final_status": "GLM52_AWQ_PP3_TP2_LOCAL_WORKSPACE_BLOCKED",
+  "engine_active": false,
+  "telemetry_active": false,
+  "remote_jobs_active": false,
+  "artifacts_flushed": true,
+  "timestamp_utc": "2026-08-12T22:14:00Z",
+  "timestamp_kst": "2026-08-13T07:14:00+09:00"
+}

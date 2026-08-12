@@ -1,0 +1,14 @@
+{
+  "failures": [
+    {
+      "stage": "local_workspace_preflight",
+      "class": "RUNPOD_LOCAL_WORKSPACE_BACKEND_UNAVAILABLE",
+      "evidence": "docker, dockerd, containerd, nerdctl, podman, runc, and crun are absent; /var/run/docker.sock and /run/docker.sock are absent; no daemon process exists"
+    },
+    {
+      "stage": "server1_live_preflight",
+      "class": "SERVER1_WRAPPER_PREFLIGHT_FAILED",
+      "evidence": "strict SSH failed because /root/.ssh/putpocket_server1_ed25519 and the configured pinned route known_hosts were absent"
+    }
+  ]
+}

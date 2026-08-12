@@ -1,0 +1,81 @@
+tests/test_remote_transport.py:136:                t.rsync_to_remote(Path(tmp), "jobs/job1/workspace/")
+tests/test_remote_transport.py:147:                t.rsync_to_remote(Path(tmp), "incoming/job1.partial/workspace/")
+tests/test_remote_transport.py:151:        self.assertIn("mkdir -p -- /srv/sr/data/remote_verifier/incoming/job1.partial/workspace", mkdir_args[-1])
+tests/test_runpod_agent_image_contract.py:98:            original = 'model = "gpt-test"\nsandbox_mode = "workspace-write"\n\n[features]\nweb_search = true\n'
+tests/test_two_turn_remote_e2e.py:15:class _FakeWorkspace:
+tests/test_two_turn_remote_e2e.py:39:def _fake_workspace_from_execution_config(**kwargs):
+tests/test_two_turn_remote_e2e.py:107:            patch("putpocket_dataset_mining.single.workspace_from_execution_config", side_effect=_fake_workspace_from_execution_config), \
+tests/test_two_turn_remote_e2e.py:136:            patch("putpocket_dataset_mining.single.workspace_from_execution_config", side_effect=_fake_workspace_from_execution_config), \
+tests/test_two_turn_remote_e2e.py:155:            patch("putpocket_dataset_mining.single.workspace_from_execution_config", side_effect=_fake_workspace_from_execution_config), \
+tests/test_two_turn_remote_e2e.py:174:            patch("putpocket_dataset_mining.single.workspace_from_execution_config", side_effect=_fake_workspace_from_execution_config), \
+tests/test_two_turn_remote_e2e.py:195:            patch("putpocket_dataset_mining.single.workspace_from_execution_config", side_effect=_fake_workspace_from_execution_config), \
+tests/test_two_turn_remote_e2e.py:212:            patch("putpocket_dataset_mining.single.workspace_from_execution_config", side_effect=_fake_workspace_from_execution_config), \
+tests/test_execution_config.py:34:                "workspace_backend": "local_docker",
+tests/test_execution_config.py:44:                "workspace_backend": "remote_ssh_docker",
+tests/test_runpod_server1_execution_profile.py:41:        self.assertEqual(profile.execution_config.workspace_backend, DockerBackend.LOCAL_DOCKER)
+tests/test_runpod_server1_execution_profile.py:55:                "workspace_backend": "local_docker",
+tests/test_runpod_server1_execution_profile.py:67:            {"execution_role": "runpod_controller", "workspace_backend": "local_docker", "verifier_backend": "local_docker"}
+tests/test_runpod_server1_execution_profile.py:91:    def test_preflight_classifies_missing_local_workspace_backend_without_remote_contact(self) -> None:
+tests/test_runpod_server1_execution_profile.py:95:            result = run_combined_preflight(PROFILE, live_remote=False, live_workspace=False, import_checks=False)
+tests/test_runpod_server1_execution_profile.py:99:        self.assertFalse(result["local"]["local_workspace_backend_ready"])
+tests/test_runpod_server1_execution_profile.py:114:        self.assertTrue(payload["local"]["local_workspace_backend_ready"])
+src/putpocket_dataset_mining/cline_tools.py:9:from .docker_workspace import DockerWorkspace
+src/putpocket_dataset_mining/cline_tools.py:92:def execute_cline_tool(workspace: DockerWorkspace, call: ClineToolCall, timeout_sec: int = 120) -> ClineToolObservation:
+src/putpocket_dataset_mining/single.py:13:from .docker_workspace import DockerImageManager, snapshot_workspace, workspace_from_execution_config
+src/putpocket_dataset_mining/single.py:113:            if self.execution_config.workspace_backend == DockerBackend.LOCAL_DOCKER or self.execution_config.verifier_backend == DockerBackend.LOCAL_DOCKER:
+src/putpocket_dataset_mining/single.py:158:            with workspace_from_execution_config(
+src/putpocket_dataset_mining/execution_config.py:140:    workspace_backend: DockerBackend = DockerBackend.LOCAL_DOCKER
+src/putpocket_dataset_mining/execution_config.py:173:            workspace_backend=DockerBackend(pick("workspace_backend", "SR_WORKSPACE_BACKEND", "local_docker")),
+src/putpocket_dataset_mining/execution_config.py:204:        if self.workspace_backend == DockerBackend.DISABLED or self.verifier_backend == DockerBackend.DISABLED:
+src/putpocket_dataset_mining/execution_config.py:206:        if self.workspace_backend == DockerBackend.REMOTE_SSH_DOCKER or self.verifier_backend == DockerBackend.REMOTE_SSH_DOCKER:
+src/putpocket_dataset_mining/execution_config.py:211:        if self.verifier_backend != DockerBackend.REMOTE_SSH_DOCKER and self.workspace_backend != DockerBackend.REMOTE_SSH_DOCKER:
+src/putpocket_dataset_mining/execution_config.py:232:            "workspace_backend": self.workspace_backend,
+src/putpocket_dataset_mining/runpod_execution.py:52:    local_workspace_backend: str
+src/putpocket_dataset_mining/runpod_execution.py:75:            "workspace_backend": str(self.execution_config.workspace_backend),
+src/putpocket_dataset_mining/runpod_execution.py:122:        local_workspace_backend=str(raw.get("local_workspace_backend") or execution.get("workspace_backend") or ""),
+src/putpocket_dataset_mining/runpod_execution.py:142:    if profile.execution_config.workspace_backend != DockerBackend.LOCAL_DOCKER:
+src/putpocket_dataset_mining/runpod_execution.py:163:        "local_workspace_backend": profile.local_workspace_backend,
+src/putpocket_dataset_mining/runpod_execution.py:191:    status = "passed" if not failure_classes and local["local_workspace_backend_ready"] and server1["checked"] else "partial"
+src/putpocket_dataset_mining/runpod_execution.py:212:    workspace_ready = _local_workspace_backend_ready(live_workspace)
+src/putpocket_dataset_mining/runpod_execution.py:227:        "local_workspace_backend": profile.local_workspace_backend,
+src/putpocket_dataset_mining/runpod_execution.py:228:        "local_workspace_backend_ready": workspace_ready,
+src/putpocket_dataset_mining/runpod_execution.py:229:        "local_workspace_backend_checked": live_workspace,
+src/putpocket_dataset_mining/runpod_execution.py:285:def _local_workspace_backend_ready(live_workspace: bool) -> bool:
+src/putpocket_dataset_mining/fresh_timing.py:147:        "workspace_backend": "local_docker",
+src/putpocket_dataset_mining/bootstrap_sr.py:652:    for key in ("execution_role", "workspace_backend", "verifier_backend", "vllm_profile"):
+src/putpocket_dataset_mining/bootstrap_sr.py:797:        "workspace_backend": config.workspace_backend.value,
+configs/execution/runpod_hopper_remote_docker.example.yaml:2:workspace_backend: remote_ssh_docker
+src/putpocket_dataset_mining/distributed_workflow.py:18:from .docker_workspace import snapshot_workspace, workspace_from_execution_config
+src/putpocket_dataset_mining/distributed_workflow.py:439:    cfg["execution"]["workspace_backend"] = "local_docker"
+src/putpocket_dataset_mining/distributed_workflow.py:509:    with workspace_from_execution_config(
+src/putpocket_dataset_mining/docker_workspace.py:107:class DockerWorkspace:
+src/putpocket_dataset_mining/docker_workspace.py:129:    def __enter__(self) -> "DockerWorkspace":
+src/putpocket_dataset_mining/docker_workspace.py:222:class RemoteDockerWorkspace:
+src/putpocket_dataset_mining/docker_workspace.py:244:        self.name = validate_safe_id(name or f"putpocket-remote-{uuid.uuid4().hex[:12]}", "workspace_session")
+src/putpocket_dataset_mining/docker_workspace.py:250:    def __enter__(self) -> "RemoteDockerWorkspace":
+src/putpocket_dataset_mining/docker_workspace.py:258:        if self.execution_config.workspace_backend != DockerBackend.REMOTE_SSH_DOCKER:
+src/putpocket_dataset_mining/docker_workspace.py:259:            raise InfraError("RemoteDockerWorkspace requires workspace_backend=remote_ssh_docker.")
+src/putpocket_dataset_mining/docker_workspace.py:276:        sync = self.transport.rsync_to_remote(self.host_workspace, f"sessions/{self.name}/workspace/")
+src/putpocket_dataset_mining/docker_workspace.py:289:        result = self.transport.rsync_to_remote(self.host_workspace, f"sessions/{self.name}/workspace/")
+src/putpocket_dataset_mining/docker_workspace.py:294:        result = self.transport.rsync_from_remote(f"sessions/{self.name}/workspace/", self.host_workspace)
+src/putpocket_dataset_mining/docker_workspace.py:362:def workspace_from_execution_config(
+src/putpocket_dataset_mining/docker_workspace.py:370:) -> DockerWorkspace | RemoteDockerWorkspace:
+src/putpocket_dataset_mining/docker_workspace.py:373:    if execution_config.workspace_backend == DockerBackend.REMOTE_SSH_DOCKER:
+src/putpocket_dataset_mining/docker_workspace.py:374:        return RemoteDockerWorkspace(
+src/putpocket_dataset_mining/docker_workspace.py:382:    if execution_config.workspace_backend == DockerBackend.LOCAL_DOCKER:
+src/putpocket_dataset_mining/docker_workspace.py:383:        return DockerWorkspace(
+configs/execution/server1_rtx3090_local.yaml:2:workspace_backend: local_docker
+configs/execution/server2_rtxpro6000_blackwell_local.yaml:2:workspace_backend: local_docker
+src/putpocket_dataset_mining/cli.py:379:        if args.workspace_backend:
+src/putpocket_dataset_mining/cli.py:380:            forwarded.extend(["--workspace-backend", args.workspace_backend])
+configs/runpod/runpod_controller_server1_verifier.example.yaml:12:local_workspace_backend: local_docker
+configs/runpod/runpod_controller_server1_verifier.example.yaml:27:  workspace_backend: local_docker
+src/putpocket_dataset_mining/verifier.py:189:        remote_rel = f"incoming/{job_id}.partial/workspace/"
+src/putpocket_dataset_mining/verifier.py:192:        sync = self.transport.rsync_to_remote(verifier_workspace, remote_rel)
+src/putpocket_dataset_mining/remote_worker.py:138:        return _write({"schema_version": 1, "protocol_version": PROTOCOL_VERSION, "job_id": job_id, "status": "infra_failed", "error_class": "remote.workspace_checksum_mismatch"})
+src/putpocket_dataset_mining/two_turn_e2e.py:94:        "workspace_backend": "local_docker",
+src/putpocket_dataset_mining/runtime.py:11:from .docker_workspace import DockerWorkspace
+src/putpocket_dataset_mining/runtime.py:60:        workspace: DockerWorkspace,
+src/putpocket_dataset_mining/model_evaluation/glm_eval.py:33:from putpocket_dataset_mining.docker_workspace import DockerImageManager, snapshot_workspace, workspace_from_execution_config
+src/putpocket_dataset_mining/model_evaluation/glm_eval.py:173:            if self.execution_config.workspace_backend == DockerBackend.LOCAL_DOCKER or self.execution_config.verifier_backend == DockerBackend.LOCAL_DOCKER:
+src/putpocket_dataset_mining/model_evaluation/glm_eval.py:198:            with workspace_from_execution_config(

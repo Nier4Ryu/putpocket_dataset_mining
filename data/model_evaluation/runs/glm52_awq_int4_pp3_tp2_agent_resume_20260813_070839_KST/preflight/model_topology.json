@@ -1,0 +1,21 @@
+{
+  "architectures": [
+    "GlmMoeDsaForCausalLM"
+  ],
+  "num_hidden_layers": 78,
+  "hidden_size": 6144,
+  "num_attention_heads": 64,
+  "num_key_value_heads": 64,
+  "num_experts": 256,
+  "quantization_method": "compressed-tensors",
+  "pipeline_parallel_size": 3,
+  "tensor_parallel_size": 2,
+  "world_size": 6,
+  "pp_stage_allocation": [
+    26,
+    26,
+    26
+  ],
+  "head_divisible_by_tp": true,
+  "hidden_divisible_by_tp": true
+}

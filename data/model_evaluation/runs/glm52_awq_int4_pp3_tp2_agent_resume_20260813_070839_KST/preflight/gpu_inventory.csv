@@ -1,0 +1,7 @@
+index, name, uuid, memory.total [MiB], memory.free [MiB], driver_version
+0, NVIDIA RTX PRO 6000 Blackwell Server Edition, GPU-6b2df70a-0954-3b99-f74d-d9c7e6ac4819, 97887 MiB, 97250 MiB, 580.126.09
+1, NVIDIA RTX PRO 6000 Blackwell Server Edition, GPU-495feda5-1a66-5130-770e-1383e941f21e, 97887 MiB, 97250 MiB, 580.126.09
+2, NVIDIA RTX PRO 6000 Blackwell Server Edition, GPU-cc61e311-9379-a96c-7f16-62accf943c5c, 97887 MiB, 97250 MiB, 580.126.09
+3, NVIDIA RTX PRO 6000 Blackwell Server Edition, GPU-6d068e33-2a1e-228c-1929-a43bfecc8b6b, 97887 MiB, 97250 MiB, 580.126.09
+4, NVIDIA RTX PRO 6000 Blackwell Server Edition, GPU-762113d7-d270-0de0-c95c-f21483d6cfb9, 97887 MiB, 97250 MiB, 580.126.09
+5, NVIDIA RTX PRO 6000 Blackwell Server Edition, GPU-07af86e0-79bd-561f-1b09-0d0295166177, 97887 MiB, 97250 MiB, 580.126.09

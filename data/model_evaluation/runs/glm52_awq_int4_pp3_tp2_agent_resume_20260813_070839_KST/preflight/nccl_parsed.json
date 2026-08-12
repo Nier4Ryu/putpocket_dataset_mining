@@ -1,0 +1,28 @@
+{
+  "rank_count": 6,
+  "ranks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "devices": {
+    "2": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "1": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "3": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "0": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "5": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "4": "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+  },
+  "all_reduce_results": {
+    "2": 21.0,
+    "1": 21.0,
+    "3": 21.0,
+    "0": 21.0,
+    "5": 21.0,
+    "4": 21.0
+  },
+  "pass": true
+}

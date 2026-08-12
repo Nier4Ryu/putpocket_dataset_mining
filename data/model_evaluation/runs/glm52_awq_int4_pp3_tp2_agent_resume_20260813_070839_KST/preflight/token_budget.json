@@ -1,0 +1,12 @@
+{
+  "query1_raw_input_max": 81,
+  "query1_raw_input_max_sample": "test_ClassEval_19",
+  "query2_raw_input_max_without_generated_history": 99,
+  "query2_raw_input_max_sample": "test_ClassEval_19",
+  "per_generation_budget": 2048,
+  "history_max_turns": 30,
+  "stored_accepted_history_available": false,
+  "requested_max_model_len": 65536,
+  "effective_max_model_len": 65536,
+  "selection_reason": "Full generated History-1 is not published; the configured 30 x 2048 generation upper bound requires the capped 65536 bucket."
+}

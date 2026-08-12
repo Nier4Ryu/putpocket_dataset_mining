@@ -3,7 +3,7 @@ set -euo pipefail
 
 CODEX_HOME="${CODEX_HOME:-/workspace/.private/codex}"
 
-if [ -d /workspace ]; then
+if [ -d /workspace ] || [ "${PUTPOCKET_RUNPOD_CONFIG_ONLY:-0}" = "1" ]; then
   mkdir -p "${CODEX_HOME}"
   chmod 700 "${CODEX_HOME}"
   umask 077

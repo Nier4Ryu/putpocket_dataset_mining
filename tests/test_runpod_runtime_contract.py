@@ -53,8 +53,8 @@ class RunpodRuntimeContractTests(unittest.TestCase):
     def test_runpod_torch_contract_is_reproducibly_resolved(self) -> None:
         path = self.repo_root / "configs" / "env" / "runpod_dev.lock.yaml"
         contract = validate_torch_contract(path, require_resolved=True)
-        self.assertEqual(contract["torch"]["version"], "2.10.0")
-        self.assertEqual(contract["torch"]["torch_cuda"], "12.8")
+        self.assertEqual(contract["torch"]["version"], "2.11.0")
+        self.assertEqual(contract["torch"]["torch_cuda"], "13.0")
         self.assertEqual(len(contract["torch"]["wheel_sha256"]), 64)
         self.assertEqual(contract["provenance_status"], "resolved")
 

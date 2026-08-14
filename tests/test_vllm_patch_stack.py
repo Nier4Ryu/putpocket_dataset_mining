@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,8 +31,8 @@ class VllmPatchStackTests(unittest.TestCase):
             subprocess.check_call(["git", "-C", str(repo), "-c", "user.email=a@b.c", "-c", "user.name=t", "commit", "-m", "x"], stdout=subprocess.DEVNULL)
             out1 = Path(tmp) / "sm86.json"
             out2 = Path(tmp) / "sm90.json"
-            subprocess.check_call(["python", str(ROOT / "build_manifest.py"), "--vllm-dir", str(repo), "--profile", "clean", "--target-arch-list", "8.6", "--out", str(out1)])
-            subprocess.check_call(["python", str(ROOT / "build_manifest.py"), "--vllm-dir", str(repo), "--profile", "clean", "--target-arch-list", "9.0", "--out", str(out2)])
+            subprocess.check_call([sys.executable, str(ROOT / "build_manifest.py"), "--vllm-dir", str(repo), "--profile", "clean", "--target-arch-list", "8.6", "--out", str(out1)])
+            subprocess.check_call([sys.executable, str(ROOT / "build_manifest.py"), "--vllm-dir", str(repo), "--profile", "clean", "--target-arch-list", "9.0", "--out", str(out2)])
             self.assertNotEqual(json.loads(out1.read_text())["build_id"], json.loads(out2.read_text())["build_id"])
 
 

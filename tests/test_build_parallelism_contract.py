@@ -70,9 +70,10 @@ class BuildParallelismContractTests(unittest.TestCase):
         self.assertEqual(payload["cpu_count_detected"], 32)
         self.assertEqual(payload["build_jobs_effective"], 28)
 
-    def test_server2_policy_remains_16_and_server1_verifier_contract_skips_build(self) -> None:
+    def test_server2_policy_defaults_to_8_and_server1_verifier_contract_skips_build(self) -> None:
         activation = (self.repo_root / "scripts" / "env" / "env_activate.sh").read_text(encoding="utf-8")
-        self.assertIn('PUTPOCKET_BUILD_THREADS="${PUTPOCKET_BUILD_THREADS:-16}"', activation)
+        self.assertIn('PUTPOCKET_BUILD_THREADS="${PUTPOCKET_BUILD_THREADS:-8}"', activation)
+        self.assertIn('CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-${PUTPOCKET_BUILD_JOBS}}"', activation)
         bootstrap = (self.repo_root / "src" / "putpocket_dataset_mining" / "bootstrap_sr.py").read_text(encoding="utf-8")
         static_stage = bootstrap.split("def _stage_manifest", 1)[1].split("def _gpu_phase", 1)[0]
         self.assertIn('"vllm_build_requested": args.build_vllm', static_stage)

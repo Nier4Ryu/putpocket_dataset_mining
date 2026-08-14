@@ -16,6 +16,8 @@ class ExternalRepo:
     path: Path
     url: str
     branch: str | None
+    ref: str | None
+    sha: str | None
     role: str
 
 
@@ -23,8 +25,10 @@ EXTERNALS = {
     "vllm": ExternalRepo(
         name="vllm",
         path=REPO_ROOT / "externals" / "vllm",
-        url="https://github.com/Nier4Ryu/vllm_mod.git",
-        branch="Putpocket-v0.19.1",
+        url="https://github.com/vllm-project/vllm.git",
+        branch=None,
+        ref="releases/v0.26.0",
+        sha="568afb3a13806beb53bb2e6bd518269357b237c0",
         role="editable_build_dependency",
     ),
     "lmcache": ExternalRepo(
@@ -32,6 +36,8 @@ EXTERNALS = {
         path=REPO_ROOT / "externals" / "lmcache",
         url="https://github.com/Nier4Ryu/LMCache_mod.git",
         branch="Putpocket-v0.4.4",
+        ref=None,
+        sha="72eb0e375bcf0739a45046433f46ee32be361656",
         role="editable_build_dependency",
     ),
     "cline": ExternalRepo(
@@ -39,6 +45,8 @@ EXTERNALS = {
         path=REPO_ROOT / "externals" / "cline",
         url="https://github.com/Nier4Ryu/cline_mod.git",
         branch=None,
+        ref=None,
+        sha="03f47045f338dcb6ac45b1ac1d6279a78be2b118",
         role="read_only_reference_for_prompt_and_tool_format",
     ),
 }
@@ -91,6 +99,9 @@ def checkout_external(name: str) -> ExternalRepo:
             raise InfraError(f"External path exists but is not a git checkout: {repo.path}")
         if _has_tracked_changes(repo.path):
             raise InfraError(f"External checkout has tracked local changes; refusing to switch/update: {repo.path}")
+        remote_url = _run_git(repo.path, ["remote", "get-url", "origin"]).stdout.strip()
+        if remote_url != repo.url:
+            _run_git(repo.path, ["remote", "set-url", "origin", repo.url])
         if repo.branch:
             _run_git(repo.path, ["fetch", "origin", repo.branch])
             current_branch = _run_git(repo.path, ["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
@@ -103,6 +114,12 @@ def checkout_external(name: str) -> ExternalRepo:
             _run_git(repo.path, ["merge", "--ff-only", f"origin/{repo.branch}"])
         else:
             _run_git(repo.path, ["fetch", "origin"])
+        if repo.ref:
+            _run_git(repo.path, ["fetch", "origin", repo.ref])
+        if repo.sha:
+            head = _run_git(repo.path, ["rev-parse", "HEAD"]).stdout.strip()
+            if head != repo.sha:
+                _run_git(repo.path, ["switch", "--detach", repo.sha])
         return repo
     cmd = ["git", "clone", repo.url, str(repo.path)]
     if repo.branch:
@@ -110,6 +127,10 @@ def checkout_external(name: str) -> ExternalRepo:
     result = subprocess.run(cmd, cwd=str(REPO_ROOT), text=True, capture_output=True)
     if result.returncode != 0:
         raise InfraError(f"Failed to clone {name}: {result.stderr.strip()}")
+    if repo.ref:
+        _run_git(repo.path, ["fetch", "origin", repo.ref])
+    if repo.sha:
+        _run_git(repo.path, ["switch", "--detach", repo.sha])
     return repo
 
 
@@ -170,6 +191,8 @@ def externals_status() -> list[dict[str, str | bool]]:
                 "path": str(repo.path),
                 "exists": repo.path.exists(),
                 "branch": repo.branch or "",
+                "ref": repo.ref or "",
+                "expected_commit": repo.sha or "",
                 "current_branch": current_branch,
                 "current_commit": current_commit,
                 "remote_url": remote_url,

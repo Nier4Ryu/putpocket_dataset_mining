@@ -14,7 +14,7 @@ Implement in phases. Do not skip to a fake completed state.
 
 - external checkout helpers for vLLM, LMCache, Cline
 - editable install path
-- vLLM build must cap CPU build threads at 16 via MAX_JOBS/CMAKE_BUILD_PARALLEL_LEVEL/CARGO_BUILD_JOBS/NVCC_THREADS
+- vLLM build must cap CPU build threads at 8 via MAX_JOBS/CMAKE_BUILD_PARALLEL_LEVEL/CARGO_BUILD_JOBS/NVCC_THREADS
 - import smoke
 
 ## Phase 2 — Docker default Python image

@@ -7,18 +7,19 @@
     "manager": "uv"
   },
   "torch": {
-    "version": "2.10.0",
+    "version": "2.11.0",
     "source_index": "https://pypi.org/simple",
-    "wheel_filename": "torch-2.10.0-3-cp313-cp313-manylinux_2_28_x86_64.whl",
-    "wheel_url": "https://files.pythonhosted.org/packages/ab/c6/4dfe238342ffdcec5aef1c96c457548762d33c40b45a1ab7033bb26d2ff2/torch-2.10.0-3-cp313-cp313-manylinux_2_28_x86_64.whl",
-    "wheel_sha256": "80b1b5bfe38eb0e9f5ff09f206dcac0a87aadd084230d4a36eea5ec5232c115b",
-    "torch_cuda": "12.8",
-    "selection_reason": "The pinned vLLM source requires torch 2.10.0 and supports CUDA compiler 12.8+ including SM120; the public CPython 3.13 manylinux wheel is reproducible by URL and SHA-256. CUDA 12.9.1 owns native extension compilation."
+    "wheel_filename": "torch-2.11.0-cp313-cp313-manylinux_2_28_x86_64.whl",
+    "wheel_url": "https://files.pythonhosted.org/packages/3d/e1/b73f7c575a4b8f87a5928f50a1e35416b5e27295d8be9397d5293e7e8d4c/torch-2.11.0-cp313-cp313-manylinux_2_28_x86_64.whl",
+    "wheel_sha256": "cc89b9b173d9adfab59fd227f0ab5e5516d9a52b658ae41d64e59d2e55a418db",
+    "torch_cuda": "13.0",
+    "selection_reason": "Upstream vLLM releases/v0.26.0 pins torch==2.11.0 in pyproject.toml and requirements/cuda.txt; the public CPython 3.13 manylinux wheel is reproducible by URL and SHA-256."
   },
   "vllm": {
-    "url": "https://github.com/Nier4Ryu/vllm_mod.git",
-    "branch": "Putpocket-v0.19.1",
-    "sha": "b65d39ddbab966bb72110056a481d17e4726892b"
+    "url": "https://github.com/vllm-project/vllm.git",
+    "branch": "releases/v0.26.0",
+    "tag": "v0.26.0",
+    "sha": "568afb3a13806beb53bb2e6bd518269357b237c0"
   },
   "lmcache": {
     "url": "https://github.com/Nier4Ryu/LMCache_mod.git",

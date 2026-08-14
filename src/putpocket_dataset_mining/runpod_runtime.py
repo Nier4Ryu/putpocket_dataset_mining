@@ -329,8 +329,8 @@ def validate_base_image_contract(path: Path) -> dict[str, Any]:
 def validate_torch_contract(path: Path, *, require_resolved: bool) -> dict[str, Any]:
     data = read_structured(path)
     torch = data.get("torch", {})
-    if data.get("python", {}).get("version") != "3.13.14" or torch.get("version") != "2.10.0":
-        raise ConfigError("RunPod contract must pin Python 3.13.14 and torch 2.10.0")
+    if data.get("python", {}).get("version") != "3.13.14" or torch.get("version") != "2.11.0":
+        raise ConfigError("RunPod contract must pin Python 3.13.14 and torch 2.11.0 for vLLM 0.26")
     if not torch.get("wheel_url") or not re.fullmatch(r"[0-9a-f]{64}", str(torch.get("wheel_sha256", ""))):
         raise ConfigError("RunPod torch contract requires a wheel URL and SHA-256")
     if require_resolved and data.get("provenance_status") != "resolved":

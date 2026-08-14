@@ -52,13 +52,13 @@ Do not mutate global HF env vars.
 
 This dataset-mining repo is running on the Blackwell server.
 
-vLLM / CUDA extension builds must be capped at 16 CPU build threads by default. The implementation must set or respect:
+vLLM / CUDA extension builds must be capped at 8 CPU build threads by default. The implementation must set or respect:
 
 ```bash
-export PUTPOCKET_BUILD_THREADS=16
-export MAX_JOBS=16
-export CMAKE_BUILD_PARALLEL_LEVEL=16
-export CARGO_BUILD_JOBS=16
+export PUTPOCKET_BUILD_THREADS=8
+export MAX_JOBS=8
+export CMAKE_BUILD_PARALLEL_LEVEL=8
+export CARGO_BUILD_JOBS=8
 export NVCC_THREADS=1
 ```
 

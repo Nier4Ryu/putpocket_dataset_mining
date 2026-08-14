@@ -21,6 +21,7 @@ except Exception:  # pragma: no cover - bootstrap can still emit JSON only.
 from .constants import REPO_ROOT
 from .errors import ConfigError
 from .agent_control import AgentConfig, acquire_agent_locks
+from .externals import checkout_external
 from .runpod_runtime import (
     ARCH_PROFILES,
     build_manifest,
@@ -274,14 +275,27 @@ def _ensure_runpod_runtime(plan: Any, contract: dict[str, Any], log_dir: Path) -
 def _ensure_pinned_external(path: Path, item: dict[str, Any], log_dir: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
-        _command(["git", "clone", "--branch", item["branch"], "--single-branch", item["url"], str(path)], check=True, log=log_dir / f"{path.name}_clone.log")
+        clone = ["git", "clone", item["url"], str(path)]
+        if item.get("branch"):
+            clone = ["git", "clone", "--branch", item["branch"], "--single-branch", item["url"], str(path)]
+        _command(clone, check=True, log=log_dir / f"{path.name}_clone.log")
     if not (path / ".git").exists():
         raise ConfigError(f"External path is not a Git checkout: {path}")
     dirty = _command(["git", "-C", str(path), "status", "--porcelain"], check=True)["stdout"].strip()
     if dirty:
         raise ConfigError(f"External source has local changes: {path}")
-    _command(["git", "-C", str(path), "fetch", "origin", item["branch"]], check=True, log=log_dir / f"{path.name}_fetch.log")
+    remote_url = _command(["git", "-C", str(path), "remote", "get-url", "origin"], check=True)["stdout"].strip()
+    if remote_url != item["url"]:
+        _command(["git", "-C", str(path), "remote", "set-url", "origin", item["url"]], check=True, log=log_dir / f"{path.name}_remote_set_url.log")
+    ref = item.get("branch") or item.get("ref") or item.get("tag")
+    if ref:
+        _command(["git", "-C", str(path), "fetch", "origin", ref], check=True, log=log_dir / f"{path.name}_fetch.log")
+    else:
+        _command(["git", "-C", str(path), "fetch", "origin"], check=True, log=log_dir / f"{path.name}_fetch.log")
     head = _command(["git", "-C", str(path), "rev-parse", "HEAD"], check=True)["stdout"].strip()
+    if head != item["sha"]:
+        _command(["git", "-C", str(path), "switch", "--detach", item["sha"]], check=True, log=log_dir / f"{path.name}_checkout.log")
+        head = _command(["git", "-C", str(path), "rev-parse", "HEAD"], check=True)["stdout"].strip()
     if head != item["sha"]:
         raise ConfigError(f"Pinned {path.name} SHA mismatch: expected {item['sha']}, found {head}")
 
@@ -330,6 +344,7 @@ def _run_server2_preset(args: argparse.Namespace) -> int:
         cli_arch_list=args.cuda_arch_list,
         env=os.environ,
     )
+    effective_build_jobs = str(args.build_jobs or os.environ.get("PUTPOCKET_BUILD_JOBS") or "16")
     planned = [
         "preflight",
         "uv",
@@ -358,6 +373,11 @@ def _run_server2_preset(args: argparse.Namespace) -> int:
         "cuda_arch_profile": resolved_profile,
         "requested_cuda_arch_list": resolved_arch.split(),
         "torch_cuda_arch_list": resolved_arch,
+        "build_jobs_requested": args.build_jobs,
+        "build_jobs_effective": int(effective_build_jobs),
+        "max_jobs": int(effective_build_jobs),
+        "cmake_build_parallel_level": int(effective_build_jobs),
+        "nvcc_threads": int(os.environ.get("NVCC_THREADS", "1")),
         "docker_build_args": docker_build_args(resolved_arch),
         "stages": planned,
         "mutations": _server2_mutations(args),
@@ -390,10 +410,13 @@ def _run_server2_preset_locked(args: argparse.Namespace, run: BootstrapRun, plan
     _write_json(run.path("environment_before.json"), before)
     _write_before_snapshot()
     if not args.doctor_only:
+        build_env = _server2_build_env(resolved_arch, args.build_jobs)
         _ensure_uv_available(run)
         _ensure_python_environment(run)
+        _ensure_server2_external_sources(run)
+        _ensure_server2_runtime_packages(run, build_env)
         _ensure_project_editable(run)
-        _ensure_externals(run, force_vllm=args.force_vllm_build, cuda_arch_list=resolved_arch)
+        _ensure_externals(run, force_vllm=args.force_vllm_build, cuda_arch_list=resolved_arch, env=build_env)
         if not args.skip_docker:
             _validate_docker(run, force=args.force_docker_build)
     doctor = _doctor(run, skip_docker=args.skip_docker)
@@ -437,7 +460,57 @@ def _ensure_python_environment(run: BootstrapRun) -> None:
     uv = shutil.which("uv")
     if not uv:
         raise ConfigError("Cannot create Putpocket_env because uv is missing.")
-    _command([uv, "venv", "--python", "3.13", str(SERVER2_ENV)], check=True, log=run.path("environment_create.log"))
+    python_version = str(_server2_lock_data().get("environment", {}).get("python", "3.13.14"))
+    _command([uv, "venv", "--python", python_version, str(SERVER2_ENV)], check=True, log=run.path("environment_create.log"))
+
+
+def _server2_build_env(cuda_arch_list: str | None, build_jobs: int | None) -> dict[str, str]:
+    env = os.environ.copy()
+    jobs = str(build_jobs or env.get("PUTPOCKET_BUILD_JOBS") or "16")
+    if cuda_arch_list:
+        env["PUTPOCKET_CUDA_ARCH_LIST"] = cuda_arch_list
+        env["TORCH_CUDA_ARCH_LIST"] = cuda_arch_list
+    env["PUTPOCKET_BUILD_JOBS"] = jobs
+    env["MAX_JOBS"] = jobs
+    env["CMAKE_BUILD_PARALLEL_LEVEL"] = jobs
+    env["CARGO_BUILD_JOBS"] = jobs
+    env["NVCC_THREADS"] = env.get("NVCC_THREADS", "1")
+    env["CCACHE_NOHASHDIR"] = env.get("CCACHE_NOHASHDIR", "true")
+    return env
+
+
+def _server2_lock_data() -> dict[str, Any]:
+    if yaml is None:
+        return json.loads(SERVER2_LOCK.read_text(encoding="utf-8"))
+    return yaml.safe_load(SERVER2_LOCK.read_text(encoding="utf-8")) or {}
+
+
+def _ensure_server2_external_sources(run: BootstrapRun) -> None:
+    for name in ("vllm", "lmcache", "cline"):
+        try:
+            checkout_external(name)
+        except Exception as exc:  # noqa: BLE001
+            raise ConfigError(f"failed to reconcile external source {name}: {exc}") from exc
+    _write_json(run.path("external_revisions.json"), _external_revisions())
+
+
+def _ensure_server2_runtime_packages(run: BootstrapRun, env: dict[str, str]) -> None:
+    py = SERVER2_ENV / "bin" / "python"
+    if not py.exists():
+        raise ConfigError(f"Missing canonical Python: {py}")
+    lock = _server2_lock_data()
+    packages = lock.get("python_packages", {})
+    install_specs: list[str] = []
+    torch_wheel = packages.get("torch_wheel", {})
+    if isinstance(torch_wheel, dict) and torch_wheel.get("url") and torch_wheel.get("sha256"):
+        install_specs.append(f"{torch_wheel['url']}#sha256={torch_wheel['sha256']}")
+    elif packages.get("torch"):
+        install_specs.append(f"torch=={packages['torch']}")
+    for name in ("ray", "datasets", "transformers"):
+        if packages.get(name):
+            install_specs.append(f"{name}=={packages[name]}")
+    if install_specs:
+        _command([str(py), "-m", "pip", "install", *install_specs], check=True, log=run.path("runtime_package_sync.log"), env=env)
 
 
 def _ensure_project_editable(run: BootstrapRun) -> None:
@@ -453,7 +526,7 @@ def _ensure_project_editable(run: BootstrapRun) -> None:
     _command([str(py), "-m", "pip", "install", "-e", f"{REPO_ROOT}[dev]"], check=True, log=run.path("project_install.log"))
 
 
-def _ensure_externals(run: BootstrapRun, *, force_vllm: bool, cuda_arch_list: str | None = None) -> None:
+def _ensure_externals(run: BootstrapRun, *, force_vllm: bool, cuda_arch_list: str | None = None, env: dict[str, str] | None = None) -> None:
     py = SERVER2_ENV / "bin" / "python"
     for name in ("vllm", "lmcache", "cline"):
         path = SERVER2_EXTERNALS / name
@@ -461,16 +534,28 @@ def _ensure_externals(run: BootstrapRun, *, force_vllm: bool, cuda_arch_list: st
             raise ConfigError(f"Missing external source: {path}")
         if (path / ".git").exists() and _command(["git", "-C", str(path), "status", "--porcelain"], check=False)["stdout"].strip():
             raise ConfigError(f"External source has uncommitted changes: {path}")
-    if force_vllm:
-        env = os.environ.copy()
-        if cuda_arch_list:
-            env["PUTPOCKET_CUDA_ARCH_LIST"] = cuda_arch_list
-            env["TORCH_CUDA_ARCH_LIST"] = cuda_arch_list
+    import_probe = _command([str(py), "-c", "import vllm, lmcache"], check=False)
+    if force_vllm or import_probe["returncode"] != 0:
+        build_env = env or _server2_build_env(cuda_arch_list, None)
+        vllm_root = SERVER2_EXTERNALS / "vllm"
+        cuda_requirements = vllm_root / "requirements" / "cuda.txt"
+        build_requirements = vllm_root / "requirements" / "build" / "cuda.txt"
+        if not build_requirements.exists():
+            build_requirements = vllm_root / "requirements" / "build.txt"
+        for label, req in (("runtime", cuda_requirements), ("build", build_requirements)):
+            if req.exists():
+                _command([str(py), "-m", "pip", "install", "-r", str(req)], check=True, log=run.path(f"vllm_{label}_requirements.log"), env=build_env)
         _command(
             [str(py), "-m", "pip", "install", "--no-build-isolation", "-e", str(SERVER2_EXTERNALS / "vllm")],
             check=True,
             log=run.path("externals_install.log"),
-            env=env,
+            env=build_env,
+        )
+        _command(
+            [str(py), "-m", "pip", "install", "--no-build-isolation", "-e", str(SERVER2_EXTERNALS / "lmcache")],
+            check=True,
+            log=run.path("lmcache_install.log"),
+            env=build_env,
         )
 
 
@@ -597,11 +682,12 @@ def _write_contract(manifest: dict[str, Any]) -> None:
             "nvcc_threads": os.environ.get("NVCC_THREADS", "1"),
         },
     }
-    SERVER2_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    out = REPO_ROOT / "logs" / "env_consolidation" / "server2_blackwell.effective.lock.yaml"
+    out.parent.mkdir(parents=True, exist_ok=True)
     if yaml is not None:
-        SERVER2_LOCK.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+        out.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     else:
-        SERVER2_LOCK.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        out.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
 def _write_legacy_environment_manifest() -> None:

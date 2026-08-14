@@ -648,8 +648,12 @@ def _write_before_snapshot() -> None:
     manifest = _environment_manifest()
     _write_json(root / "environment_before.json", manifest)
     _write_text(root / "python_version.txt", f"{manifest.get('python', 'unknown')} {manifest.get('executable', '')}\n")
-    freeze = _command([str(SERVER2_ENV / "bin" / "python"), "-m", "pip", "freeze"], check=False)
-    _write_text(root / "pip_freeze.txt", freeze["stdout"] + freeze["stderr"])
+    py = SERVER2_ENV / "bin" / "python"
+    if py.exists():
+        freeze = _command([str(py), "-m", "pip", "freeze"], check=False)
+        _write_text(root / "pip_freeze.txt", freeze["stdout"] + freeze["stderr"])
+    else:
+        _write_text(root / "pip_freeze.txt", "environment_missing\n")
     _write_json(root / "external_revisions.json", manifest.get("externals", {}))
 
 

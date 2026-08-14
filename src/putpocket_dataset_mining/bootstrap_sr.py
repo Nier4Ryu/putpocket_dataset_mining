@@ -5,6 +5,7 @@ from contextlib import nullcontext
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -467,6 +468,10 @@ def _ensure_python_environment(run: BootstrapRun) -> None:
 def _server2_build_env(cuda_arch_list: str | None, build_jobs: int | None) -> dict[str, str]:
     env = os.environ.copy()
     jobs = str(build_jobs or env.get("PUTPOCKET_BUILD_JOBS") or "16")
+    cuda_home = env.get("CUDA_HOME") or str(_server2_lock_data().get("hardware", {}).get("cuda_home", "/usr/local/cuda-12.9"))
+    env["CUDA_HOME"] = cuda_home
+    env["PATH"] = f"{cuda_home}/bin:{env.get('PATH', '')}"
+    env["LD_LIBRARY_PATH"] = _prepend_env_path(env.get("LD_LIBRARY_PATH"), f"{cuda_home}/lib64")
     if cuda_arch_list:
         env["PUTPOCKET_CUDA_ARCH_LIST"] = cuda_arch_list
         env["TORCH_CUDA_ARCH_LIST"] = cuda_arch_list
@@ -501,9 +506,9 @@ def _ensure_server2_runtime_packages(run: BootstrapRun, env: dict[str, str]) -> 
     lock = _server2_lock_data()
     packages = lock.get("python_packages", {})
     install_specs: list[str] = []
-    torch_wheel = packages.get("torch_wheel", {})
-    if isinstance(torch_wheel, dict) and torch_wheel.get("url") and torch_wheel.get("sha256"):
-        install_specs.append(f"{torch_wheel['url']}#sha256={torch_wheel['sha256']}")
+    torch_spec = _server2_torch_requirement()
+    if torch_spec:
+        install_specs.append(torch_spec)
     elif packages.get("torch"):
         install_specs.append(f"torch=={packages['torch']}")
     for name in ("ray", "datasets", "transformers"):
@@ -511,6 +516,7 @@ def _ensure_server2_runtime_packages(run: BootstrapRun, env: dict[str, str]) -> 
             install_specs.append(f"{name}=={packages[name]}")
     if install_specs:
         _command(_pip_install_cmd(py, install_specs), check=True, log=run.path("runtime_package_sync.log"), env=env)
+    _validate_server2_torch_cuda_contract(run, env=env, phase="runtime_package_sync")
 
 
 def _ensure_project_editable(run: BootstrapRun) -> None:
@@ -537,6 +543,7 @@ def _ensure_externals(run: BootstrapRun, *, force_vllm: bool, cuda_arch_list: st
     import_probe = _command([str(py), "-c", "import vllm, lmcache"], check=False)
     if force_vllm or import_probe["returncode"] != 0:
         build_env = env or _server2_build_env(cuda_arch_list, None)
+        _validate_server2_torch_cuda_contract(run, env=build_env, phase="before_vllm_requirements")
         vllm_root = SERVER2_EXTERNALS / "vllm"
         cuda_requirements = vllm_root / "requirements" / "cuda.txt"
         build_requirements = vllm_root / "requirements" / "build" / "cuda.txt"
@@ -545,18 +552,164 @@ def _ensure_externals(run: BootstrapRun, *, force_vllm: bool, cuda_arch_list: st
         for label, req in (("runtime", cuda_requirements), ("build", build_requirements)):
             if req.exists():
                 _command(_pip_install_cmd(py, ["-r", str(req)]), check=True, log=run.path(f"vllm_{label}_requirements.log"), env=build_env)
+                _reinstall_server2_torch(run, build_env, log_name=f"torch_after_vllm_{label}_requirements.log")
+                _validate_server2_torch_cuda_contract(run, env=build_env, phase=f"after_vllm_{label}_requirements")
+        _validate_cuda12_runtime_library(run, build_env)
+        _validate_server2_torch_cuda_contract(run, env=build_env, phase="before_vllm_native_build")
         _command(
-            _pip_install_cmd(py, ["--no-build-isolation", "-e", str(SERVER2_EXTERNALS / "vllm")]),
+            _pip_install_cmd(py, ["--no-build-isolation", "--no-deps", "-e", str(SERVER2_EXTERNALS / "vllm")]),
             check=True,
             log=run.path("externals_install.log"),
             env=build_env,
         )
+        _validate_server2_torch_cuda_contract(run, env=build_env, phase="after_vllm_native_build")
+        _validate_cuda12_runtime_library(run, build_env)
+        lmcache_root = SERVER2_EXTERNALS / "lmcache"
+        lmcache_common = lmcache_root / "requirements" / "common.txt"
+        lmcache_cuda_core = lmcache_root / "requirements" / "cuda_core.txt"
+        lmcache_deps = [item for item in (lmcache_common, lmcache_cuda_core) if item.exists()]
+        if lmcache_deps:
+            dep_args: list[str] = []
+            for req in lmcache_deps:
+                dep_args.extend(["-r", str(req)])
+            requirement = _server2_torch_requirement()
+            if requirement:
+                dep_args.append(requirement)
+            _command(_pip_install_cmd(py, dep_args), check=True, log=run.path("lmcache_runtime_requirements.log"), env=build_env)
+            _reinstall_server2_torch(run, build_env, log_name="torch_after_lmcache_requirements.log")
+            _validate_server2_torch_cuda_contract(run, env=build_env, phase="after_lmcache_requirements")
+        _validate_server2_torch_cuda_contract(run, env=build_env, phase="before_lmcache_native_build")
         _command(
-            _pip_install_cmd(py, ["--no-build-isolation", "-e", str(SERVER2_EXTERNALS / "lmcache")]),
+            _pip_install_cmd(py, ["--no-build-isolation", "--no-deps", "-e", str(SERVER2_EXTERNALS / "lmcache")]),
             check=True,
             log=run.path("lmcache_install.log"),
             env=build_env,
         )
+        _validate_server2_torch_cuda_contract(run, env=build_env, phase="after_lmcache_native_build")
+
+
+def _prepend_env_path(existing: str | None, new_item: str) -> str:
+    items = [item for item in (existing or "").split(os.pathsep) if item]
+    items = [item for item in items if item != new_item]
+    return os.pathsep.join([new_item, *items])
+
+
+def _server2_torch_requirement() -> str | None:
+    packages = _server2_lock_data().get("python_packages", {})
+    torch_wheel = packages.get("torch_wheel", {})
+    if isinstance(torch_wheel, dict) and torch_wheel.get("url") and torch_wheel.get("sha256"):
+        return f"{torch_wheel['url']}#sha256={torch_wheel['sha256']}"
+    if packages.get("torch"):
+        return f"torch=={packages['torch']}"
+    return None
+
+
+def _reinstall_server2_torch(run: BootstrapRun, env: dict[str, str], *, log_name: str) -> None:
+    requirement = _server2_torch_requirement()
+    if not requirement:
+        raise ConfigError("Server-2 lock is missing an exact torch requirement")
+    py = SERVER2_ENV / "bin" / "python"
+    _command(_pip_install_cmd(py, [requirement]), check=True, log=run.path(log_name), env=env)
+
+
+def _validate_server2_torch_cuda_contract(run: BootstrapRun, *, env: dict[str, str], phase: str) -> None:
+    py = SERVER2_ENV / "bin" / "python"
+    lock = _server2_lock_data()
+    packages = lock.get("python_packages", {})
+    torch_wheel = packages.get("torch_wheel", {}) if isinstance(packages.get("torch_wheel"), dict) else {}
+    expected_torch = str(packages.get("torch", "2.11.0+cu129"))
+    expected_torch_cuda = str(torch_wheel.get("torch_cuda", "12.9"))
+    expected_nvcc = str(lock.get("hardware", {}).get("cuda_home", "/usr/local/cuda-12.9"))
+    script = r"""
+import importlib.metadata as md
+import json
+import sys
+import torch
+
+direct = None
+try:
+    dist = md.distribution("torch")
+    text = dist.read_text("direct_url.json")
+    direct = json.loads(text) if text else None
+except Exception:
+    direct = None
+
+payload = {
+    "python": sys.executable,
+    "torch_version": torch.__version__,
+    "torch_cuda": torch.version.cuda,
+    "direct_url": direct,
+}
+print(json.dumps(payload, sort_keys=True))
+"""
+    torch_result = _command([str(py), "-c", script], check=False, env=env)
+    nvcc_result = _command(["nvcc", "--version"], check=False, env=env)
+    payload: dict[str, Any] = {
+        "schema_version": 1,
+        "phase": phase,
+        "expected_torch": expected_torch,
+        "expected_torch_cuda": expected_torch_cuda,
+        "expected_cuda_home": expected_nvcc,
+        "torch_probe": torch_result,
+        "nvcc_probe": nvcc_result,
+        "torch_source": torch_wheel.get("index_url") or torch_wheel.get("url"),
+    }
+    _write_json(run.path(f"torch_cuda_contract_{phase}.json"), payload)
+    if torch_result["returncode"] != 0 or nvcc_result["returncode"] != 0:
+        raise ConfigError("TORCH_SYSTEM_CUDA_CONTRACT_MISMATCH: unable to inspect torch or nvcc")
+    observed = json.loads(torch_result["stdout"])
+    nvcc_version = _parse_nvcc_cuda_version(nvcc_result["stdout"])
+    if (
+        observed.get("torch_version") != expected_torch
+        or str(observed.get("torch_cuda")) != expected_torch_cuda
+        or nvcc_version != expected_torch_cuda
+    ):
+        raise ConfigError(
+            "TORCH_SYSTEM_CUDA_CONTRACT_MISMATCH: "
+            f"phase={phase}; torch={observed.get('torch_version')}; "
+            f"torch_cuda={observed.get('torch_cuda')}; nvcc={nvcc_version}; "
+            f"torch_source={payload['torch_source']}"
+        )
+
+
+def _parse_nvcc_cuda_version(output: str) -> str:
+    match = re.search(r"release\s+(\d+\.\d+)", output)
+    if not match:
+        raise ConfigError(f"Unable to parse nvcc CUDA version from: {output}")
+    return match.group(1)
+
+
+def _validate_cuda12_runtime_library(run: BootstrapRun, env: dict[str, str]) -> None:
+    script = r"""
+import ctypes
+import ctypes.util
+import json
+import os
+
+candidate = ctypes.util.find_library("cudart")
+loaded = None
+error = None
+try:
+    handle = ctypes.CDLL("libcudart.so.12")
+    loaded = getattr(handle, "_name", "libcudart.so.12")
+except Exception as exc:
+    error = f"{type(exc).__name__}: {exc}"
+
+print(json.dumps({
+    "candidate": candidate,
+    "loaded": loaded,
+    "error": error,
+    "LD_LIBRARY_PATH": os.environ.get("LD_LIBRARY_PATH", ""),
+}, sort_keys=True))
+"""
+    py = SERVER2_ENV / "bin" / "python"
+    result = _command([str(py), "-c", script], check=False, env=env)
+    _write_json(run.path("cuda12_runtime_library.json"), {"schema_version": 1, "probe": result})
+    if result["returncode"] != 0:
+        raise ConfigError("CUDA12_RUNTIME_LIBRARY_UNAVAILABLE: library inspection failed")
+    payload = json.loads(result["stdout"])
+    if payload.get("error"):
+        raise ConfigError(f"CUDA12_RUNTIME_LIBRARY_UNAVAILABLE: {payload['error']}")
 
 
 def _validate_docker(run: BootstrapRun, *, force: bool) -> None:

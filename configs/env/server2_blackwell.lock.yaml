@@ -12,12 +12,16 @@
     "torch_cuda_arch_list": "12.0"
   },
   "python_packages": {
-    "torch": "2.11.0",
+    "torch": "2.11.0+cu129",
     "torch_wheel": {
-      "url": "https://files.pythonhosted.org/packages/3d/e1/b73f7c575a4b8f87a5928f50a1e35416b5e27295d8be9397d5293e7e8d4c/torch-2.11.0-cp313-cp313-manylinux_2_28_x86_64.whl",
-      "sha256": "cc89b9b173d9adfab59fd227f0ab5e5516d9a52b658ae41d64e59d2e55a418db",
+      "url": "https://download-r2.pytorch.org/whl/cu129/torch-2.11.0%2Bcu129-cp313-cp313-manylinux_2_28_x86_64.whl",
+      "index_url": "https://download.pytorch.org/whl/cu129",
+      "sha256": "fde1830d7f79641680865759dc57780e94a9de7e68a82ed61973e9bc7af29423",
+      "metadata_sha256": "debd8fd3b32d468009b0aad1da074a71f9fe5cf1d42fbf75733c56acf32fe221",
       "python_abi": "cp313-cp313-manylinux_2_28_x86_64",
-      "torch_cuda": "13.0"
+      "torch_cuda": "12.9",
+      "source": "official PyTorch CUDA 12.9 wheel index",
+      "selection_reason": "vLLM 0.26 requires torch 2.11.0; Server-2 native CUDA is 12.9, so torch must be pinned to the official cu129 local-version wheel rather than generic PyPI torch 2.11.0."
     },
     "ray": "2.55.1",
     "datasets": "5.0.0",

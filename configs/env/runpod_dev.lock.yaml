@@ -7,13 +7,14 @@
     "manager": "uv"
   },
   "torch": {
-    "version": "2.11.0",
-    "source_index": "https://pypi.org/simple",
-    "wheel_filename": "torch-2.11.0-cp313-cp313-manylinux_2_28_x86_64.whl",
-    "wheel_url": "https://files.pythonhosted.org/packages/3d/e1/b73f7c575a4b8f87a5928f50a1e35416b5e27295d8be9397d5293e7e8d4c/torch-2.11.0-cp313-cp313-manylinux_2_28_x86_64.whl",
-    "wheel_sha256": "cc89b9b173d9adfab59fd227f0ab5e5516d9a52b658ae41d64e59d2e55a418db",
-    "torch_cuda": "13.0",
-    "selection_reason": "Upstream vLLM releases/v0.26.0 pins torch==2.11.0 in pyproject.toml and requirements/cuda.txt; the public CPython 3.13 manylinux wheel is reproducible by URL and SHA-256."
+    "version": "2.11.0+cu129",
+    "source_index": "https://download.pytorch.org/whl/cu129",
+    "wheel_filename": "torch-2.11.0+cu129-cp313-cp313-manylinux_2_28_x86_64.whl",
+    "wheel_url": "https://download-r2.pytorch.org/whl/cu129/torch-2.11.0%2Bcu129-cp313-cp313-manylinux_2_28_x86_64.whl",
+    "wheel_sha256": "fde1830d7f79641680865759dc57780e94a9de7e68a82ed61973e9bc7af29423",
+    "wheel_metadata_sha256": "debd8fd3b32d468009b0aad1da074a71f9fe5cf1d42fbf75733c56acf32fe221",
+    "torch_cuda": "12.9",
+    "selection_reason": "Upstream vLLM releases/v0.26.0 requires torch 2.11.0; CUDA-native Server-2/RunPod builds must use the official cu129 local-version wheel, not generic PyPI torch 2.11.0+cu130."
   },
   "vllm": {
     "url": "https://github.com/vllm-project/vllm.git",

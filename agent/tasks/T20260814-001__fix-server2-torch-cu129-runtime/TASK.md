@@ -36,5 +36,5 @@ validation:
 artifacts:
   - agent/tasks/T20260814-001__fix-server2-torch-cu129-runtime/
 commits:
-  - pending source commit
-final handoff link: pending
+  - 7f7498a fix(env): pin server2 torch cu129 runtime
+final handoff link: agent/tasks/T20260814-001__fix-server2-torch-cu129-runtime/handoffs/TO_GPT_20260814-164420.md

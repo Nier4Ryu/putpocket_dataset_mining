@@ -1,0 +1,70 @@
+{
+  "environment": "/home/dyryu/putpocket_dataset_mining/Putpocket_env",
+  "executable": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/python",
+  "exists": true,
+  "externals": {
+    "cline": {
+      "dirty": false,
+      "exists": true,
+      "head": "03f47045f338dcb6ac45b1ac1d6279a78be2b118",
+      "path": "/home/dyryu/putpocket_dataset_mining/externals/cline",
+      "remote": "git@github.com:Nier4Ryu/cline_mod.git"
+    },
+    "lmcache": {
+      "dirty": false,
+      "exists": true,
+      "head": "72eb0e375bcf0739a45046433f46ee32be361656",
+      "path": "/home/dyryu/putpocket_dataset_mining/externals/lmcache",
+      "remote": "git@github.com:Nier4Ryu/LMCache_mod.git"
+    },
+    "vllm": {
+      "dirty": false,
+      "exists": true,
+      "head": "568afb3a13806beb53bb2e6bd518269357b237c0",
+      "path": "/home/dyryu/putpocket_dataset_mining/externals/vllm",
+      "remote": "git@github.com:vllm-project/vllm.git"
+    }
+  },
+  "git_head": "7a9c84648ed0a173532c53ebe0d30a2d50557b1b",
+  "modules": {
+    "datasets": {
+      "file": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/datasets/__init__.py",
+      "version": "5.0.0"
+    },
+    "lmcache": {
+      "error": "ModuleNotFoundError: No module named 'lmcache'"
+    },
+    "putpocket_dataset_mining": {
+      "file": "/home/dyryu/putpocket_dataset_mining/src/putpocket_dataset_mining/__init__.py",
+      "version": "0.5.0"
+    },
+    "ray": {
+      "file": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/ray/__init__.py",
+      "version": "2.55.1"
+    },
+    "torch": {
+      "cuda": "13.0",
+      "file": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/torch/__init__.py",
+      "version": "2.11.0+cu130"
+    },
+    "transformers": {
+      "file": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/transformers/__init__.py",
+      "version": "5.14.1"
+    },
+    "vllm": {
+      "error": "ModuleNotFoundError: No module named 'vllm'"
+    }
+  },
+  "prefix": "/home/dyryu/putpocket_dataset_mining/Putpocket_env",
+  "python": "3.13.14",
+  "schema_version": 1,
+  "sys_path": [
+    "/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/ray/thirdparty_files",
+    "",
+    "/home/dyryu/putpocket_dataset_mining/src",
+    "/home/dyryu/.local/share/uv/python/cpython-3.13.14-linux-x86_64-gnu/lib/python313.zip",
+    "/home/dyryu/.local/share/uv/python/cpython-3.13.14-linux-x86_64-gnu/lib/python3.13",
+    "/home/dyryu/.local/share/uv/python/cpython-3.13.14-linux-x86_64-gnu/lib/python3.13/lib-dynload",
+    "/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages"
+  ]
+}

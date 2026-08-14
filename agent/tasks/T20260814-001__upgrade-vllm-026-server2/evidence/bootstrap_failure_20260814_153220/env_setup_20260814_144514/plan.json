@@ -1,0 +1,46 @@
+{
+  "build_jobs_effective": 8,
+  "build_jobs_requested": 8,
+  "cmake_build_parallel_level": 8,
+  "cuda_arch_profile": "blackwell-rtx",
+  "docker_build_args": [
+    "--build-arg",
+    "torch_cuda_arch_list=12.0"
+  ],
+  "doctor_only": false,
+  "dry_run": false,
+  "environment": "/home/dyryu/putpocket_dataset_mining/Putpocket_env",
+  "force_docker_build": false,
+  "force_vllm_build": true,
+  "manager": "uv",
+  "max_jobs": 8,
+  "mutations": [
+    "create Putpocket_env only when missing",
+    "install project editable only when console script/import is missing",
+    "validate external source revisions",
+    "force editable vLLM reinstall"
+  ],
+  "nvcc_threads": 1,
+  "preset": "server2",
+  "repo_root": "/home/dyryu/putpocket_dataset_mining",
+  "requested_cuda_arch_list": [
+    "12.0"
+  ],
+  "schema_version": 1,
+  "skip_docker": false,
+  "skip_gpu_smoke": false,
+  "stages": [
+    "preflight",
+    "uv",
+    "python",
+    "environment",
+    "project",
+    "externals",
+    "qwen-runtime",
+    "docker",
+    "doctor",
+    "tests",
+    "manifest"
+  ],
+  "torch_cuda_arch_list": "12.0"
+}

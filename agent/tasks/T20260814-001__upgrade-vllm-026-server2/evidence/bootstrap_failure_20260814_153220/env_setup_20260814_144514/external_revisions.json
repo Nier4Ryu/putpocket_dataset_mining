@@ -1,0 +1,23 @@
+{
+  "cline": {
+    "dirty": false,
+    "exists": true,
+    "head": "03f47045f338dcb6ac45b1ac1d6279a78be2b118",
+    "path": "/home/dyryu/putpocket_dataset_mining/externals/cline",
+    "remote": "git@github.com:Nier4Ryu/cline_mod.git"
+  },
+  "lmcache": {
+    "dirty": false,
+    "exists": true,
+    "head": "72eb0e375bcf0739a45046433f46ee32be361656",
+    "path": "/home/dyryu/putpocket_dataset_mining/externals/lmcache",
+    "remote": "git@github.com:Nier4Ryu/LMCache_mod.git"
+  },
+  "vllm": {
+    "dirty": false,
+    "exists": true,
+    "head": "568afb3a13806beb53bb2e6bd518269357b237c0",
+    "path": "/home/dyryu/putpocket_dataset_mining/externals/vllm",
+    "remote": "git@github.com:vllm-project/vllm.git"
+  }
+}

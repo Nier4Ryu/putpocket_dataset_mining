@@ -34,5 +34,6 @@ validation:
 artifacts:
   - agent/tasks/T20260814-001__upgrade-vllm-026-server2/
 commits:
-  - pending
-final handoff link: pending
+  - 6b874bd build(vllm): pin editable vllm 0.26 runtime
+  - c518343 docs(agent): record vllm 0.26 migration handoff
+final handoff link: agent/tasks/T20260814-001__upgrade-vllm-026-server2/handoffs/TO_GPT_20260814-143515.md

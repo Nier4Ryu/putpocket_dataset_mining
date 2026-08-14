@@ -1,0 +1,47 @@
+{
+  "cuda_available": true,
+  "device_count": 3,
+  "devices": [
+    {
+      "capability": [
+        12,
+        0
+      ],
+      "index": 0,
+      "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+    },
+    {
+      "capability": [
+        12,
+        0
+      ],
+      "index": 1,
+      "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+    },
+    {
+      "capability": [
+        12,
+        0
+      ],
+      "index": 2,
+      "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+    }
+  ],
+  "imports": {
+    "lmcache.c_ops": "/home/dyryu/putpocket_dataset_mining/externals/lmcache/lmcache/c_ops.cpython-313-x86_64-linux-gnu.so",
+    "lmcache.lmcache_fs": "/home/dyryu/putpocket_dataset_mining/externals/lmcache/lmcache/lmcache_fs.cpython-313-x86_64-linux-gnu.so",
+    "lmcache.lmcache_redis": "/home/dyryu/putpocket_dataset_mining/externals/lmcache/lmcache/lmcache_redis.cpython-313-x86_64-linux-gnu.so",
+    "lmcache.native_storage_ops": "/home/dyryu/putpocket_dataset_mining/externals/lmcache/lmcache/native_storage_ops.cpython-313-x86_64-linux-gnu.so",
+    "vllm._C_stable_libtorch": "/home/dyryu/putpocket_dataset_mining/externals/vllm/vllm/_C_stable_libtorch.abi3.so",
+    "vllm._moe_C_stable_libtorch": "/home/dyryu/putpocket_dataset_mining/externals/vllm/vllm/_moe_C_stable_libtorch.abi3.so",
+    "vllm._qutlass_C": "/home/dyryu/putpocket_dataset_mining/externals/vllm/vllm/_qutlass_C.abi3.so",
+    "vllm.cumem_allocator": "/home/dyryu/putpocket_dataset_mining/externals/vllm/vllm/cumem_allocator.abi3.so",
+    "vllm.fs_io_C": "/home/dyryu/putpocket_dataset_mining/externals/vllm/vllm/fs_io_C.abi3.so",
+    "vllm.spinloop": "/home/dyryu/putpocket_dataset_mining/externals/vllm/vllm/spinloop.abi3.so",
+    "vllm.vllm_flash_attn._vllm_fa2_C": "/home/dyryu/putpocket_dataset_mining/externals/vllm/vllm/vllm_flash_attn/_vllm_fa2_C.abi3.so",
+    "vllm.vllm_flash_attn._vllm_fa3_C": "/home/dyryu/putpocket_dataset_mining/externals/vllm/vllm/vllm_flash_attn/_vllm_fa3_C.abi3.so"
+  },
+  "tensor_smoke": 2.0,
+  "torch": "2.11.0+cu129",
+  "torch_cuda": "12.9"
+}

@@ -1,0 +1,253 @@
+git diff --check
+bash -n scripts/env/*.sh
+compileall
+unittest
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+/home/dyryu/.local/share/uv/python/cpython-3.13.14-linux-x86_64-gnu/lib/python3.13/unittest/mock.py:2253: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7fc13b9fe7a0>
+  def __init__(self, name, parent):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/yaml/scanner.py:293: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7fc324faea70>
+  del self.possible_simple_keys[level]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/yaml/scanner.py:293: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7fc13b9ff790>
+  del self.possible_simple_keys[level]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/yaml/scanner.py:293: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x7fc13b9ff970>
+  del self.possible_simple_keys[level]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+/tmp/tmpqqm0b_bp/sm86.json
+/tmp/tmpqqm0b_bp/sm90.json
+----------------------------------------------------------------------
+Ran 182 tests in 7.262s
+
+OK
+/tmp/tmpn5u3494m/core_bootstrap_manifest_1786696892.json
+/tmp/tmpapifvz9k/preflight_bootstrap_manifest_1786696892.json
+/tmp/tmpapifvz9k/system_bootstrap_manifest_1786696892.json
+/tmp/tmpapifvz9k/core_bootstrap_manifest_1786696892.json
+/tmp/tmpapifvz9k/verifier_bootstrap_manifest_1786696892.json
+/tmp/tmpapifvz9k/vllm_source_bootstrap_manifest_1786696892.json
+/tmp/tmpapifvz9k/vllm_build_bootstrap_manifest_1786696892.json
+/tmp/tmpapifvz9k/validate_bootstrap_manifest_1786696892.json
+/tmp/tmpgzpd11nz/core_bootstrap_manifest_1786696892.json
+Dataset `classeval_stateful_working_v0` is finalized with 18 canonical accepted samples; no mining attempts will be assigned.
+/tmp/tmp2qm3ntq7/core_bootstrap_manifest_1786696892.json
+/tmp/tmpuc_pt_im/core_bootstrap_manifest_1786696893.json
+/tmp/tmpt2d5ozdx/core_bootstrap_manifest_1786696893.json
+/tmp/tmp1zgpsmxh/core_bootstrap_manifest_1786696893.json
+{
+  "mode": "manual",
+  "next_command": "putpocket-dataset-mining workflow manual run-stage --run-root /tmp/tmpcvu0hqz_/run --stage history1-infer-submit",
+  "run_root": "/tmp/tmpcvu0hqz_/run",
+  "run_uuid": "u",
+  "state": {
+    "artifact_hashes": {},
+    "configuration_digest": "1d904e3219457628f0a79d9ad29ec75025fa2cbe8611b8086dca1b8efe92ec7a",
+    "current_state": "CREATED",
+    "execution_mode": "manual",
+    "history1_job_id": null,
+    "history2_job_id": null,
+    "last_error": null,
+    "next_legal_actions": [
+      "HISTORY1_INFERENCE_READY"
+    ],
+    "previous_state": null,
+    "run_uuid": "u",
+    "sample_ids": [
+      "test_ClassEval_76"
+    ],
+    "samples": {
+      "test_ClassEval_76": {
+        "current_state": "CREATED",
+        "history1_job_id": null,
+        "history2_job_id": null,
+        "last_error": null
+      }
+    },
+    "schema_version": 1,
+    "source_revision": "41c398ba8006fd1d3ab1e0b39566ee344d529d32",
+    "transition_timestamp": "2026-08-14T08:41:34Z"
+  }
+}
+{
+  "run_root": "/tmp/tmpcvu0hqz_/run",
+  "state": {
+    "artifact_hashes": {},
+    "configuration_digest": "1d904e3219457628f0a79d9ad29ec75025fa2cbe8611b8086dca1b8efe92ec7a",
+    "current_state": "CREATED",
+    "execution_mode": "manual",
+    "history1_job_id": null,
+    "history2_job_id": null,
+    "last_error": null,
+    "next_legal_actions": [
+      "HISTORY1_INFERENCE_READY"
+    ],
+    "previous_state": null,
+    "run_uuid": "u",
+    "sample_ids": [
+      "test_ClassEval_76"
+    ],
+    "samples": {
+      "test_ClassEval_76": {
+        "current_state": "CREATED",
+        "history1_job_id": null,
+        "history2_job_id": null,
+        "last_error": null
+      }
+    },
+    "schema_version": 1,
+    "source_revision": "41c398ba8006fd1d3ab1e0b39566ee344d529d32",
+    "transition_timestamp": "2026-08-14T08:41:34Z"
+  }
+}
+{}
+{
+  "detail": null,
+  "docker_ok": true,
+  "error_class": null,
+  "image_ok": true,
+  "judge_ok": null,
+  "rsync_ok": true,
+  "ssh_ok": true,
+  "staging_root_ok": true,
+  "status": "REMOTE_DOCKER_PREFLIGHT_PASSED",
+  "wrapper_ok": true
+}
+{
+  "dry_run": true,
+  "fixtures": [
+    {
+      "fixture": "pass",
+      "remote_target": "dyryu@10.0.0.5",
+      "rsync_argv_prefix": [
+        "rsync",
+        "-a",
+        "--partial",
+        "--delay-updates",
+        "-e",
+        "ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -p 42"
+      ],
+      "ssh_argv_prefix": [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "IdentitiesOnly=yes",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        "ConnectTimeout=10",
+        "-p",
+        "42"
+      ],
+      "timeout_sec": 3600,
+      "would_connect": false,
+      "wrapper": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier"
+    },
+    {
+      "fixture": "timeout",
+      "remote_target": "dyryu@10.0.0.5",
+      "rsync_argv_prefix": [
+        "rsync",
+        "-a",
+        "--partial",
+        "--delay-updates",
+        "-e",
+        "ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -p 42"
+      ],
+      "ssh_argv_prefix": [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "IdentitiesOnly=yes",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        "ConnectTimeout=10",
+        "-p",
+        "42"
+      ],
+      "timeout_sec": 2,
+      "would_connect": false,
+      "wrapper": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/putpocket-remote-verifier"
+    }
+  ],
+  "output_dir": "/tmp/tmpqj_54288/out",
+  "schema_version": 1
+}
+{
+  "dry_run": false,
+  "fixtures": [
+    {
+      "artifact_dir": "/tmp/tmpr55t9ei8/out/pass/attempt",
+      "failure_class": null,
+      "fixture": "pass",
+      "passed": true,
+      "returncode": 0,
+      "status": "passed",
+      "timed_out": false,
+      "timeout_sec": 3600
+    },
+    {
+      "artifact_dir": "/tmp/tmpr55t9ei8/out/fail/attempt",
+      "failure_class": null,
+      "fixture": "fail",
+      "passed": false,
+      "returncode": 1,
+      "status": "failed",
+      "timed_out": false,
+      "timeout_sec": 3600
+    },
+    {
+      "artifact_dir": "/tmp/tmpr55t9ei8/out/timeout/attempt",
+      "failure_class": null,
+      "fixture": "timeout",
+      "passed": false,
+      "returncode": 124,
+      "status": "timeout",
+      "timed_out": true,
+      "timeout_sec": 2
+    }
+  ],
+  "output_dir": "/tmp/tmpr55t9ei8/out",
+  "schema_version": 1
+}
+{
+  "protocol_version": "sr-remote-verifier-v1",
+  "schema_version": 1
+}
+{"protocol_version": "sr-remote-workspace-v1", "remote_docker_exec_sec": 1.3520009815692902e-05, "returncode": 0, "schema_version": 1, "session_id": "run.sample.episode", "status": "completed", "stderr": "", "stdout": "ok", "timeout": false}
+{
+  "error": "runpod-dev requires the repository to live under /workspace",
+  "log_dir": "/home/dyryu/putpocket_dataset_mining/logs/env_setup/runpod_dev_20260814_174134",
+  "preset": "runpod-dev",
+  "schema_version": 1,
+  "status": "failed"
+}
+/tmp/tmpejmlkzpu/preflight_bootstrap_manifest_1786696894.json
+/tmp/tmpejmlkzpu/system_bootstrap_manifest_1786696894.json
+/tmp/tmpejmlkzpu/core_bootstrap_manifest_1786696894.json
+/tmp/tmpejmlkzpu/verifier_bootstrap_manifest_1786696894.json
+/tmp/tmpejmlkzpu/vllm_source_bootstrap_manifest_1786696894.json
+/tmp/tmpejmlkzpu/vllm_build_bootstrap_manifest_1786696894.json
+/tmp/tmpejmlkzpu/validate_bootstrap_manifest_1786696894.json

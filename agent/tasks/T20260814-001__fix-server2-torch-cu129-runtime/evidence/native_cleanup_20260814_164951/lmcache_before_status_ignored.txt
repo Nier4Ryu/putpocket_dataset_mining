@@ -1,0 +1,9 @@
+!! lmcache/__pycache__/
+!! lmcache/_version.py
+!! lmcache/c_ops.cpython-313-x86_64-linux-gnu.so
+!! lmcache/lmcache_fs.cpython-313-x86_64-linux-gnu.so
+!! lmcache/lmcache_redis.cpython-313-x86_64-linux-gnu.so
+!! lmcache/native_storage_ops.cpython-313-x86_64-linux-gnu.so
+!! lmcache/v1/__pycache__/
+!! lmcache/v1/compute/__pycache__/
+!! lmcache/v1/compute/models/__pycache__/

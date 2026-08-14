@@ -1,0 +1,27 @@
+ D csrc/libtorch_stable/moe/marlin_moe_wna16/.gitignore
+ D csrc/libtorch_stable/moe/marlin_moe_wna16/generate_kernels.py
+ D csrc/libtorch_stable/moe/marlin_moe_wna16/kernel.h
+ D csrc/libtorch_stable/moe/marlin_moe_wna16/marlin_template.h
+ D csrc/libtorch_stable/moe/marlin_moe_wna16/ops.cu
+ D csrc/libtorch_stable/quantization/marlin/.gitignore
+ D csrc/libtorch_stable/quantization/marlin/awq_marlin_repack.cu
+ D csrc/libtorch_stable/quantization/marlin/dequant.h
+ D csrc/libtorch_stable/quantization/marlin/generate_kernels.py
+ D csrc/libtorch_stable/quantization/marlin/gptq_marlin_repack.cu
+ D csrc/libtorch_stable/quantization/marlin/kernel.h
+ D csrc/libtorch_stable/quantization/marlin/marlin.cu
+ D csrc/libtorch_stable/quantization/marlin/marlin.cuh
+ D csrc/libtorch_stable/quantization/marlin/marlin_dtypes.cuh
+ D csrc/libtorch_stable/quantization/marlin/marlin_int4_fp8_preprocess.cu
+ D csrc/libtorch_stable/quantization/marlin/marlin_mma.h
+ D csrc/libtorch_stable/quantization/marlin/marlin_template.h
+!! tools/__pycache__/
+!! vllm/__pycache__/
+!! vllm/logging_utils/__pycache__/
+!! vllm/platforms/__pycache__/
+!! vllm/plugins/__pycache__/
+!! vllm/third_party/__pycache__/
+!! vllm/utils/__pycache__/
+!! vllm/v1/__pycache__/
+!! vllm/v1/attention/__pycache__/
+!! vllm/v1/attention/backends/__pycache__/

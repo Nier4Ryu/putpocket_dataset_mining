@@ -1,0 +1,5 @@
+Correction: restored tracked upstream vLLM marlin source directories after cleanup verification showed they were tracked source, not disposable build output.
+Restored paths:
+externals/vllm/csrc/libtorch_stable/moe/marlin_moe_wna16
+externals/vllm/csrc/libtorch_stable/quantization/marlin
+Tracked status after correction:

@@ -1,0 +1,47 @@
+which_python=/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/python
+python_version=Python 3.13.14
+uv_version=uv 0.11.31 (x86_64-unknown-linux-gnu)
+cuda_home=/usr/local/cuda-12.9
+torch_cuda_arch_list=
+nvcc: nvcc: NVIDIA (R) Cuda compiler driver
+nvcc: Copyright (c) 2005-2025 NVIDIA Corporation
+nvcc: Built on Wed_Apr__9_19:24:57_PDT_2025
+nvcc: Cuda compilation tools, release 12.9, V12.9.41
+nvcc: Build cuda_12.9.r12.9/compiler.35813241_0
+{
+  "cuda_available": true,
+  "gpu_caps": [
+    [
+      12,
+      0
+    ],
+    [
+      12,
+      0
+    ],
+    [
+      12,
+      0
+    ]
+  ],
+  "gpu_count": 3,
+  "gpu_names": [
+    "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+  ],
+  "lmcache_path": "/home/dyryu/putpocket_dataset_mining/externals/lmcache/lmcache/__init__.py",
+  "lmcache_sha": "72eb0e375bcf0739a45046433f46ee32be361656",
+  "putpocket_path": "/home/dyryu/putpocket_dataset_mining/src/putpocket_dataset_mining/__init__.py",
+  "python": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/python",
+  "python_version": "3.13.14",
+  "torch": "2.11.0+cu129",
+  "torch_cuda": "12.9",
+  "torch_direct_url": {
+    "archive_info": {},
+    "url": "https://download-r2.pytorch.org/whl/cu129/torch-2.11.0%2Bcu129-cp313-cp313-manylinux_2_28_x86_64.whl"
+  },
+  "vllm_path": "/home/dyryu/putpocket_dataset_mining/externals/vllm/vllm/__init__.py",
+  "vllm_sha": "568afb3a13806beb53bb2e6bd518269357b237c0",
+  "vllm_version": "0.26.0"
+}

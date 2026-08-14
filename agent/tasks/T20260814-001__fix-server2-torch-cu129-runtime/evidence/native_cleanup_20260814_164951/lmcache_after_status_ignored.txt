@@ -1,0 +1,4 @@
+!! lmcache/__pycache__/
+!! lmcache/v1/__pycache__/
+!! lmcache/v1/compute/__pycache__/
+!! lmcache/v1/compute/models/__pycache__/

@@ -1,0 +1,10 @@
+!! tools/__pycache__/
+!! vllm/__pycache__/
+!! vllm/logging_utils/__pycache__/
+!! vllm/platforms/__pycache__/
+!! vllm/plugins/__pycache__/
+!! vllm/third_party/__pycache__/
+!! vllm/utils/__pycache__/
+!! vllm/v1/__pycache__/
+!! vllm/v1/attention/__pycache__/
+!! vllm/v1/attention/backends/__pycache__/

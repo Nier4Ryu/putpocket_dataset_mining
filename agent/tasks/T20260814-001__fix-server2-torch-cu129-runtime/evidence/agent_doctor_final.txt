@@ -1,0 +1,38 @@
+[32;20m[2026-08-14 17:41:24,020] LMCache INFO:[0m Using backend: lmcache.c_ops [3m(__init__.py:61:lmcache)[0m
+{
+  "active_env": "/home/dyryu/putpocket_dataset_mining/Putpocket_env",
+  "branch": "master",
+  "canonical_root": "/home/dyryu/putpocket_dataset_mining",
+  "checkout_root": "/home/dyryu/putpocket_dataset_mining",
+  "editable_direct_urls": {
+    "lmcache": "file:///home/dyryu/putpocket_dataset_mining/externals/lmcache",
+    "putpocket-dataset-mining": "file:///home/dyryu/putpocket_dataset_mining",
+    "vllm": "file:///home/dyryu/putpocket_dataset_mining/externals/vllm"
+  },
+  "execution_context": "canonical-runtime",
+  "external_roots": {
+    "lmcache": {
+      "head": "72eb0e375bcf0739a45046433f46ee32be361656",
+      "path": "/home/dyryu/putpocket_dataset_mining/externals/lmcache"
+    },
+    "vllm": {
+      "head": "568afb3a13806beb53bb2e6bd518269357b237c0",
+      "path": "/home/dyryu/putpocket_dataset_mining/externals/vllm"
+    }
+  },
+  "head": "41c398ba8006fd1d3ab1e0b39566ee344d529d32",
+  "module_origins": {
+    "lmcache": "/home/dyryu/putpocket_dataset_mining/externals/lmcache/lmcache/__init__.py",
+    "putpocket_dataset_mining": "/home/dyryu/putpocket_dataset_mining/src/putpocket_dataset_mining/__init__.py",
+    "vllm": "/home/dyryu/putpocket_dataset_mining/externals/vllm/vllm/__init__.py"
+  },
+  "origin_master": "41c398ba8006fd1d3ab1e0b39566ee344d529d32",
+  "path_leakage": [],
+  "production_allowed": true,
+  "production_command_permission": true,
+  "python_executable": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/python",
+  "pythonpath_leakage": [],
+  "source_ownership": "CANONICAL_SOURCE_OWNERSHIP_OK",
+  "sys_prefix": "/home/dyryu/putpocket_dataset_mining/Putpocket_env",
+  "worktree_root": "/home/dyryu/putpocket_dataset_mining_worktrees"
+}

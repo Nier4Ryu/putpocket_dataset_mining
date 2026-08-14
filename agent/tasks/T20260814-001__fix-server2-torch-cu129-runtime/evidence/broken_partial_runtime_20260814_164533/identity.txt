@@ -1,0 +1,13 @@
+timestamp_kst=20260814_164533
+env=/home/dyryu/putpocket_dataset_mining/Putpocket_env
+9.2G	/home/dyryu/putpocket_dataset_mining/Putpocket_env
+python 3.13.14 /home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/python
+torch IMPORT_OK 2.11.0 /home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/torch/__init__.py
+vllm IMPORT_FAIL 0.26.0+cu129 ImportError libcudart.so.12: cannot open shared object file: No such file or directory
+lmcache IMPORT_FAIL metadata unavailable: No package metadata was found for lmcache ModuleNotFoundError No module named 'lmcache'
+putpocket_dataset_mining IMPORT_OK 0.5.0 /home/dyryu/putpocket_dataset_mining/src/putpocket_dataset_mining/__init__.py
+torch_version 2.11.0+cu130
+torch_cuda 13.0
+externals/vllm 568afb3a13806beb53bb2e6bd518269357b237c0
+externals/lmcache 72eb0e375bcf0739a45046433f46ee32be361656
+/bin/bash: line 34: nvcc: command not found

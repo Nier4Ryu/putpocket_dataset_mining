@@ -112,10 +112,10 @@ def checkout_external(name: str) -> ExternalRepo:
                 else:
                     _run_git(repo.path, ["switch", "-c", repo.branch, "--track", f"origin/{repo.branch}"])
             _run_git(repo.path, ["merge", "--ff-only", f"origin/{repo.branch}"])
+        elif repo.ref:
+            _run_git(repo.path, ["fetch", "origin", repo.ref])
         else:
             _run_git(repo.path, ["fetch", "origin"])
-        if repo.ref:
-            _run_git(repo.path, ["fetch", "origin", repo.ref])
         if repo.sha:
             head = _run_git(repo.path, ["rev-parse", "HEAD"]).stdout.strip()
             if head != repo.sha:

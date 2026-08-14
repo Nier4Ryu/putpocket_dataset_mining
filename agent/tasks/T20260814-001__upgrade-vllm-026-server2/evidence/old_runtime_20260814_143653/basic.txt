@@ -1,0 +1,3 @@
+environment=/home/dyryu/putpocket_dataset_mining/Putpocket_env
+11G	/home/dyryu/putpocket_dataset_mining/Putpocket_env
+Python 3.13.14

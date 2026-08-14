@@ -1,0 +1,27 @@
+{
+  "executable": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/bin/python",
+  "externals": {
+    "lmcache": "72eb0e375bcf0739a45046433f46ee32be361656",
+    "vllm": "b65d39ddbab966bb72110056a481d17e4726892b"
+  },
+  "modules": {
+    "lmcache": {
+      "file": "/home/dyryu/putpocket_dataset_mining/externals/lmcache/lmcache/__init__.py",
+      "version": "0.1.dev1451"
+    },
+    "putpocket_dataset_mining": {
+      "file": "/home/dyryu/putpocket_dataset_mining/src/putpocket_dataset_mining/__init__.py",
+      "version": "0.5.0"
+    },
+    "torch": {
+      "cuda": "12.9",
+      "file": "/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/torch/__init__.py",
+      "version": "2.10.0+cu129"
+    },
+    "vllm": {
+      "file": "/home/dyryu/putpocket_dataset_mining/externals/vllm/vllm/__init__.py",
+      "version": "0.1.dev15375+gb65d39ddb"
+    }
+  },
+  "python": "3.13.14"
+}

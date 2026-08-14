@@ -1,0 +1,7 @@
+/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/putpocket_dataset_mining-0.5.0.dist-info/direct_url.json
+{"dir_info": {"editable": true}, "url": "file:///home/dyryu/putpocket_dataset_mining"}/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/vllm-0.1.dev15375+gb65d39ddb.dist-info/direct_url.json
+{"dir_info": {"editable": true}, "url": "file:///home/dyryu/putpocket_dataset_mining/externals/vllm"}/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/lmcache-0.1.dev1451.dist-info/direct_url.json
+{"dir_info": {"editable": true}, "url": "file:///home/dyryu/putpocket_dataset_mining/externals/lmcache"}/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/deep_gemm-2.3.0+477618c.dist-info/direct_url.json
+{"url":"file:///tmp/tmp.ZUePBwYgaH/deepgemm/dist/deep_gemm-2.3.0+477618c-cp313-cp313-linux_x86_64.whl","archive_info":{}}/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/vllm-0.1.dev15375+gb65d39ddb.dist-info/direct_url.json
+{"dir_info": {"editable": true}, "url": "file:///home/dyryu/putpocket_dataset_mining/externals/vllm"}/home/dyryu/putpocket_dataset_mining/Putpocket_env/lib/python3.13/site-packages/lmcache-0.1.dev1451.dist-info/direct_url.json
+{"dir_info": {"editable": true}, "url": "file:///home/dyryu/putpocket_dataset_mining/externals/lmcache"}

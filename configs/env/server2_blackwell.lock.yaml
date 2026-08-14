@@ -1,53 +1,69 @@
-schema_version: 1
-environment:
-  name: server2
-  path: /home/dyryu/putpocket_dataset_mining/Putpocket_env
-  manager: uv
-  python: 3.13.14
-hardware:
-  profile: server2_blackwell
-  cuda_home: /usr/local/cuda-12.9
-  torch_cuda_arch_list: '12.0'
-python_packages:
-  torch: 2.11.0
-  torch_wheel:
-    url: https://files.pythonhosted.org/packages/3d/e1/b73f7c575a4b8f87a5928f50a1e35416b5e27295d8be9397d5293e7e8d4c/torch-2.11.0-cp313-cp313-manylinux_2_28_x86_64.whl
-    sha256: cc89b9b173d9adfab59fd227f0ab5e5516d9a52b658ae41d64e59d2e55a418db
-    python_abi: cp313-cp313-manylinux_2_28_x86_64
-    torch_cuda: '13.0'
-  ray: 2.55.1
-  datasets: 5.0.0
-  transformers: 5.14.1
-externals:
-  vllm:
-    path: /home/dyryu/putpocket_dataset_mining/externals/vllm
-    exists: true
-    tag: v0.26.0
-    ref: releases/v0.26.0
-    head: 568afb3a13806beb53bb2e6bd518269357b237c0
-    remote: https://github.com/vllm-project/vllm.git
-    install_mode: editable
-    expected_version: 0.26.0
-    dirty: false
-  lmcache:
-    path: /home/dyryu/putpocket_dataset_mining/externals/lmcache
-    exists: true
-    head: 72eb0e375bcf0739a45046433f46ee32be361656
-    remote: https://github.com/Nier4Ryu/LMCache_mod.git
-    dirty: false
-  cline:
-    path: /home/dyryu/putpocket_dataset_mining/externals/cline
-    exists: true
-    head: 03f47045f338dcb6ac45b1ac1d6279a78be2b118
-    remote: https://github.com/Nier4Ryu/cline_mod.git
-    dirty: false
-docker:
-  episode_images:
-  - tag: putpocket-default-python:ubuntu22.04-py313-v1
-cache:
-  huggingface_home: /data/shared/hf_cache/hub
-build:
-  max_jobs: '8'
-  cmake_parallel_level: '8'
-  cargo_build_jobs: '8'
-  nvcc_threads: '1'
+{
+  "schema_version": 1,
+  "environment": {
+    "name": "server2",
+    "path": "/home/dyryu/putpocket_dataset_mining/Putpocket_env",
+    "manager": "uv",
+    "python": "3.13.14"
+  },
+  "hardware": {
+    "profile": "server2_blackwell",
+    "cuda_home": "/usr/local/cuda-12.9",
+    "torch_cuda_arch_list": "12.0"
+  },
+  "python_packages": {
+    "torch": "2.11.0",
+    "torch_wheel": {
+      "url": "https://files.pythonhosted.org/packages/3d/e1/b73f7c575a4b8f87a5928f50a1e35416b5e27295d8be9397d5293e7e8d4c/torch-2.11.0-cp313-cp313-manylinux_2_28_x86_64.whl",
+      "sha256": "cc89b9b173d9adfab59fd227f0ab5e5516d9a52b658ae41d64e59d2e55a418db",
+      "python_abi": "cp313-cp313-manylinux_2_28_x86_64",
+      "torch_cuda": "13.0"
+    },
+    "ray": "2.55.1",
+    "datasets": "5.0.0",
+    "transformers": "5.14.1"
+  },
+  "externals": {
+    "vllm": {
+      "path": "/home/dyryu/putpocket_dataset_mining/externals/vllm",
+      "exists": true,
+      "tag": "v0.26.0",
+      "ref": "releases/v0.26.0",
+      "head": "568afb3a13806beb53bb2e6bd518269357b237c0",
+      "remote": "https://github.com/vllm-project/vllm.git",
+      "install_mode": "editable",
+      "expected_version": "0.26.0",
+      "dirty": false
+    },
+    "lmcache": {
+      "path": "/home/dyryu/putpocket_dataset_mining/externals/lmcache",
+      "exists": true,
+      "head": "72eb0e375bcf0739a45046433f46ee32be361656",
+      "remote": "https://github.com/Nier4Ryu/LMCache_mod.git",
+      "dirty": false
+    },
+    "cline": {
+      "path": "/home/dyryu/putpocket_dataset_mining/externals/cline",
+      "exists": true,
+      "head": "03f47045f338dcb6ac45b1ac1d6279a78be2b118",
+      "remote": "https://github.com/Nier4Ryu/cline_mod.git",
+      "dirty": false
+    }
+  },
+  "docker": {
+    "episode_images": [
+      {
+        "tag": "putpocket-default-python:ubuntu22.04-py313-v1"
+      }
+    ]
+  },
+  "cache": {
+    "huggingface_home": "/data/shared/hf_cache/hub"
+  },
+  "build": {
+    "max_jobs": "8",
+    "cmake_parallel_level": "8",
+    "cargo_build_jobs": "8",
+    "nvcc_threads": "1"
+  }
+}

@@ -510,20 +510,20 @@ def _ensure_server2_runtime_packages(run: BootstrapRun, env: dict[str, str]) -> 
         if packages.get(name):
             install_specs.append(f"{name}=={packages[name]}")
     if install_specs:
-        _command([str(py), "-m", "pip", "install", *install_specs], check=True, log=run.path("runtime_package_sync.log"), env=env)
+        _command(_pip_install_cmd(py, install_specs), check=True, log=run.path("runtime_package_sync.log"), env=env)
 
 
 def _ensure_project_editable(run: BootstrapRun) -> None:
     py = SERVER2_ENV / "bin" / "python"
     if not py.exists():
         raise ConfigError(f"Missing canonical Python: {py}")
-    _command([str(py), "-m", "pip", "install", "setuptools==80.9.0"], check=True, log=run.path("package_sync.log"))
+    _command(_pip_install_cmd(py, ["setuptools==80.9.0"]), check=True, log=run.path("package_sync.log"))
     probe = _command([str(py), "-c", "import putpocket_dataset_mining; print(putpocket_dataset_mining.__file__)"], check=False)
     console_scripts = ["putpocket-dataset-mining", "putpocket-remote-verifier", "putpocket-agent"]
     console_ok = all((SERVER2_ENV / "bin" / name).exists() for name in console_scripts)
     if probe["returncode"] == 0 and str(REPO_ROOT / "src") in probe["stdout"] and console_ok:
         return
-    _command([str(py), "-m", "pip", "install", "-e", f"{REPO_ROOT}[dev]"], check=True, log=run.path("project_install.log"))
+    _command(_pip_install_cmd(py, ["-e", f"{REPO_ROOT}[dev]"]), check=True, log=run.path("project_install.log"))
 
 
 def _ensure_externals(run: BootstrapRun, *, force_vllm: bool, cuda_arch_list: str | None = None, env: dict[str, str] | None = None) -> None:
@@ -544,15 +544,15 @@ def _ensure_externals(run: BootstrapRun, *, force_vllm: bool, cuda_arch_list: st
             build_requirements = vllm_root / "requirements" / "build.txt"
         for label, req in (("runtime", cuda_requirements), ("build", build_requirements)):
             if req.exists():
-                _command([str(py), "-m", "pip", "install", "-r", str(req)], check=True, log=run.path(f"vllm_{label}_requirements.log"), env=build_env)
+                _command(_pip_install_cmd(py, ["-r", str(req)]), check=True, log=run.path(f"vllm_{label}_requirements.log"), env=build_env)
         _command(
-            [str(py), "-m", "pip", "install", "--no-build-isolation", "-e", str(SERVER2_EXTERNALS / "vllm")],
+            _pip_install_cmd(py, ["--no-build-isolation", "-e", str(SERVER2_EXTERNALS / "vllm")]),
             check=True,
             log=run.path("externals_install.log"),
             env=build_env,
         )
         _command(
-            [str(py), "-m", "pip", "install", "--no-build-isolation", "-e", str(SERVER2_EXTERNALS / "lmcache")],
+            _pip_install_cmd(py, ["--no-build-isolation", "-e", str(SERVER2_EXTERNALS / "lmcache")]),
             check=True,
             log=run.path("lmcache_install.log"),
             env=build_env,
@@ -575,7 +575,7 @@ def _doctor(run: BootstrapRun, *, skip_docker: bool) -> dict[str, Any]:
     py = SERVER2_ENV / "bin" / "python"
     checks["python"] = _command([str(py), "-V"], check=False)
     uv = SERVER2_ENV / "bin" / "uv"
-    checks["uv_pip_check"] = _command([str(uv), "pip", "check"], check=False) if uv.exists() else _command([str(py), "-m", "pip", "check"], check=False)
+    checks["uv_pip_check"] = _command(_pip_check_cmd(py), check=False)
     imports = (
         "import torch, ray, datasets, transformers, vllm, lmcache, putpocket_dataset_mining\n"
         "print(torch.__version__)\n"
@@ -650,11 +650,37 @@ def _write_before_snapshot() -> None:
     _write_text(root / "python_version.txt", f"{manifest.get('python', 'unknown')} {manifest.get('executable', '')}\n")
     py = SERVER2_ENV / "bin" / "python"
     if py.exists():
-        freeze = _command([str(py), "-m", "pip", "freeze"], check=False)
+        freeze = _command(_pip_freeze_cmd(py), check=False)
         _write_text(root / "pip_freeze.txt", freeze["stdout"] + freeze["stderr"])
     else:
         _write_text(root / "pip_freeze.txt", "environment_missing\n")
     _write_json(root / "external_revisions.json", manifest.get("externals", {}))
+
+
+def _uv_executable() -> str | None:
+    uv = shutil.which("uv")
+    return uv if uv else None
+
+
+def _pip_install_cmd(py: Path, args: list[str]) -> list[str]:
+    uv = _uv_executable()
+    if uv:
+        return [uv, "pip", "install", "--python", str(py), *args]
+    return [str(py), "-m", "pip", "install", *args]
+
+
+def _pip_check_cmd(py: Path) -> list[str]:
+    uv = _uv_executable()
+    if uv:
+        return [uv, "pip", "check", "--python", str(py)]
+    return [str(py), "-m", "pip", "check"]
+
+
+def _pip_freeze_cmd(py: Path) -> list[str]:
+    uv = _uv_executable()
+    if uv:
+        return [uv, "pip", "freeze", "--python", str(py)]
+    return [str(py), "-m", "pip", "freeze"]
 
 
 def _write_contract(manifest: dict[str, Any]) -> None:

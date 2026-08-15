@@ -28,9 +28,15 @@ completion criteria:
   - tests pass
   - task-local TO_GPT handoff exists
 validation:
-  - pending tracked cleanup validation
+  - git diff --check: PASS
+  - git diff --cached --check: PASS
+  - bash -n scripts/env/*.sh: PASS
+  - compileall src tests: PASS
+  - unittest discover: PASS, 181 tests
+  - focused pytest: PASS, 72 tests and 14 subtests
+  - canonical runtime regression: PASS
 artifacts:
   - agent/tasks/T20260815-001__repository-hygiene-post-vllm026/
 commits:
-  - pending
-final handoff link: pending
+  - c10b12d01e1f2853604aaac5fce16e449afcc1de chore(repo): remove legacy environment artifacts
+final handoff link: agent/tasks/T20260815-001__repository-hygiene-post-vllm026/handoffs/TO_GPT_20260815-162151.md

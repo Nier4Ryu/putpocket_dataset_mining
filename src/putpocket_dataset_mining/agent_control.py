@@ -22,8 +22,6 @@ from typing import Any
 TASK_RE = re.compile(r"^T(?P<date>\d{8})-(?P<seq>\d{3})__(?P<topic>[a-z0-9][a-z0-9-]*)$")
 DEFAULT_FORBIDDEN_PATHS = [
     "Putpocket_env/",
-    "Putpocket_env_glm52/",
-    "Putpocket_env_glm52_v025/",
     "data/",
     "logs/",
     "models/",
@@ -673,7 +671,7 @@ def _read_local_config(path: Path) -> dict[str, str]:
 
 
 def _leakage(value: str, cfg: AgentConfig) -> list[str]:
-    return [p for p in value.split(os.pathsep) if p.startswith(str(cfg.worktree_root)) or "Putpocket_env_glm52" in p]
+    return [p for p in value.split(os.pathsep) if p.startswith(str(cfg.worktree_root))]
 
 
 def _head(path: Path) -> str:

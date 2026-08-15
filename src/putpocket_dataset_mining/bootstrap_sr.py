@@ -40,7 +40,6 @@ CANONICAL_SERVER2_ROOT = Path(os.environ.get("PUTPOCKET_CANONICAL_SERVER2_ROOT",
 SERVER2_ENV = CANONICAL_SERVER2_ROOT / "Putpocket_env"
 SERVER2_EXTERNALS = CANONICAL_SERVER2_ROOT / "externals"
 SERVER2_LOCK = REPO_ROOT / "configs" / "env" / "server2_blackwell.lock.yaml"
-LEGACY_ENV_NAMES = ("Putpocket_env_glm52", "Putpocket_env_glm52_v025")
 
 
 @dataclass(frozen=True)
@@ -426,7 +425,6 @@ def _run_server2_preset_locked(args: argparse.Namespace, run: BootstrapRun, plan
     _write_json(run.path("environment_after.json"), after)
     if not args.doctor_only:
         _write_contract(after)
-    _write_legacy_environment_manifest()
     _write_summary(run, plan, before, after, doctor)
     if doctor["status"] != "passed":
         return 1
@@ -871,20 +869,6 @@ def _write_contract(manifest: dict[str, Any]) -> None:
         out.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     else:
         out.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-
-
-def _write_legacy_environment_manifest() -> None:
-    items = []
-    for name in LEGACY_ENV_NAMES:
-        path = REPO_ROOT / name
-        item = {"path": str(path), "classification": "LEGACY_BACKUP_NOT_ACTIVE", "exists": path.exists()}
-        py = path / "bin" / "python"
-        if py.exists():
-            item["python"] = _command([str(py), "-V"], check=False)["stdout"].strip()
-        items.append(item)
-    out = REPO_ROOT / "logs" / "env_consolidation" / "legacy_environments.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    _write_json(out, {"schema_version": 1, "legacy_environments": items})
 
 
 def _write_summary(run: BootstrapRun, plan: dict[str, Any], before: dict[str, Any], after: dict[str, Any], doctor: dict[str, Any]) -> None:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -94,25 +93,17 @@ class BootstrapSrTests(unittest.TestCase):
         self.assertIn('"doctor_only": true', rendered)
         self.assertIn('"mutations": []', rendered)
 
-    def test_bootstrap_env_delegates_to_canonical_preset(self) -> None:
-        script = self.repo_root / "scripts" / "env" / "bootstrap_env.sh"
-        result = subprocess.run([str(script), "--dry-run"], cwd=self.repo_root, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('"preset": "server2"', result.stdout)
-        self.assertIn("delegating to bootstrap_sr.sh --preset server2", result.stderr)
-
-    def test_legacy_glm_bootstrap_requires_explicit_opt_in(self) -> None:
-        for name in ("bootstrap_glm52_env.sh", "bootstrap_glm52_v025_env.sh"):
-            script = self.repo_root / "scripts" / "env" / name
-            result = subprocess.run([str(script), "--help"], cwd=self.repo_root, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            self.assertEqual(result.returncode, 2)
-            self.assertIn("PUTPOCKET_ALLOW_LEGACY_GLM_ENV=1", result.stderr)
+    def test_scripts_env_surface_is_canonical_entrypoints_only(self) -> None:
+        files = sorted(path.name for path in (self.repo_root / "scripts" / "env").glob("*.sh"))
+        self.assertEqual(files, ["bootstrap_sr.sh", "env_activate.sh"])
+        self.assertFalse((self.repo_root / "scripts" / "env" / "legacy").exists())
 
     def test_activation_script_does_not_set_cuda_visible_devices(self) -> None:
         script = self.repo_root / "scripts" / "env" / "env_activate.sh"
         text = script.read_text(encoding="utf-8")
         self.assertNotIn("export CUDA_VISIBLE_DEVICES", text)
-        self.assertIn("Putpocket_env_glm52", text)
+        self.assertNotIn("pip install", text)
+        self.assertNotIn("uv pip install", text)
 
 
 if __name__ == "__main__":

@@ -50,12 +50,6 @@ esac
 export PUTPOCKET_REPO_ROOT="${PUTPOCKET_DATASET_MINING_ROOT}"
 
 _putpocket_venv="${PUTPOCKET_ENV_PATH:-${PUTPOCKET_CANONICAL_SERVER2_ENV:-${PUTPOCKET_DATASET_MINING_ROOT}/Putpocket_env}}"
-case "${VIRTUAL_ENV:-}" in
-  *Putpocket_env_glm52*|*Putpocket_env_glm52_v025*)
-    echo "Refusing to activate Server-2 env from legacy GLM environment: ${VIRTUAL_ENV}" >&2
-    return 2
-    ;;
-esac
 
 if [[ ! -f "${_putpocket_venv}/bin/activate" ]]; then
   echo "Putpocket_env was not found at ${_putpocket_venv}." >&2
@@ -133,13 +127,6 @@ fi
 
 # shellcheck disable=SC1091
 source "${_putpocket_venv}/bin/activate"
-
-case ":${PATH}:${PYTHONPATH:-}:" in
-  *Putpocket_env_glm52*|*Putpocket_env_glm52_v025*)
-    echo "Legacy GLM environment leaked into PATH/PYTHONPATH." >&2
-    return 2
-    ;;
-esac
 
 echo "Putpocket env activated"
 echo "  context: ${PUTPOCKET_EXECUTION_CONTEXT}"

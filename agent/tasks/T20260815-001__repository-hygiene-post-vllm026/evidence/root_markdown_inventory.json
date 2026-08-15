@@ -1,0 +1,203 @@
+[
+  {
+    "basename": "AGENT_FEED_IMPLEMENT_PROMPT.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "e043f77 2026-07-22 Configure Blackwell environment and GLM evaluation",
+    "path": "/home/dyryu/putpocket_dataset_mining/AGENT_FEED_IMPLEMENT_PROMPT.md",
+    "references_outside_legacy_root_reports": [
+      "./README_TREE.md:16:\u251c\u2500\u2500 AGENT_FEED_IMPLEMENT_PROMPT.md",
+      "./README_TREE.md:75:  - < AGENT_FEED_IMPLEMENT_PROMPT.md",
+      "./README_TREE.md:116:codex exec   --cd .   --sandbox workspace-write   --ask-for-approval on-request   - < AGENT_FEED_IMPLEMENT_PROMPT.md"
+    ],
+    "size_bytes": 1919,
+    "tracked": true
+  },
+  {
+    "basename": "AGENT_FEED_REVIEW_PROMPT.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "e043f77 2026-07-22 Configure Blackwell environment and GLM evaluation",
+    "path": "/home/dyryu/putpocket_dataset_mining/AGENT_FEED_REVIEW_PROMPT.md",
+    "references_outside_legacy_root_reports": [
+      "./README_TREE.md:15:\u251c\u2500\u2500 AGENT_FEED_REVIEW_PROMPT.md",
+      "./README_TREE.md:51:  - < AGENT_FEED_REVIEW_PROMPT.md",
+      "./README_TREE.md:110:codex exec   --cd .   --sandbox read-only   --ask-for-approval never   - < AGENT_FEED_REVIEW_PROMPT.md"
+    ],
+    "size_bytes": 1119,
+    "tracked": true
+  },
+  {
+    "basename": "AGENT_GLM_EVAL_AUDIT_PROMPT.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "e043f77 2026-07-22 Configure Blackwell environment and GLM evaluation",
+    "path": "/home/dyryu/putpocket_dataset_mining/AGENT_GLM_EVAL_AUDIT_PROMPT.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 10705,
+    "tracked": true
+  },
+  {
+    "basename": "AGENT_GLM_EVAL_GOAL_PROMPT.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "e043f77 2026-07-22 Configure Blackwell environment and GLM evaluation",
+    "path": "/home/dyryu/putpocket_dataset_mining/AGENT_GLM_EVAL_GOAL_PROMPT.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 11664,
+    "tracked": true
+  },
+  {
+    "basename": "AGENT_PROMPT_ARCHITECTURE_AUDIT.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "40d1515 2026-07-22 Cannot no longer run on RTX3090, moving to Blackwell, Backup before that",
+    "path": "/home/dyryu/putpocket_dataset_mining/AGENT_PROMPT_ARCHITECTURE_AUDIT.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 7211,
+    "tracked": true
+  },
+  {
+    "basename": "AGENT_GLM_EVAL_GOAL_RUN_COMMANDS.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "40d1515 2026-07-22 Cannot no longer run on RTX3090, moving to Blackwell, Backup before that",
+    "path": "/home/dyryu/putpocket_dataset_mining/AGENT_GLM_EVAL_GOAL_RUN_COMMANDS.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 834,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "e043f77 2026-07-22 Configure Blackwell environment and GLM evaluation",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 8662,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_26_07_29_16_02_43.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "b4423b1 2026-07-29 Report GLM dtype-auto dataset forwarding subset",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_26_07_29_16_02_43.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 12270,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_BLACKWELL.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "0c242a8 2026-07-23 Update Blackwell push status",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_BLACKWELL.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 14008,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_ENV_BOOTSTRAP.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "e043f77 2026-07-22 Configure Blackwell environment and GLM evaluation",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_ENV_BOOTSTRAP.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 17047,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_ENV_SETUP_AUDIT.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "e043f77 2026-07-22 Configure Blackwell environment and GLM evaluation",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_ENV_SETUP_AUDIT.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 24794,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_FLASHINFER_VLLM025_LINK_AUDIT.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "f8065c6 2026-07-23 Document FlashInfer vLLM 0.25 link audit",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_FLASHINFER_VLLM025_LINK_AUDIT.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 12221,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_GLM52_VLLM023.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "5f73d4d 2026-07-23 Record GLM vLLM 0.23 report status",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_GLM52_VLLM023.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 8800,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_GLM52_VLLM025.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "08ab054 2026-07-23 Update GLM vLLM 0.25 report status",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_GLM52_VLLM025.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 13457,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_GLM_DOCKER_AGENT_EVAL.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "e034f49 2026-07-23 Document GLM Docker serving blocker",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_GLM_DOCKER_AGENT_EVAL.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 13214,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_GLM_H192_KERNEL_WORKING.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "a775e7b 2026-07-24 Add GLM h192 Triton path experiment",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_GLM_H192_KERNEL_WORKING.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 11185,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_GLM_H192_SM120_KERNEL.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "16f3612 2026-07-23 Add GLM h192 SM120 sparse MLA integration experiment",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_GLM_H192_SM120_KERNEL.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 8794,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_GLM_H192_WORKING_IMPL.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "d4b865d 2026-07-23 Update GLM h192 implementation report status",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_GLM_H192_WORKING_IMPL.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 8718,
+    "tracked": true
+  },
+  {
+    "basename": "TO_GPT_GLM_VLLM_SERVE_SMOKE.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "2225e63 2026-07-23 Document GLM vLLM serve smoke results",
+    "path": "/home/dyryu/putpocket_dataset_mining/TO_GPT_GLM_VLLM_SERVE_SMOKE.md",
+    "references_outside_legacy_root_reports": [],
+    "size_bytes": 10898,
+    "tracked": true
+  },
+  {
+    "basename": "README_TREE.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "e043f77 2026-07-22 Configure Blackwell environment and GLM evaluation",
+    "path": "/home/dyryu/putpocket_dataset_mining/README_TREE.md",
+    "references_outside_legacy_root_reports": [
+      "./README_TREE.md:17:\u251c\u2500\u2500 README_TREE.md"
+    ],
+    "size_bytes": 3561,
+    "tracked": true
+  },
+  {
+    "basename": "audit_after_codex_20260707_162835.md",
+    "classification": "DELETE_TRACKED",
+    "last_commit": "40d1515 2026-07-22 Cannot no longer run on RTX3090, moving to Blackwell, Backup before that",
+    "path": "/home/dyryu/putpocket_dataset_mining/audit_after_codex_20260707_162835.md",
+    "references_outside_legacy_root_reports": [
+      "./audit_after_codex_20260707_162835.md:7:?? audit_after_codex_20260707_162835.md"
+    ],
+    "size_bytes": 5666,
+    "tracked": true
+  }
+]

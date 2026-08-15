@@ -1,0 +1,50 @@
+[
+  {
+    "active_processes": [],
+    "basename": "Putpocket_env",
+    "classification": "CANONICAL_KEEP",
+    "du_bytes": "12885241492",
+    "kind": "directory",
+    "mtime": "2026-08-14 16:53:21 +0900",
+    "path": "/home/dyryu/putpocket_dataset_mining/Putpocket_env",
+    "python_version": "Python 3.13.14",
+    "realpath": "/home/dyryu/putpocket_dataset_mining/Putpocket_env",
+    "tracked": false
+  },
+  {
+    "active_processes": [],
+    "basename": "Putpocket_env.pre_unification_20260812_143359",
+    "classification": "LEGACY_DELETE_CANDIDATE",
+    "du_bytes": "11316904900",
+    "kind": "directory",
+    "mtime": "2026-07-23 03:02:44 +0900",
+    "path": "/home/dyryu/putpocket_dataset_mining/Putpocket_env.pre_unification_20260812_143359",
+    "python_version": "Python 3.13.14",
+    "realpath": "/home/dyryu/putpocket_dataset_mining/Putpocket_env.pre_unification_20260812_143359",
+    "tracked": false
+  },
+  {
+    "active_processes": [],
+    "basename": "Putpocket_env_glm52",
+    "classification": "LEGACY_DELETE_CANDIDATE",
+    "du_bytes": "12576267697",
+    "kind": "directory",
+    "mtime": "2026-07-23 04:42:02 +0900",
+    "path": "/home/dyryu/putpocket_dataset_mining/Putpocket_env_glm52",
+    "python_version": "Python 3.13.14",
+    "realpath": "/home/dyryu/putpocket_dataset_mining/Putpocket_env_glm52",
+    "tracked": false
+  },
+  {
+    "active_processes": [],
+    "basename": "Putpocket_env_glm52_v025",
+    "classification": "LEGACY_DELETE_CANDIDATE",
+    "du_bytes": "12757541463",
+    "kind": "directory",
+    "mtime": "2026-07-23 07:15:29 +0900",
+    "path": "/home/dyryu/putpocket_dataset_mining/Putpocket_env_glm52_v025",
+    "python_version": "Python 3.13.14",
+    "realpath": "/home/dyryu/putpocket_dataset_mining/Putpocket_env_glm52_v025",
+    "tracked": false
+  }
+]

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import os
 import subprocess
 import tempfile
@@ -48,6 +47,8 @@ class AgentControlTests(unittest.TestCase):
         )
         self.assertIn("runtime mode: shared-python-overlay", text)
         self.assertIn("Putpocket_env/", text)
+        for suffix in ("glm52", "glm52_v025"):
+            self.assertNotIn(f"Putpocket_env_{suffix}/", text)
         self.assertIn("final handoff link", text)
 
     def test_activation_script_context_policy(self) -> None:

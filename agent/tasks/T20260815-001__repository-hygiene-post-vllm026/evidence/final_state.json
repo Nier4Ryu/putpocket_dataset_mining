@@ -1,0 +1,21 @@
+{
+  "deleted_env_dirs": [
+    "/home/dyryu/putpocket_dataset_mining/Putpocket_env.pre_unification_20260812_143359",
+    "/home/dyryu/putpocket_dataset_mining/Putpocket_env_glm52",
+    "/home/dyryu/putpocket_dataset_mining/Putpocket_env_glm52_v025"
+  ],
+  "env_entries": [
+    "Putpocket_env"
+  ],
+  "head": "3c1bdd8d0cf2994f1c7215aa2528e357bb49adf6",
+  "origin_master": "3c1bdd8d0cf2994f1c7215aa2528e357bb49adf6",
+  "reclaimed_environment_bytes": 36650714060,
+  "root_commands_markdown": [],
+  "root_prompt_markdown": [],
+  "root_to_gpt_markdown": [],
+  "schema_version": 1,
+  "scripts_env_files": [
+    "scripts/env/bootstrap_sr.sh",
+    "scripts/env/env_activate.sh"
+  ]
+}

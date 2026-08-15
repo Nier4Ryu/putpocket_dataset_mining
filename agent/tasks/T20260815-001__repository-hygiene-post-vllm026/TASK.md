@@ -2,7 +2,7 @@
 
 task identity: T20260815-001__repository-hygiene-post-vllm026
 objective: repository-hygiene-post-vllm026
-status: in_progress
+status: complete
 base tip: 442e51b6f301c0a7052f633dcd3c8706d7dd1a84
 branch: agent/T20260815-001__repository-hygiene-post-vllm026
 worktree: /home/dyryu/putpocket_dataset_mining_worktrees/T20260815-001__repository-hygiene-post-vllm026
@@ -35,8 +35,12 @@ validation:
   - unittest discover: PASS, 181 tests
   - focused pytest: PASS, 72 tests and 14 subtests
   - canonical runtime regression: PASS
+  - final post-deletion runtime regression: PASS
+  - final post-deletion unittest: PASS, 181 tests
+  - final post-deletion focused pytest: PASS, 72 tests and 14 subtests
 artifacts:
   - agent/tasks/T20260815-001__repository-hygiene-post-vllm026/
 commits:
   - c10b12d01e1f2853604aaac5fce16e449afcc1de chore(repo): remove legacy environment artifacts
+  - 3c1bdd8d0cf2994f1c7215aa2528e357bb49adf6 docs(agent): record repository hygiene handoff
 final handoff link: agent/tasks/T20260815-001__repository-hygiene-post-vllm026/handoffs/TO_GPT_20260815-162151.md

@@ -1,7 +1,7 @@
 # vLLM two-stage GLM-5.2 diagnostic handoff
 
-This handoff is completed after the implementation commit and push. Until the
-final commit fields below are filled, the package is not a checkout identity.
+This handoff records the tested implementation commit. The orchestrator must
+still supply measured CPU-site values before rendering or submission.
 
 ## Authoritative runtime
 
@@ -77,8 +77,14 @@ H200 GPUs, 32 CPUs, 512G, and six hours.
 
 ## Git/test result
 
-- source/final commit: `PENDING_FINAL_COMMIT`
+- implementation/source commit:
+  `bb33d316f47bbabba2ffcd6db9682b8e0b3b3fcc`
+- final branch tip: the docs-only handoff commit containing this record
 - pushed branch: `agent/T20260818-001__glm52-cluster-package-foundation`
-- focused tests: `PENDING_FINAL_TEST_COUNT`
-- broad safe CPU tests: `PENDING_FINAL_TEST_COUNT`
-- no Login/Slurm/tracker/GPU/model access: required and pending final confirmation
+- focused/regression tests: 106 passed plus 59 subtests
+- broad safe CPU tests: 284 passed plus 85 subtests; only
+  `tests/test_glm_h192_triton.py` was excluded because it queries CUDA
+- exact upstream preimage/patch/postimage validation: passed
+- shell syntax: both entrypoints, compiler wrapper, outer renderer, and both
+  decoded wrappers passed `bash -n`; shellcheck was unavailable
+- no Login/Slurm/tracker/GPU/model-weight access occurred

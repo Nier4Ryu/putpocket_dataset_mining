@@ -6,7 +6,7 @@ objective: >
   single-instance diagnostic as a two-stage CPU-build/H200-run Slurm package.
   The fixed official SWE-bench Pro row is diagnostic only and never permits a
   full benchmark or quality-threshold claim.
-status: vllm_two_stage_package_tested_awaiting_cpu_site_values
+status: vllm_two_stage_package_complete_awaiting_cpu_site_values
 stacked base tip: 819854e28ae170ef43722118dfc3d2a53f43c7ce
 superseded diagnostic tip: c1d4569de8089f41f60761b577232a37ff3aa451
 branch: agent/T20260818-001__glm52-cluster-package-foundation

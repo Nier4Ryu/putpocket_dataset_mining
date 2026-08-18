@@ -5,7 +5,7 @@ objective: >
   Deliver the phase-1 Git foundation for provider-neutral Cluster Center
   execution of full GLM-5.2 under Slurm: source/profile/environment contracts,
   dry rendering, allocation guards, provenance, and staged readiness only.
-status: in_progress
+status: completed
 base tip: 6e8f8920ff5074ffeb7073223fa88fc3ea65ee0d
 branch: agent/T20260818-001__glm52-cluster-package-foundation
 worktree: /home/dyryu/putpocket_dataset_mining_worktrees/T20260818-001__glm52-cluster-package-foundation
@@ -46,5 +46,6 @@ artifacts:
   - configs/cluster/
   - configs/env/cluster_h200_sm90_vllm026.lock.yaml
 commits:
-  - pending
-final handoff link: pending
+  - 1c3cfcf088da6433fefd4fe004ccd9b00de7419c (phase-1 source)
+  - task-closing handoff commit recorded by Git history
+final handoff link: agent/tasks/T20260818-001__glm52-cluster-package-foundation/handoffs/TO_GPT_20260818-091145.md

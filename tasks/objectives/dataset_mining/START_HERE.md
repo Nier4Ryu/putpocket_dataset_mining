@@ -84,6 +84,11 @@ Multi-sample mining must be a parallel master-worker controller:
 - Docker workspace is `/workspace` and host-mounted with host UID/GID to avoid permission problems.
 - Cross-repo dataset packaging/import is out of scope.
 
+Cluster Center experiment packages are in scope when delivered through exact
+Git commits and allocation-guarded Slurm jobs. Phase 1 supplies only the
+environment/profile/rendering/readiness foundation. SWE-bench quality execution
+and vLLM SM90 tracing remain separately reviewed later phases.
+
 ## Completion boundary
 
 The implementation is complete only when the repo can:

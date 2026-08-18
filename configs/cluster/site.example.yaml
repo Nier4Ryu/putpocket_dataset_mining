@@ -1,0 +1,29 @@
+schema_version: 1
+site:
+  partition: null
+  account: null
+  constraint: null
+  wall_time: null
+  cpus_per_task: null
+  repository_root: null
+  python_executable: null
+  uv_executable: null
+  git_executable: null
+  nvidia_smi_executable: null
+  nvcc_executable: null
+  environment_root: null
+  vllm_source_root: null
+  cache_root: null
+  checkpoint_root: null
+  artifact_root: null
+  slurm_log_root: null
+models:
+  glm52_nvfp4_tp1_pcp4_ep:
+    path: null
+    revision: null
+  glm52_nvfp4_tp2_pcp2_ep:
+    path: null
+    revision: null
+  glm52_fp8_tp8_reference:
+    path: null
+    revision: null

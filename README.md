@@ -2,6 +2,11 @@
 
 Standalone Dataset Mining implementation for MBPP-stateful Cline-style mining episodes.
 
+The repository also carries a provider-neutral, Git-delivered Cluster Center
+experiment-package foundation. `putpocket-cluster` validates GLM-5.2 profiles,
+renders Slurm jobs without submitting them, enforces compute-allocation guards,
+and performs staged readiness checks. See `docs/CLUSTER_GLM52_PHASE1.md`.
+
 The implementation follows `tasks/objectives/dataset_mining/objective.yaml` and keeps raw run artifacts under `data/dataset_mining/runs/`, the SQLite index at `data/dataset_mining/mining_index.sqlite`, and local materialized datasets under `data/dataset_mining/datasets/`.
 
 Basic commands:
@@ -14,6 +19,8 @@ putpocket-dataset-mining doctor
 putpocket-dataset-mining docker ensure-image
 putpocket-dataset-mining single --config configs/dataset_mining/mbpp_stateful_single.yaml --sample-index 0
 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile debug
+putpocket-cluster profiles validate
+putpocket-cluster readiness --profile glm52_nvfp4_tp1_pcp4_ep --stage static
 ```
 
 Runtime mining requires Docker, Codex CLI, HuggingFace dataset/model access, Transformers, and local vLLM Python engine availability. vLLM generation is invoked with already-rendered prompt strings; vLLM is never asked to apply a chat template internally.

@@ -4,6 +4,53 @@ Putpocket_env_glm52_v025/
 .local_python/
 externals/
 
+# Cluster experiment payloads. Keep schemas, profiles, templates, and small
+# source fixtures tracked; exclude only runtime/cache/checkpoint products.
+/models/
+/checkpoints/
+/hf_cache/
+/huggingface_cache/
+/.cache/huggingface/
+/.cache/huggingface/**
+/.cache/uv/
+/.cache/vllm/
+/.cache/torch/
+/.cache/deep_gemm/
+**/.cache/huggingface/
+**/.cache/huggingface/**
+**/.huggingface/
+**/.huggingface/**
+**/huggingface/hub/
+**/huggingface/hub/**
+**/hf_cache/
+**/hf_cache/**
+*.safetensors
+*.safetensors.index.json
+pytorch_model*.bin
+pytorch_model*.bin.index.json
+model-*-of-*.bin
+tf_model.h5
+flax_model.msgpack
+*.ckpt
+*.pt
+*.pth
+*.gguf
+!tests/fixtures/**
+!src/**/fixtures/**
+
+# Slurm captures and generated experiment/benchmark outputs.
+slurm-*.out
+slurm-*.err
+*.sbatch.out
+*.sbatch.err
+/cluster_artifacts/
+/experiment_artifacts/
+/benchmark_outputs/
+/swebench_outputs/
+/slurm_logs/
+/raw_experiment_artifacts/
+/data/model_evaluation/runs/
+
 data
 codex_runs/
 logs/
@@ -30,4 +77,3 @@ dist/
 .env
 .venv/
 venv/
-

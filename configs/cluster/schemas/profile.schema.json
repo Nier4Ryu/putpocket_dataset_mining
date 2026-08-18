@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "putpocket.cluster.profile.v1",
+  "type": "object",
+  "required": ["schema_version", "profile_id", "phase", "model", "hardware", "parallelism", "runtime", "readiness"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "profile_id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "phase": {"const": "1_foundation"},
+    "model": {
+      "type": "object",
+      "required": ["id", "path", "revision", "quantization"]
+    },
+    "hardware": {
+      "type": "object",
+      "required": ["accelerator_vendor", "accelerator_name_pattern", "compute_capability", "nodes", "gpus_per_node"]
+    },
+    "parallelism": {
+      "type": "object",
+      "required": ["tensor_parallel_size", "prefill_context_parallel_size", "expert_parallel"]
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["engine", "environment_lock", "engine_args"]
+    },
+    "readiness": {
+      "type": "object",
+      "required": ["accepted_quantization_markers", "required_imports"]
+    }
+  },
+  "additionalProperties": true
+}

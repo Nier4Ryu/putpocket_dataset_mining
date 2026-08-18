@@ -1,0 +1,21 @@
+schema_version: 1
+package_id: glm52_cluster_phase1_foundation
+claim_boundary: configuration_rendering_provenance_and_readiness_only
+environment_lock: configs/env/cluster_h200_sm90_vllm026.lock.yaml
+schemas:
+  profile: configs/cluster/schemas/profile.schema.json
+  site: configs/cluster/schemas/site.schema.json
+site_template: configs/cluster/site.example.yaml
+profiles:
+  - configs/cluster/profiles/glm52_nvfp4_tp1_pcp4_ep.yaml
+  - configs/cluster/profiles/glm52_nvfp4_tp2_pcp2_ep.yaml
+  - configs/cluster/profiles/glm52_fp8_tp8_reference.yaml
+slurm_job_kinds:
+  - environment
+  - readiness
+  - generation-handoff
+submission_implemented: false
+cluster_worker_edits_source: false
+deferred_extensions:
+  phase_2: swebench_pro_quality_adapter_target_ge_40
+  phase_3: vllm_026_sm90_trace_port

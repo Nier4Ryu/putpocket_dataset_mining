@@ -1,0 +1,77 @@
+schema_version: 1
+lock_id: cluster_h200_sm90_vllm026
+provenance_status: commit_addressed
+scope: provider_neutral_slurm_compute_allocation
+hardware:
+  accelerator_vendor: nvidia
+  accelerator_family: H200
+  compute_capability: "9.0"
+  torch_cuda_arch_list: "9.0"
+runtime:
+  uv:
+    version: 0.11.31
+  python:
+    implementation: cpython
+    version: 3.13.14
+    manager: uv
+  cuda:
+    toolkit_version: "12.9"
+  torch:
+    version: 2.11.0+cu129
+    source_index: https://download.pytorch.org/whl/cu129
+    wheel_url: https://download-r2.pytorch.org/whl/cu129/torch-2.11.0%2Bcu129-cp313-cp313-manylinux_2_28_x86_64.whl
+    wheel_sha256: fde1830d7f79641680865759dc57780e94a9de7e68a82ed61973e9bc7af29423
+    torch_cuda: "12.9"
+vllm:
+  repository: https://github.com/vllm-project/vllm.git
+  ref: releases/v0.26.0
+  tag: v0.26.0
+  commit: 568afb3a13806beb53bb2e6bd518269357b237c0
+  expected_version: 0.26.0
+  install_mode: editable_from_commit
+  source_clean_required: true
+flashinfer:
+  python_distribution: flashinfer-python
+  cubin_distribution: flashinfer-cubin
+  version: 0.6.14
+  source_index: https://flashinfer.ai/whl/
+  pin_source: vllm/requirements/cuda.txt@568afb3a13806beb53bb2e6bd518269357b237c0
+deepgemm:
+  source: vllm_vendored
+  module: vllm.third_party.deep_gemm
+  commit_source: 568afb3a13806beb53bb2e6bd518269357b237c0
+  required_symbols:
+    - fp8_gemm_nt
+    - m_grouped_fp8_gemm_nt_contiguous
+    - fp8_fp4_mqa_logits
+bootstrap:
+  preset: cluster-h200-sm90
+  allocation_required_for_execute: true
+  dry_run_allowed_outside_allocation: true
+  downloads_allowed_only_during_future_cluster_execution: true
+  build_environment:
+    TORCH_CUDA_ARCH_LIST: "9.0"
+    MAX_JOBS: configurable
+    CMAKE_BUILD_PARALLEL_LEVEL: configurable
+    NVCC_THREADS: "1"
+site_fields:
+  provider_values_embedded: false
+  required_external_values:
+    - repository_root
+    - python_executable
+    - uv_executable
+    - git_executable
+    - nvidia_smi_executable
+    - nvcc_executable
+    - environment_root
+    - vllm_source_root
+    - cache_root
+    - checkpoint_root
+    - artifact_root
+    - slurm_log_root
+    - wall_time
+    - cpus_per_task
+  optional_external_values:
+    - partition
+    - account
+    - constraint

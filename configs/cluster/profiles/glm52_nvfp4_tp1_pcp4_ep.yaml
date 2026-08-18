@@ -1,0 +1,38 @@
+schema_version: 1
+profile_id: glm52_nvfp4_tp1_pcp4_ep
+phase: 1_foundation
+model:
+  id: nvidia/GLM-5.2-NVFP4
+  path: null
+  revision: null
+  quantization: nvfp4
+hardware:
+  accelerator_vendor: nvidia
+  accelerator_name_pattern: H200
+  compute_capability: "9.0"
+  nodes: 1
+  gpus_per_node: 4
+parallelism:
+  tensor_parallel_size: 1
+  prefill_context_parallel_size: 4
+  expert_parallel: true
+runtime:
+  engine: vllm
+  environment_lock: configs/env/cluster_h200_sm90_vllm026.lock.yaml
+  engine_args:
+    - --tensor-parallel-size
+    - "1"
+    - --prefill-context-parallel-size
+    - "4"
+    - --enable-expert-parallel
+readiness:
+  accepted_quantization_markers: [nvfp4, fp4, modelopt]
+  required_imports:
+    torch: [__version__, cuda]
+    vllm: [__version__]
+    flashinfer: [__version__]
+    vllm.utils.deep_gemm: [is_deep_gemm_supported, _import_deep_gemm]
+    vllm.third_party.deep_gemm: [fp8_gemm_nt, m_grouped_fp8_gemm_nt_contiguous, fp8_fp4_mqa_logits]
+extensions:
+  phase_2_swebench_adapter: null
+  phase_3_sm90_trace_port: null

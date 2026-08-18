@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "putpocket.cluster.site.v1",
+  "type": "object",
+  "required": ["schema_version", "site", "models"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "site": {
+      "type": "object",
+      "required": ["wall_time", "cpus_per_task", "repository_root", "python_executable", "uv_executable", "git_executable", "nvidia_smi_executable", "nvcc_executable", "environment_root", "vllm_source_root", "cache_root", "checkpoint_root", "artifact_root", "slurm_log_root"],
+      "properties": {
+        "partition": {"type": ["string", "null"]},
+        "account": {"type": ["string", "null"]},
+        "constraint": {"type": ["string", "null"]},
+        "wall_time": {"type": ["string", "null"]},
+        "cpus_per_task": {"type": ["integer", "null"], "minimum": 1},
+        "repository_root": {"type": ["string", "null"]},
+        "python_executable": {"type": ["string", "null"]},
+        "uv_executable": {"type": ["string", "null"]},
+        "git_executable": {"type": ["string", "null"]},
+        "nvidia_smi_executable": {"type": ["string", "null"]},
+        "nvcc_executable": {"type": ["string", "null"]},
+        "environment_root": {"type": ["string", "null"]},
+        "vllm_source_root": {"type": ["string", "null"]},
+        "cache_root": {"type": ["string", "null"]},
+        "checkpoint_root": {"type": ["string", "null"]},
+        "artifact_root": {"type": ["string", "null"]},
+        "slurm_log_root": {"type": ["string", "null"]}
+      }
+    },
+    "models": {"type": "object"}
+  },
+  "additionalProperties": false
+}

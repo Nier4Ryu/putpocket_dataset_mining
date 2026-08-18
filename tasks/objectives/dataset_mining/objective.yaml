@@ -24,13 +24,33 @@ scope:
     - SQLite mining index
     - local materialized dataset view
     - dataset structure documentation
+    - Git-delivered provider-neutral Cluster Center experiment packages
+    - Slurm job rendering and allocation-guarded Cluster Center execution
+    - SWE-bench quality evaluation adapters and reports, delivered in explicit later phases
   out_of_scope:
     - Mode B repair
     - Prefix State Repair fixing code
     - downstream dataset consumption APIs
     - automatic dataset movement to another repo
-    - portable package/export as a required deliverable
-    - SWE-bench implementation beyond compatibility policy
+    - portable binary/model/checkpoint bundles
+
+experiment_package:
+  phase: 1_foundation
+  target: provider_neutral_slurm_cluster
+  phase_1_deliverables:
+    - commit-addressed H200/SM90 environment contract
+    - GLM-5.2 execution profiles
+    - Slurm rendering without submission
+    - allocation guards and staged readiness probes
+  deferred_deliverables:
+    phase_2:
+      - SWE-bench Pro quality adapter and >=40 target evaluation
+    phase_3:
+      - vLLM 0.26 SM90 trace port
+  claim_boundary: >
+    Phase 1 establishes configuration, rendering, safety, provenance, and
+    readiness handoff only. It does not claim a completed SWE-bench run,
+    model load, one-shot generation, quality score, or trace result.
 
 constants_policy:
   random_seed_name: RANDOM_SEED

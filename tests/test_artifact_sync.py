@@ -48,6 +48,23 @@ class ArtifactSyncTests(unittest.TestCase):
             copy_from_manifest(root, dst, manifest, dry_run=True)
             self.assertFalse(dst.exists())
 
+    def test_cluster_handoff_excludes_weights_logs_raw_outputs_and_secrets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_name:
+            root = Path(tmp_name)
+            (root / "run_manifest.json").write_text("{}", encoding="utf-8")
+            (root / "readiness_report.json").write_text("{}", encoding="utf-8")
+            (root / "rendered_jobs").mkdir()
+            (root / "rendered_jobs/readiness.sbatch").write_text("#!/bin/bash\n", encoding="utf-8")
+            (root / "checkpoints").mkdir()
+            (root / "checkpoints/model.safetensors").write_bytes(b"never hash or sync checkpoint tensors")
+            (root / "raw").mkdir()
+            (root / "raw/trace.json").write_text("{}", encoding="utf-8")
+            (root / "slurm-readiness-1.out").write_text("runtime", encoding="utf-8")
+            (root / "token_secret.txt").write_text("secret", encoding="utf-8")
+            manifest = build_sync_manifest(root, "cluster_phase1_handoff")
+        paths = {item["relative_path"] for item in manifest["items"]}
+        self.assertEqual(paths, {"run_manifest.json", "readiness_report.json", "rendered_jobs/readiness.sbatch"})
+
 
 if __name__ == "__main__":
     unittest.main()

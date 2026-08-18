@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "putpocket-dataset-mining"
 version = "0.5.0"
-description = "Standalone Dataset Mining runner for MBPP-stateful Cline-style episodes."
+description = "Dataset-mining runner and Git-delivered cluster experiment package."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -23,6 +23,7 @@ putpocket-dataset-mining = "putpocket_dataset_mining.cli:main"
 putpocket-remote-verifier = "putpocket_dataset_mining.remote_verifier.cli:main"
 putpocket-remote-workspace = "putpocket_dataset_mining.remote_workspace:main"
 putpocket-agent = "putpocket_dataset_mining.agent_cli:main"
+putpocket-cluster = "putpocket_dataset_mining.cluster_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

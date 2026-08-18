@@ -1,0 +1,35 @@
+schema_version: 1
+profile_id: glm52_fp8_tp8_reference
+phase: 1_foundation
+model:
+  id: zai-org/GLM-5.2-FP8
+  path: null
+  revision: null
+  quantization: fp8
+hardware:
+  accelerator_vendor: nvidia
+  accelerator_name_pattern: H200
+  compute_capability: "9.0"
+  nodes: 1
+  gpus_per_node: 8
+parallelism:
+  tensor_parallel_size: 8
+  prefill_context_parallel_size: 1
+  expert_parallel: false
+runtime:
+  engine: vllm
+  environment_lock: configs/env/cluster_h200_sm90_vllm026.lock.yaml
+  engine_args:
+    - --tensor-parallel-size
+    - "8"
+readiness:
+  accepted_quantization_markers: [fp8, compressed-tensors, modelopt]
+  required_imports:
+    torch: [__version__, cuda]
+    vllm: [__version__]
+    flashinfer: [__version__]
+    vllm.utils.deep_gemm: [is_deep_gemm_supported, _import_deep_gemm]
+    vllm.third_party.deep_gemm: [fp8_gemm_nt, m_grouped_fp8_gemm_nt_contiguous]
+extensions:
+  phase_2_swebench_adapter: null
+  phase_3_sm90_trace_port: null

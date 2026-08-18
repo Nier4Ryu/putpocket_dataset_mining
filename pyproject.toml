@@ -24,6 +24,7 @@ putpocket-remote-verifier = "putpocket_dataset_mining.remote_verifier.cli:main"
 putpocket-remote-workspace = "putpocket_dataset_mining.remote_workspace:main"
 putpocket-agent = "putpocket_dataset_mining.agent_cli:main"
 putpocket-cluster = "putpocket_dataset_mining.cluster_cli:main"
+putpocket-swebench-pro = "putpocket_dataset_mining.swebench_pro_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

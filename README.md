@@ -7,6 +7,11 @@ experiment-package foundation. `putpocket-cluster` validates GLM-5.2 profiles,
 renders Slurm jobs without submitting them, enforces compute-allocation guards,
 and performs staged readiness checks. See `docs/CLUSTER_GLM52_PHASE1.md`.
 
+The stacked phase-2 package adds a pinned, restartable public SWE-bench Pro
+baseline job for unmodified GLM-5.2 NVFP4 on four H200 GPUs. See
+`docs/CLUSTER_GLM52_SWEBENCH_PRO_BASELINE.md`. Montblanc support remains
+render/static-test only; heavy actions are allocation guarded.
+
 The implementation follows `tasks/objectives/dataset_mining/objective.yaml` and keeps raw run artifacts under `data/dataset_mining/runs/`, the SQLite index at `data/dataset_mining/mining_index.sqlite`, and local materialized datasets under `data/dataset_mining/datasets/`.
 
 Basic commands:
@@ -21,6 +26,7 @@ putpocket-dataset-mining single --config configs/dataset_mining/mbpp_stateful_si
 putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_multi.yaml --profile debug
 putpocket-cluster profiles validate
 putpocket-cluster readiness --profile glm52_nvfp4_tp1_pcp4_ep --stage static
+putpocket-swebench-pro validate
 ```
 
 Runtime mining requires Docker, Codex CLI, HuggingFace dataset/model access, Transformers, and local vLLM Python engine availability. vLLM generation is invoked with already-rendered prompt strings; vLLM is never asked to apply a chat template internally.

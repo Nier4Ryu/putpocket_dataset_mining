@@ -1,0 +1,40 @@
+schema_version: 1
+lock_id: swebench_pro_public_baseline_20260818
+provenance_status: commit_addressed
+harness:
+  repository: https://github.com/scaleapi/SWE-bench_Pro-os.git
+  commit: ca10a60a5fcae51e6948ffe1485d4153d421e6c5
+  commit_url: https://github.com/scaleapi/SWE-bench_Pro-os/commit/ca10a60a5fcae51e6948ffe1485d4153d421e6c5
+  scorer: swe_bench_pro_eval.py
+  license: MIT
+  license_url: https://github.com/scaleapi/SWE-bench_Pro-os/blob/ca10a60a5fcae51e6948ffe1485d4153d421e6c5/LICENSE
+submodules:
+  SWE-agent:
+    repository: https://github.com/scaleapi/SWE-agent.git
+    commit: 402a7b8fdac8193f3f255bb53859ba274234f596
+    license: MIT
+    license_url: https://github.com/scaleapi/SWE-agent/blob/402a7b8fdac8193f3f255bb53859ba274234f596/LICENSE
+  mini-swe-agent:
+    repository: https://github.com/scaleapi/mini-swe-agent
+    commit: d74716a3c8104a113f77cc9ab94cf407ecdcf1e9
+    license: MIT
+    license_url: https://github.com/scaleapi/mini-swe-agent/blob/d74716a3c8104a113f77cc9ab94cf407ecdcf1e9/LICENSE.md
+    scaffold_config: src/minisweagent/config/extra/swebench.yaml
+dataset:
+  id: ScaleAI/SWE-bench_Pro
+  split: test
+  revision: 7ab5114912baf22bb098818e604c02fe7ad2c11f
+  revision_url: https://huggingface.co/datasets/ScaleAI/SWE-bench_Pro/tree/7ab5114912baf22bb098818e604c02fe7ad2c11f
+  expected_rows: 731
+  required_image_field: dockerhub_tag
+  license_status: not_declared_in_dataset_card
+  source_url: https://huggingface.co/datasets/ScaleAI/SWE-bench_Pro
+containers:
+  dockerhub_namespace: jefzda/sweap-images
+  source_url: https://hub.docker.com/r/jefzda/sweap-images
+  tag_source: dataset.dockerhub_tag
+contract:
+  official_scorer_unchanged: true
+  standard_swebench_constants_forbidden: true
+  full_public_results_required_for_score: true
+  acceptance_threshold_percent: 40.0

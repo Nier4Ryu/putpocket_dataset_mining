@@ -1,0 +1,9 @@
+schema_version: 1
+selection_id: swebench_pro_public_test_full
+dataset: ScaleAI/SWE-bench_Pro
+split: test
+mode: full
+ordering: instance_id_ascending
+limit: null
+expected_count: 731
+score_eligible: true

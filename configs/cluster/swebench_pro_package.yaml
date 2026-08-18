@@ -1,0 +1,23 @@
+schema_version: 1
+package_id: glm52_swebench_pro_public_baseline
+claim_boundary: full_score_only_after_complete_unchanged_official_evaluation
+source_lock: configs/cluster/swebench_pro_sources.lock.yaml
+agent_overlay: configs/cluster/swebench_pro_agent_overlay.yaml
+site_template: configs/cluster/swebench_pro_site.example.yaml
+selections:
+  smoke: configs/cluster/selections/swebench_pro_smoke.yaml
+  full: configs/cluster/selections/swebench_pro_full.yaml
+schemas:
+  acceptance_report: configs/cluster/schemas/swebench_pro_acceptance.schema.json
+model: nvidia/GLM-5.2-NVFP4
+primary_profile: glm52_nvfp4_tp1_pcp4_ep
+startup_compatibility_fallback: glm52_nvfp4_tp2_pcp2_ep
+required_hardware:
+  nodes: 1
+  accelerator: H200
+  gpus: 4
+official_scorer_modified: false
+login_node_heavy_actions: false
+cluster_worker_edits_source: false
+deferred_extensions:
+  phase_3: vllm_026_sm90_trace_port

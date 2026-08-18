@@ -1,0 +1,21 @@
+schema_version: 1
+overlay_id: glm52_nvfp4_local_vllm_mini_swe_agent
+scaffold:
+  submodule: mini-swe-agent
+  config: src/minisweagent/config/extra/swebench.yaml
+model:
+  id: nvidia/GLM-5.2-NVFP4
+  litellm_name: openai/nvidia/GLM-5.2-NVFP4
+  api_base: http://127.0.0.1:8000/v1
+  custom_llm_provider: openai
+  api_key_sentinel: local-vllm-no-auth
+  temperature: 0.0
+  cost_tracking: ignore_errors
+endpoint_contract:
+  loopback_only: true
+  cloud_api_forbidden: true
+  openai_compatible: true
+environment:
+  preferred: docker
+  agent_only_fallback: singularity
+  official_evaluation_requires_docker: true

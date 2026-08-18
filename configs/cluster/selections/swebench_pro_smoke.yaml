@@ -1,0 +1,9 @@
+schema_version: 1
+selection_id: swebench_pro_smoke_one
+dataset: ScaleAI/SWE-bench_Pro
+split: test
+mode: smoke
+ordering: instance_id_ascending
+limit: 1
+expected_count: 1
+score_eligible: false

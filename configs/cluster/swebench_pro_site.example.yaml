@@ -1,0 +1,27 @@
+schema_version: 1
+site:
+  partition: null
+  account: null
+  qos: null
+  wall_time: null
+  memory: null
+  cpus_per_task: null
+  h200_gpu_directive: null
+  base_python: null
+  uv_executable: null
+  git_executable: null
+  nvidia_smi_executable: null
+  nvcc_executable: null
+  curl_executable: null
+  storage_root: null
+  cache_root: null
+  artifact_root: null
+  slurm_log_root: null
+model:
+  path: null
+  revision: null
+  source: huggingface
+job:
+  experiment_id: glm52-swebench-pro-baseline
+  evaluation_workers: 4
+  agent_workers: 1

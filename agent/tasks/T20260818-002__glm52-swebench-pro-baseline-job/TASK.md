@@ -61,7 +61,8 @@ validation:
   - broad CPU-only suite: 220 passed, 53 subtests passed
   - exact smoke-only renderer, compact wrapper, and tracked entrypoint pass bash syntax validation
 phase-2 base source commit: 9e40d710b1432c6b8a05cf40611900b802b101a3
-follow-up push: pending final commit
+smoke-only source commit: 095d929c73871325e9c17f1b31d61eab2a8a1905
+follow-up push: successful to origin/agent/T20260818-001__glm52-cluster-package-foundation
 submission boundary: >
   Codex must not connect to Login or submit this follow-up. The orchestrator
   owns the authenticated Herdr pane and will stream the compact sbatch wrapper.

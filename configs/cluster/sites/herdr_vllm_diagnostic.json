@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "cpu_build": {
+    "partition": null,
+    "account": null,
+    "qos": null,
+    "nodes": 1,
+    "ntasks": 1,
+    "cpus_per_task": null,
+    "memory": null,
+    "wall_time": null,
+    "local_scratch_root": null,
+    "container_executable": null
+  },
+  "h200_run": {
+    "partition": "H200",
+    "account": "gsai-account",
+    "qos": "hpgpu",
+    "nodes": 1,
+    "ntasks": 1,
+    "gpu_directive": "--gres=gpu:H200:4",
+    "cpus_per_task": 32,
+    "memory": "512G",
+    "wall_time": "06:00:00",
+    "local_storage_root": "/local-data/jslee202403"
+  },
+  "shared_build_root": "/home2/jslee202403/putpocket-builds/vllm",
+  "slurm_log_root": "/home2/jslee202403/putpocket-slurm",
+  "git_executable": "/usr/bin/git",
+  "nvidia_smi": "/usr/bin/nvidia-smi"
+}

@@ -7,11 +7,12 @@ experiment-package foundation. `putpocket-cluster` validates GLM-5.2 profiles,
 renders Slurm jobs without submitting them, enforces compute-allocation guards,
 and performs staged readiness checks. See `docs/CLUSTER_GLM52_PHASE1.md`.
 
-The stacked phase-2 package adds a pinned, restartable, one-instance public
-SWE-bench Pro smoke job for unmodified GLM-5.2 NVFP4 on four H200 GPUs. Its
-official per-row result is always `NON_SCORE_ELIGIBLE_SMOKE_ONLY`. See
-`docs/CLUSTER_GLM52_SWEBENCH_PRO_BASELINE.md`. Montblanc support remains
-render/static-test only; heavy actions are allocation guarded.
+The active diagnostic package builds pinned vLLM from source for SM90 in a CPU
+Slurm job, then gates one exact four-H200 GLM-5.2 native-DSA trace run through
+an `afterok` dependency. Its single official SWE-bench Pro row result is never
+quality-score eligible and cannot transition to the full split. See
+`docs/CLUSTER_GLM52_DSA_DIAGNOSTIC.md`. Montblanc support remains CPU/static
+only; builds, downloads, GPU work, and evaluation are allocation guarded.
 
 The implementation follows `tasks/objectives/dataset_mining/objective.yaml` and keeps raw run artifacts under `data/dataset_mining/runs/`, the SQLite index at `data/dataset_mining/mining_index.sqlite`, and local materialized datasets under `data/dataset_mining/datasets/`.
 

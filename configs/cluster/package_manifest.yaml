@@ -5,6 +5,8 @@ environment_lock: configs/env/cluster_h200_sm90_vllm026.lock.yaml
 schemas:
   profile: configs/cluster/schemas/profile.schema.json
   site: configs/cluster/schemas/site.schema.json
+  vllm_build_bundle: configs/cluster/schemas/glm52_vllm_build_bundle.schema.json
+  vllm_runtime_jit: configs/cluster/schemas/glm52_vllm_runtime_jit.schema.json
 site_template: configs/cluster/site.example.yaml
 profiles:
   - configs/cluster/profiles/glm52_nvfp4_tp1_pcp4_ep.yaml
@@ -18,4 +20,12 @@ submission_implemented: false
 cluster_worker_edits_source: false
 deferred_extensions:
   phase_2: swebench_pro_quality_adapter_target_ge_40
-  phase_3: vllm_026_sm90_trace_port
+active_diagnostic:
+  runtime: vllm
+  source_lock: configs/cluster/glm52_vllm_diagnostic.lock.json
+  site: configs/cluster/sites/herdr_vllm_diagnostic.json
+  cpu_build_entrypoint: scripts/cluster/build_glm52_vllm_sm90.sh
+  h200_run_entrypoint: scripts/cluster/run_glm52_vllm_diagnostic.sh
+  renderer: putpocket_dataset_mining.glm52_vllm_diagnostic_cli
+  full_swebench_transition: false
+  quality_score_eligible: false

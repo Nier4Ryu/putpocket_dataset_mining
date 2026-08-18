@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "putpocket.cluster.glm52-vllm-build-bundle.v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version", "status", "vllm_commit", "bundle_key",
+    "patch_sha256", "patch_target_post_sha256", "build_patch_target_post_sha256", "instrumentation_sha256",
+    "compiler_audit_sha256", "base_image", "python", "torch", "cuda",
+    "torch_cuda_arch_list", "cmake_cuda_architectures", "vllm_target_device",
+    "vllm_use_precompiled", "prebuilt_vllm_wheel_used", "built_from_scratch",
+    "compiled_arch_evidence", "runtime_gate", "runtime_image_id",
+    "build_environment", "runtime_environment", "files", "provenance_files"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "status": {"const": "SUCCESS"},
+    "vllm_commit": {"const": "4a3447d200e5aa428d68d1a00aa00f1a19a1a729"},
+    "vllm_target_device": {"const": "cuda"},
+    "torch_cuda_arch_list": {"const": "9.0"},
+    "cmake_cuda_architectures": {"const": "90"},
+    "vllm_use_precompiled": {"const": false},
+    "prebuilt_vllm_wheel_used": {"const": false},
+    "built_from_scratch": {"const": true},
+    "general_h200_compilation_allowed": {"const": false},
+    "h200_runtime_jit_scope": {"const": "native_first_use_deepgemm_dsa_only"},
+    "runtime_jit_cache_reuse": {"const": false},
+    "runtime_gate": {"const": "ALLOW_NATIVE_FIRST_USE_JIT_WITH_RUN_LOCAL_AUDIT"},
+    "runtime_image_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "build_environment": {"$ref": "#/$defs/environment"},
+    "runtime_environment": {"$ref": "#/$defs/environment"},
+    "compiled_arch_evidence": {"type": "array", "contains": {"const": "sm_90"}},
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_image_tar", "vllm_wheel", "source_bundle"],
+      "properties": {
+        "runtime_image_tar": {"$ref": "#/$defs/file"},
+        "vllm_wheel": {"$ref": "#/$defs/file"},
+        "source_bundle": {"$ref": "#/$defs/file"}
+      }
+    },
+    "provenance_files": {
+      "type": "object",
+      "minProperties": 9,
+      "additionalProperties": {"$ref": "#/$defs/file"}
+    }
+  },
+  "$defs": {
+    "environment": {
+      "type": "object",
+      "required": ["python_major_minor", "torch_base", "torch_cuda", "resolved_packages"],
+      "properties": {
+        "python_major_minor": {"const": "3.12"},
+        "torch_base": {"const": "2.13.0"},
+        "torch_cuda": {"const": "13.0"},
+        "resolved_packages": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+      }
+    },
+    "file": {
+      "type": "object",
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "bytes": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

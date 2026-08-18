@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "putpocket.cluster.glm52-vllm-runtime-jit.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "status", "scope", "cache_reuse", "started_utc",
+    "completed_utc", "project_commit", "vllm_commit", "patch_sha256",
+    "build_image", "runtime_image_id", "torch", "cuda", "sm", "components",
+    "compiler_commands", "audit_log_sha256", "files"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "status": {"const": "passed"},
+    "scope": {"const": "native_first_use_deepgemm_dsa_only"},
+    "cache_reuse": {"const": false},
+    "started_utc": {"type": "string", "format": "date-time"},
+    "completed_utc": {"type": "string", "format": "date-time"},
+    "project_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "vllm_commit": {"const": "4a3447d200e5aa428d68d1a00aa00f1a19a1a729"},
+    "patch_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "build_image": {"type": "string", "pattern": "@sha256:[0-9a-f]{64}$"},
+    "runtime_image_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "torch": {"const": "2.13.0"},
+    "cuda": {"const": "13.0.3"},
+    "sm": {"const": "90"},
+    "components": {"type": "array", "contains": {"const": "deep_gemm_native_dsa"}},
+    "compiler_commands": {"type": "array", "minItems": 1},
+    "audit_log_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "files": {"type": "array", "minItems": 1}
+  }
+}

@@ -1,0 +1,72 @@
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+index 96ed0bd..cb5e660 100644
+--- a/docker/Dockerfile
++++ b/docker/Dockerfile
+@@ -543,2 +542,0 @@ WORKDIR /workspace
+-# Copy pre-built csrc wheel directly
+-COPY --from=csrc-build /workspace/dist /precompiled-wheels
+@@ -559,3 +556,0 @@ ENV VLLM_TARGET_DEVICE=${vllm_target_device}
+-# Skip adding +precompiled suffix to version (preserves git-derived version)
+-ENV VLLM_SKIP_PRECOMPILED_VERSION_SUFFIX=1
+-
+@@ -568 +563,8 @@ RUN --mount=type=cache,target=/opt/uv/cache \
+-# Build the vLLM wheel
++# Provision the exact DeepGEMM build interpreters used by the official
++# csrc-build stage, then build the complete wheel directly from this source
++# tree.  The diagnostic contract forbids the build-stage shortcut through
++# VLLM_USE_PRECOMPILED, even when that shortcut wheel was built locally.
++ENV DEEPGEMM_VENV_PREFIX=/opt/dgenv
++RUN --mount=type=cache,target=/root/.cache/uv \
++    tools/setup_deepgemm_pythons.sh > /tmp/dg_pythons.txt
++
+@@ -571,4 +573,5 @@ RUN --mount=type=cache,target=/opt/uv/cache \
+-    if [ "${vllm_target_device}" = "cuda" ]; then \
+-        export VLLM_USE_PRECOMPILED=1; \
+-        export VLLM_PRECOMPILED_WHEEL_LOCATION=$(ls /precompiled-wheels/*.whl); \
+-    fi && \
++    rm -rf .deps && \
++    mkdir -p .deps && \
++    unset VLLM_USE_PRECOMPILED VLLM_PRECOMPILED_WHEEL_LOCATION && \
++    export VLLM_DOCKER_BUILD_CONTEXT=1 && \
++    export DEEPGEMM_PYTHON_INTERPRETERS=$(cat /tmp/dg_pythons.txt) && \
+diff --git a/vllm/model_executor/layers/sparse_attn_indexer.py b/vllm/model_executor/layers/sparse_attn_indexer.py
+index 9a671be..864994a 100644
+--- a/vllm/model_executor/layers/sparse_attn_indexer.py
++++ b/vllm/model_executor/layers/sparse_attn_indexer.py
+@@ -19,0 +20,3 @@ from vllm.model_executor.layers.quantization.utils.quant_utils import (
++from vllm.model_executor.layers.vllm_dsa_diagnostic_dump import (
++    maybe_capture_native_dsa,
++)
+@@ -518,0 +522,12 @@ def sparse_attn_indexer(
++                maybe_capture_native_dsa(
++                    phase="prefill",
++                    layer_name=str(k_cache_prefix),
++                    logits=logits,
++                    topk_indices=topk_indices,
++                    lengths=cu_seqlen_ke - cu_seqlen_ks,
++                    row_starts=cu_seqlen_ks,
++                    topk=topk_tokens,
++                    native_logits_backend="fp8_fp4_mqa_logits",
++                    native_topk_backend="top_k_per_row_prefill",
++                    dcp_world_size=dcp_world_size,
++                )
+@@ -629,0 +645 @@ def sparse_attn_indexer(
++            native_topk_backend = "cooperative_topk_sm90"
+@@ -642,0 +659 @@ def sparse_attn_indexer(
++            native_topk_backend = "persistent_topk"
+@@ -655,0 +673 @@ def sparse_attn_indexer(
++            native_topk_backend = "top_k_per_row_decode"
+@@ -666,0 +685,13 @@ def sparse_attn_indexer(
++        maybe_capture_native_dsa(
++            phase="decode",
++            layer_name=str(k_cache_prefix),
++            logits=logits,
++            topk_indices=topk_indices,
++            lengths=seq_lens.reshape(-1),
++            row_starts=None,
++            topk=topk_tokens,
++            native_logits_backend="fp8_fp4_paged_mqa_logits",
++            native_topk_backend=native_topk_backend,
++            dcp_world_size=dcp_world_size,
++        )
++

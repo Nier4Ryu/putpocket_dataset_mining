@@ -90,7 +90,7 @@ def load_gate_site(path: str | Path = SITE_PROFILE) -> GateSite:
 def render_compact_gate_submission(*, site: GateSite, project_url: str, project_commit: str) -> str:
     validate_public_project(project_url, project_commit)
     source_root = site.storage_root / "source" / f"putpocket-{project_commit}"
-    wrapper = "\n".join(
+    wrapper = "; ".join(
         (
             "set -euo pipefail",
             "umask 077",

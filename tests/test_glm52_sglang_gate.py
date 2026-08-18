@@ -389,6 +389,7 @@ class RuntimeAndSentinelTests(unittest.TestCase):
 class RendererAndEntrypointTests(unittest.TestCase):
     def test_compact_renderer_is_exact_dedicated_and_bash_valid(self) -> None:
         command = render_compact_gate_submission(site=load_gate_site(), project_url=PROJECT_URL, project_commit=COMMIT)
+        self.assertNotIn("\n", command)
         for token in (
             "--partition=H200", "--account=gsai-account", "--qos=hpgpu", "--nodes=1", "--ntasks=1",
             "--gres=gpu:H200:4", "--cpus-per-task=32", "--mem=512G", "--time=06:00:00", "--export=NONE",

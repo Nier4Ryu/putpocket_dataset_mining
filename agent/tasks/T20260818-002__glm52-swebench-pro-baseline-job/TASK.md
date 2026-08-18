@@ -4,7 +4,7 @@ task identity: T20260818-002__glm52-swebench-pro-baseline-job
 objective: >
   Deliver a Git-pinned, restartable, unmodified GLM-5.2 NVFP4 baseline package
   for the public SWE-bench Pro test split and an exact four-H200 Slurm job.
-status: in_progress
+status: blocked_external_login_authentication
 stacked base tip: 819854e28ae170ef43722118dfc3d2a53f43c7ce
 branch: agent/T20260818-001__glm52-cluster-package-foundation
 worktree: /home/dyryu/putpocket_dataset_mining_worktrees/T20260818-001__glm52-cluster-package-foundation
@@ -44,3 +44,16 @@ completion criteria:
   - rendered job requests exactly one node/four H200 GPUs and never submits itself
   - focused and broad safe CPU-only tests pass
   - branch push and Login submission outcomes are recorded exactly
+validation:
+  - focused phase-1 plus phase-2 suite: 37 passed, 24 subtests passed
+  - phase-2-only recheck after final edits: 14 passed
+  - broad CPU-only suite: 215 passed, 50 subtests passed
+  - full and preflight-only renderers pass bash syntax validation
+source commit: 9e40d710b1432c6b8a05cf40611900b802b101a3
+push: successful to origin/agent/T20260818-001__glm52-cluster-package-foundation
+blocker: >
+  BatchMode SSH reached Login-1 but authentication failed. Actual H200 Slurm
+  syntax/container inventory could not be observed, so fail-closed policy
+  forbids rendering site values or submitting sbatch until the user restores
+  an authenticated Montblanc-to-Login-1 session.
+final handoff link: agent/tasks/T20260818-002__glm52-swebench-pro-baseline-job/handoffs/TO_GPT_20260818-120732.md

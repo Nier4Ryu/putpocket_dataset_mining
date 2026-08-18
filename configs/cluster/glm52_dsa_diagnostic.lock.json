@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "diagnostic_id": "glm52_nvfp4_native_dsa_single_swepro_20260819",
+  "claim": "diagnostic_only_not_quality_score",
+  "model": {
+    "id": "nvidia/GLM-5.2-NVFP4",
+    "requested_revision": "main",
+    "resolved_revision": "aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa",
+    "revision_resolution": "Hugging Face model metadata resolved 2026-08-19; runtime must resolve main and require this exact SHA",
+    "architecture": "GlmMoeDsaForCausalLM",
+    "model_type": "glm_moe_dsa",
+    "layers": 78,
+    "full_indexer_layers": [0, 1, 2, 6, 10, 14, 18, 22, 26, 30, 34, 38, 42, 46, 50, 54, 58, 62, 66, 70, 74],
+    "shared_indexer_count": 57,
+    "index_topk": 2048
+  },
+  "sglang": {
+    "repository": "https://github.com/sgl-project/sglang.git",
+    "commit": "83d7d453306977dd3aad4402c921c8a6b66d9a9d",
+    "image_human_tag": "lmsysorg/sglang:latest",
+    "image": "lmsysorg/sglang@sha256:3be8803490a8b899a44f7ab2e22d8f6a1fb877cab52faeb400769a1555317db4",
+    "patch_target": "python/sglang/srt/layers/attention/dsa/dsa_indexer.py",
+    "patch_target_sha256": "3404c9b83452d73f156b742ae32e4085a17d0b166d4d5e45afbd31cfa499b686",
+    "patch_target_post_sha256": "7985bffeb4f8e7b712e75b452b062fbcf02fd2299386dcf1b1f0a0864d28e050",
+    "patch_path": "patches/sglang/83d7d453306977dd3aad4402c921c8a6b66d9a9d/glm52_native_dsa_bounded_dump.patch",
+    "patch_sha256": "432f00fa48519ab81d389993f54bbcf796bdc7ed8c9ed3760b6173fe7dbc1266",
+    "instrumentation_source": "instrumentation/sglang/dsa_diagnostic_dump.py",
+    "instrumentation_sha256": "87d8f3090c84fc272c1c0aca7723c4b8110ab0d714562d79396c568871a6c50b",
+    "instrumentation_destination": "python/sglang/srt/layers/attention/dsa/dsa_diagnostic_dump.py",
+    "native_points": [
+      "Indexer._get_topk_paged: native paged MQA logits immediately before DSAIndexerMetadata.topk_transform",
+      "Indexer._get_topk_ragged: native DeepGEMM logits immediately before DSAIndexerMetadata.topk_transform"
+    ],
+    "source_file_digests": {
+      "python/sglang/srt/layers/attention/dsa/dsa_topk_backend.py": "dc6ebb07bc3551ced77fe5700ea650c072f13a6e703401152e0962c754b62e9f",
+      "python/sglang/srt/configs/model_config.py": "85b640f0ad80e77a6556fdfb1838240b0080d60f18e0dcbeb507fa5d7df178a3",
+      "python/sglang/srt/models/deepseek_v2.py": "d61238da43a34df8ee324b1c3d36082894aa75b34775a1af7772c2a6c016c932",
+      "python/sglang/srt/server_args.py": "156f7aaf420be83f0c2276523720433d263592951d81dfa1b97ddcd9bc0e33d4"
+    }
+  },
+  "runtime": {
+    "tensor_parallel": 4,
+    "quantization": "modelopt_fp4",
+    "fp4_gemm_backend": "marlin",
+    "moe_runner_backend": "marlin",
+    "dsa_prefill_backend": "flashmla_sparse",
+    "dsa_decode_backend": "fa3",
+    "dsa_topk_backend": "sgl-kernel",
+    "context_length": 4096,
+    "max_running_requests": 1,
+    "max_new_tokens": 512,
+    "seed": 0,
+    "temperature": 0.0,
+    "disable_radix_cache": true,
+    "cuda_graph_prefill": "disabled",
+    "cuda_graph_decode": "disabled",
+    "offload": false,
+    "speculative_mtp": false,
+    "disaggregation": false
+  },
+  "swebench_pro": {
+    "dataset": "ScaleAI/SWE-bench_Pro",
+    "dataset_revision": "7ab5114912baf22bb098818e604c02fe7ad2c11f",
+    "split": "test",
+    "harness_repository": "https://github.com/scaleapi/SWE-bench_Pro-os.git",
+    "harness_commit": "ca10a60a5fcae51e6948ffe1485d4153d421e6c5",
+    "swe_agent_commit": "402a7b8fdac8193f3f255bb53859ba274234f596",
+    "mini_swe_agent_commit": "d74716a3c8104a113f77cc9ab94cf407ecdcf1e9",
+    "mini_swe_scaffold": "src/minisweagent/config/extra/swebench.yaml",
+    "mini_swe_scaffold_sha256": "a29173c493de31863aa08a41ea851589789ac777a2ed44ce94fd0bcf52db16cb",
+    "official_scorer": "swe_bench_pro_eval.py",
+    "official_scorer_sha256": "bb5d4c5486be296e464e695df3747064aaa3bb197394bc6d39980634afec2034",
+    "official_gather_helper": "helper_code/gather_patches.py",
+    "official_gather_helper_sha256": "a1d4628461fa2b7e374160cad92f0e65f6bcdc67b0fc762fd4cc61438f8ab364",
+    "dockerhub_namespace": "jefzda/sweap-images",
+    "score_eligible": false,
+    "full_selection_reachable": false
+  },
+  "selection": {
+    "method": "minimum exact serialized prompt token count above index_topk, then instance_id ascending; max_new_tokens must fit context_length",
+    "candidate_count": 731,
+    "viable_count": 7,
+    "instance_id": "instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+    "repo": "ansible/ansible",
+    "dockerhub_tag": "ansible.ansible-ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+    "row_sha256": "78ff3ac298f276dfafaa311c26b7ace35be7c52d9094b4a6f658de2e7b5e25d1",
+    "problem_statement_sha256": "c85767edfc81daa9ac070eb923ad55ec021bb8f3e80c3b820526b54b3f62b524",
+    "serialized_prompt_token_count": 2071,
+    "serialized_prompt_utf8_bytes": 8629,
+    "serialized_prompt_sha256": "25d6597314bbb6c4df5afa886b064bebbdb7b57d27414d1e584e6a0127eeeab5",
+    "serialization": "pinned mini-swe system_template plus instance_template; GLM chat template; add_generation_prompt=true",
+    "tokenizer": {
+      "model_revision": "aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa",
+      "class": "TokenizersBackend",
+      "transformers_reference_version": "5.14.1",
+      "tokenizer_json_sha256": "19e773648cb4e65de8660ea6365e10acca112d42a854923df93db4a6f333a82d",
+      "tokenizer_config_sha256": "77af7d4769cd62c107b90495cac9b0ba81573c86486821bfba2980c04285ec7a",
+      "chat_template_sha256": "172dc74a35e1752df75ecfb2b2cf9326d2852bb1379868ebeec9571654489679"
+    }
+  },
+  "capture": {
+    "sample_points": ["prefill_last_query", "decode_0", "decode_1", "decode_8", "decode_32"],
+    "only_existing_decode_samples": true,
+    "ranks": 4,
+    "raw_prompt_forbidden": true,
+    "compression_preference": ["zstd-cli", "python-gzip-mtime-0"],
+    "schema": "configs/cluster/schemas/glm52_dsa_capture.schema.json"
+  },
+  "allocation_only_tools": {
+    "uv": "0.11.31",
+    "pandas": "2.3.3",
+    "tqdm": "4.67.1",
+    "docker": "7.1.0"
+  }
+}

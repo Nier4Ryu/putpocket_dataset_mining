@@ -1,0 +1,55 @@
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+index eaa5cc6..7076446 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -16,0 +17,4 @@ from sglang.srt.compilation.compilation_config import register_split_op
++from sglang.srt.layers.attention.dsa.dsa_diagnostic_dump import (
++    finish_native_dsa_capture,
++    prepare_native_dsa_capture,
++)
+@@ -942,0 +947,12 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
++        putpocket_capture = prepare_native_dsa_capture(
++            forward_batch=forward_batch,
++            layer_id=layer_id,
++            logits=logits,
++            lengths=seqlens_32,
++            row_starts=None,
++            metadata=metadata,
++            transform_kind="paged",
++            total_rows=q_offset,
++            num_init_tokens=self.num_init_tokens,
++            num_local_tokens=self.num_local_tokens,
++        )
+@@ -945,0 +962 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
++        finish_native_dsa_capture(putpocket_capture, topk_result)
+@@ -1132,0 +1150,12 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
++            putpocket_capture = prepare_native_dsa_capture(
++                forward_batch=forward_batch,
++                layer_id=layer_id,
++                logits=logits,
++                lengths=seq_lens_expanded,
++                row_starts=ks,
++                metadata=metadata,
++                transform_kind="ragged",
++                total_rows=q_offset,
++                num_init_tokens=self.num_init_tokens,
++                num_local_tokens=self.num_local_tokens,
++            )
+@@ -1134,0 +1164 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
++            finish_native_dsa_capture(putpocket_capture, raw_topk_result)
+@@ -1187,0 +1218,13 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
++            putpocket_capture = prepare_native_dsa_capture(
++                forward_batch=forward_batch,
++                layer_id=layer_id,
++                logits=logits_chunk,
++                lengths=lengths_chunk,
++                row_starts=ks[start:end],
++                metadata=metadata,
++                transform_kind="ragged",
++                row_offset=start,
++                total_rows=q_offset,
++                num_init_tokens=self.num_init_tokens,
++                num_local_tokens=self.num_local_tokens,
++            )
+@@ -1210,0 +1254 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
++            finish_native_dsa_capture(putpocket_capture, raw_topk_chunk)

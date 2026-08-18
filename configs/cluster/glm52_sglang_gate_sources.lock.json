@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "lock_id": "glm52_sglang_feasibility_gate_20260819",
+  "resolved_at_utc": "2026-08-19T00:00:00Z",
+  "sglang_source": {
+    "repository": "https://github.com/sgl-project/sglang.git",
+    "human_ref": "main",
+    "commit": "83d7d453306977dd3aad4402c921c8a6b66d9a9d",
+    "commit_url": "https://github.com/sgl-project/sglang/commit/83d7d453306977dd3aad4402c921c8a6b66d9a9d",
+    "license": "Apache-2.0",
+    "license_url": "https://github.com/sgl-project/sglang/blob/83d7d453306977dd3aad4402c921c8a6b66d9a9d/LICENSE"
+  },
+  "runtime_image": {
+    "repository": "lmsysorg/sglang",
+    "human_tag": "lmsysorg/sglang:latest",
+    "index_digest": "sha256:16aba8925507e631e1dc1e23d95d026533602591775f6a8db68b74ee99746155",
+    "linux_amd64_digest": "sha256:3be8803490a8b899a44f7ab2e22d8f6a1fb877cab52faeb400769a1555317db4",
+    "immutable_reference": "lmsysorg/sglang@sha256:3be8803490a8b899a44f7ab2e22d8f6a1fb877cab52faeb400769a1555317db4",
+    "source_url": "https://hub.docker.com/r/lmsysorg/sglang"
+  },
+  "model": {
+    "id": "nvidia/GLM-5.2-NVFP4",
+    "requested_revision": "main",
+    "resolved_revision_policy": "runtime_full_40_char_hf_commit",
+    "config_url": "https://huggingface.co/nvidia/GLM-5.2-NVFP4/blob/main/config.json",
+    "license_url": "https://huggingface.co/nvidia/GLM-5.2-NVFP4/blob/main/LICENSE"
+  },
+  "dependency_contract": {
+    "pinning": "immutable_runtime_image_digest",
+    "transformers_minimum": "5.3",
+    "required_imports": [
+      "torch",
+      "transformers",
+      "sglang",
+      "modelopt",
+      "flashinfer",
+      "flash_mla",
+      "sgl_kernel"
+    ],
+    "weightless_runtime_probe_required": true
+  },
+  "backend_contract": {
+    "tensor_parallel": 4,
+    "quantization": "modelopt_fp4",
+    "fp4_gemm_backend": "marlin",
+    "moe_runner_backend": "marlin",
+    "dsa_prefill_backend": "flashmla_sparse",
+    "dsa_decode_backend": "fa3",
+    "dsa_topk_backend": "sgl-kernel",
+    "context_length": 4096,
+    "max_running_requests": 1,
+    "offload": false,
+    "speculative_mtp": false,
+    "disaggregation": false,
+    "trace_hooks": false
+  },
+  "evidence": {
+    "official_glm_cookbook": "https://github.com/sgl-project/sglang/blob/83d7d453306977dd3aad4402c921c8a6b66d9a9d/docs/cookbook/autoregressive/GLM/GLM-5.2.mdx",
+    "official_server_args": "https://github.com/sgl-project/sglang/blob/83d7d453306977dd3aad4402c921c8a6b66d9a9d/python/sglang/srt/server_args.py",
+    "official_modelopt_backend": "https://github.com/sgl-project/sglang/blob/83d7d453306977dd3aad4402c921c8a6b66d9a9d/python/sglang/srt/layers/quantization/modelopt_quant.py",
+    "official_nvidia_modelopt": "https://github.com/NVIDIA/Model-Optimizer",
+    "h200_nvfp4_status": "feasibility_only_not_an_official_verified_recipe"
+  }
+}

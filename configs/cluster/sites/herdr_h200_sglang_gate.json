@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "slurm": {
+    "partition": "H200",
+    "account": "gsai-account",
+    "qos": "hpgpu",
+    "gpu_directive": "--gres=gpu:H200:4",
+    "nodes": 1,
+    "ntasks": 1,
+    "cpus_per_task": 32,
+    "memory": "512G",
+    "wall_time": "06:00:00",
+    "export": "NONE"
+  },
+  "paths": {
+    "storage_root": "/local-data/jslee202403/putpocket-glm52-sglang-gate",
+    "artifact_root": "/local-data/jslee202403/putpocket-glm52-sglang-gate/artifacts",
+    "slurm_log_root": "/home2/jslee202403/putpocket-slurm"
+  },
+  "tools": {
+    "bootstrap_python": "/home2/jslee202403/miniconda3/bin/python3",
+    "git": "/usr/bin/git",
+    "nvidia_smi": "/usr/bin/nvidia-smi",
+    "cuda_module": "cuda/12.9"
+  }
+}

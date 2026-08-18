@@ -21,6 +21,7 @@ from .swebench_pro import (
     HARNESS_SHA,
     MINI_SWE_AGENT_SHA,
     MODEL_ID,
+    NON_SCORE_ELIGIBLE_SMOKE_ONLY,
     SWE_AGENT_SHA,
     build_runtime_agent_config,
     finalize_official_results,
@@ -30,6 +31,7 @@ from .swebench_pro import (
     validate_agent_overlay,
     validate_official_image_mapping,
     validate_source_lock,
+    validate_smoke_only_report,
 )
 
 
@@ -38,9 +40,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "validate":
-            return _validate()
+            return _validate(args)
         if args.command == "render":
             return _render(args)
+        if args.command == "render-wrap":
+            return _render_wrap(args)
         if args.command == "prepare":
             return _prepare(args)
         if args.command == "agent-config":
@@ -51,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
             return _stage(args)
         if args.command == "finalize":
             return _finalize(args)
+        if args.command == "assert-smoke-report":
+            return _assert_smoke_report(args)
         if args.command == "provenance":
             return _provenance(args)
     except (ConfigError, OSError, ValueError, json.JSONDecodeError, yaml.YAMLError) as exc:
@@ -63,14 +69,32 @@ def main(argv: list[str] | None = None) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="putpocket-swebench-pro")
     commands = parser.add_subparsers(dest="command")
-    commands.add_parser("validate", help="Validate pinned phase-2 source, selection, and agent contracts")
+    validate = commands.add_parser("validate", help="Validate pinned phase-2 source, selection, and agent contracts")
+    validate.add_argument(
+        "--smoke-only",
+        action="store_true",
+        help="Validate only the one-instance smoke contract; never load the full selection",
+    )
 
     render = commands.add_parser("render", help="Render the exact-four-H200 Slurm job without submitting")
     render.add_argument("--site", required=True)
     render.add_argument("--project-url", required=True)
     render.add_argument("--project-commit", required=True)
-    render.add_argument("--preflight-only", action="store_true")
+    render_mode = render.add_mutually_exclusive_group()
+    render_mode.add_argument("--preflight-only", action="store_true")
+    render_mode.add_argument(
+        "--smoke-only",
+        action="store_true",
+        help="Render the non-score-eligible one-instance path with no full-selection transition",
+    )
     render.add_argument("--output", default=None)
+
+    render_wrap = commands.add_parser(
+        "render-wrap", help="Render a compact smoke-only sbatch --wrap command without submitting"
+    )
+    render_wrap.add_argument("--site", required=True)
+    render_wrap.add_argument("--project-url", required=True)
+    render_wrap.add_argument("--project-commit", required=True)
 
     prepare = commands.add_parser("prepare", help="Allocation-only pinned dataset selection materialization")
     prepare.add_argument("--selection", choices=["smoke", "full"], required=True)
@@ -100,6 +124,11 @@ def _parser() -> argparse.ArgumentParser:
     finalize.add_argument("--eval-results", required=True)
     finalize.add_argument("--output", required=True)
 
+    smoke_report = commands.add_parser(
+        "assert-smoke-report", help="Fail closed unless a completed report remains one-instance and non-score-eligible"
+    )
+    smoke_report.add_argument("--report", required=True)
+
     provenance = commands.add_parser("provenance", help="Write allowlisted baseline provenance")
     provenance.add_argument("--project-root", required=True)
     provenance.add_argument("--harness-root", required=True)
@@ -116,10 +145,11 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _validate() -> int:
+def _validate(args: argparse.Namespace) -> int:
     validate_source_lock()
     overlay = validate_agent_overlay()
-    selections = [load_selection("smoke"), load_selection("full")]
+    modes = ["smoke"] if args.smoke_only else ["smoke", "full"]
+    selections = [load_selection(mode) for mode in modes]
     print(
         json.dumps(
             {
@@ -128,6 +158,7 @@ def _validate() -> int:
                 "harness_commit": HARNESS_SHA,
                 "dataset_revision": DATASET_REVISION,
                 "model_id": overlay["model"]["id"],
+                "claim_boundary": NON_SCORE_ELIGIBLE_SMOKE_ONLY if args.smoke_only else "full_contract_available",
                 "selections": [item.selection_id for item in selections],
             },
             indent=2,
@@ -145,6 +176,7 @@ def _render(args: argparse.Namespace) -> int:
         project_url=args.project_url,
         project_commit=args.project_commit,
         preflight_only=args.preflight_only,
+        smoke_only=args.smoke_only,
     )
     if args.output:
         output = Path(args.output)
@@ -155,6 +187,18 @@ def _render(args: argparse.Namespace) -> int:
         print(json.dumps({"status": "rendered", "submitted": False, "output": str(output)}, indent=2))
     else:
         print(rendered, end="")
+    return 0
+
+
+def _render_wrap(args: argparse.Namespace) -> int:
+    from .swebench_pro_slurm import load_baseline_site, render_compact_smoke_submission
+
+    rendered = render_compact_smoke_submission(
+        site=load_baseline_site(args.site),
+        project_url=args.project_url,
+        project_commit=args.project_commit,
+    )
+    print(rendered)
     return 0
 
 
@@ -282,6 +326,17 @@ def _finalize(args: argparse.Namespace) -> int:
     _write_json(safe_absolute_path(args.output, "output"), report)
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0 if report["status"] == "complete" else 3
+
+
+def _assert_smoke_report(args: argparse.Namespace) -> int:
+    require_slurm_allocation()
+    report_path = safe_absolute_path(args.report, "report")
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    if not isinstance(report, dict):
+        raise ConfigError("Smoke acceptance report must be a JSON object")
+    claim = validate_smoke_only_report(report)
+    print(json.dumps(claim, indent=2, sort_keys=True))
+    return 0
 
 
 def _provenance(args: argparse.Namespace) -> int:

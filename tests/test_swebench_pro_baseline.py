@@ -14,6 +14,7 @@ from putpocket_dataset_mining.swebench_pro import (
     HARNESS_SHA,
     MINI_SWE_AGENT_SHA,
     SWE_AGENT_SHA,
+    NON_SCORE_ELIGIBLE_SMOKE_ONLY,
     Selection,
     build_runtime_agent_config,
     classify_container_preflight,
@@ -24,8 +25,14 @@ from putpocket_dataset_mining.swebench_pro import (
     select_rows,
     validate_agent_overlay,
     validate_source_lock,
+    validate_smoke_only_report,
 )
-from putpocket_dataset_mining.swebench_pro_slurm import BaselineSite, render_baseline_job
+from putpocket_dataset_mining.swebench_pro_slurm import (
+    BaselineSite,
+    load_baseline_site,
+    render_baseline_job,
+    render_compact_smoke_submission,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -105,6 +112,20 @@ class SwebenchProContractTests(unittest.TestCase):
         self.assertFalse(report["score_eligible"])
         self.assertIsNone(report["score_percent"])
         self.assertIsNone(report["acceptance_pass"])
+        claim = validate_smoke_only_report(report)
+        self.assertEqual(claim["claim"], NON_SCORE_ELIGIBLE_SMOKE_ONLY)
+
+    def test_smoke_claim_check_rejects_score_or_incomplete_coverage(self) -> None:
+        valid = finalize_official_results(
+            selection=load_selection("smoke"),
+            expected_instance_ids=["instance_one"],
+            eval_results={"instance_one": False},
+        )
+        for field, value in (("score_eligible", True), ("score_percent", 100.0), ("evaluated_count", 0)):
+            invalid = dict(valid)
+            invalid[field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(ConfigError, "non-score-eligible"):
+                validate_smoke_only_report(invalid)
 
     def test_full_score_requires_complete_public_coverage(self) -> None:
         ids = [f"instance_{index:04d}" for index in range(FULL_TEST_ROWS)]
@@ -224,6 +245,70 @@ class SwebenchProStageTests(unittest.TestCase):
 
 
 class SwebenchProSlurmTests(unittest.TestCase):
+    def test_observed_herdr_smoke_preset_is_exact_and_separates_logs(self) -> None:
+        site = load_baseline_site(ROOT / "configs/cluster/sites/herdr_h200_smoke.yaml")
+        self.assertEqual(site.partition, "H200")
+        self.assertEqual(site.account, "gsai-account")
+        self.assertEqual(site.qos, "hpgpu")
+        self.assertEqual(site.h200_gpu_directive, "--gres=gpu:H200:4")
+        self.assertEqual(site.cpus_per_task, 32)
+        self.assertEqual(site.memory, "512G")
+        self.assertEqual(site.wall_time, "06:00:00")
+        self.assertEqual(site.slurm_log_root, Path("/home2/jslee202403/putpocket-slurm"))
+        self.assertEqual(site.storage_root, Path("/local-data/jslee202403/putpocket-glm52-smoke"))
+        self.assertEqual(site.nvidia_smi_executable, Path("/usr/bin/nvidia-smi"))
+
+    def test_smoke_only_renderer_has_no_transition_to_full(self) -> None:
+        rendered = render_baseline_job(
+            site=load_baseline_site(ROOT / "configs/cluster/sites/herdr_h200_smoke.yaml"),
+            project_url="https://github.com/Nier4Ryu/putpocket_dataset_mining.git",
+            project_commit=PROJECT_SHA,
+            smoke_only=True,
+        )
+        self.assertIn("NON_SCORE_ELIGIBLE_SMOKE_ONLY", rendered)
+        self.assertIn("selection=smoke", rendered)
+        self.assertIn("validate --smoke-only", rendered)
+        self.assertIn("assert-smoke-report", rendered)
+        self.assertIn("swe_bench_pro_eval.py", rendered)
+        self.assertIn("dockerhub_username jefzda", rendered)
+        self.assertNotIn("for selection in smoke full", rendered)
+        self.assertNotIn("--selection full", rendered)
+        self.assertNotIn("swebench_pro_full", rendered)
+        self.assertIn("module load cuda/12.9", rendered)
+        self.assertIn("E_CUDA_12_9_REQUIRED", rendered)
+        self.assertLess(rendered.index("docker info"), rendered.index("module load cuda/12.9"))
+        self.assertLess(rendered.index("module load cuda/12.9"), rendered.index("nvcc --version") if "nvcc --version" in rendered else rendered.index('"$NVCC_EXECUTABLE" --version'))
+        self.assertLess(rendered.index("module load cuda/12.9"), rendered.index("env-bootstrap"))
+        completed = subprocess.run(["bash", "-n"], input=rendered, text=True, capture_output=True)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_compact_wrap_preflights_before_fetch_and_executes_tracked_smoke_entrypoint(self) -> None:
+        command = render_compact_smoke_submission(
+            site=load_baseline_site(ROOT / "configs/cluster/sites/herdr_h200_smoke.yaml"),
+            project_url="https://github.com/Nier4Ryu/putpocket_dataset_mining.git",
+            project_commit=PROJECT_SHA,
+        )
+        self.assertIn("sbatch --parsable", command)
+        self.assertIn("--nodes=1", command)
+        self.assertIn("--gres=gpu:H200:4", command)
+        self.assertIn("--partition=H200", command)
+        self.assertIn("--account=gsai-account", command)
+        self.assertIn("--qos=hpgpu", command)
+        self.assertIn("run_swebench_pro_smoke.sh", command)
+        self.assertNotIn("--selection full", command)
+        self.assertLess(command.index("docker info"), command.index("fetch --depth=1"))
+        completed = subprocess.run(["bash", "-n"], input=command + "\n", text=True, capture_output=True)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_tracked_smoke_entrypoint_bootstraps_pinned_uv_after_docker(self) -> None:
+        entrypoint = (ROOT / "scripts/cluster/run_swebench_pro_smoke.sh").read_text(encoding="utf-8")
+        self.assertIn("uv==0.11.31", entrypoint)
+        self.assertIn("--smoke-only", entrypoint)
+        self.assertNotIn("--selection full", entrypoint)
+        self.assertLess(entrypoint.index("docker info"), entrypoint.index("pip install"))
+        completed = subprocess.run(["bash", "-n"], input=entrypoint, text=True, capture_output=True)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
     def test_renderer_requests_exactly_one_node_and_four_h200s(self) -> None:
         rendered = render_baseline_job(
             site=BaselineSite.from_mapping(site_mapping()),

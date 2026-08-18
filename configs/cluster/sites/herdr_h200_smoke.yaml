@@ -1,0 +1,27 @@
+schema_version: 1
+site:
+  partition: H200
+  account: gsai-account
+  qos: hpgpu
+  wall_time: "06:00:00"
+  memory: 512G
+  cpus_per_task: 32
+  h200_gpu_directive: --gres=gpu:H200:4
+  base_python: /local-data/jslee202403/putpocket-glm52-smoke/tools/render-python/bin/python
+  uv_executable: /local-data/jslee202403/putpocket-glm52-smoke/tools/uv-0.11.31/bin/uv
+  git_executable: /usr/bin/git
+  nvidia_smi_executable: /usr/bin/nvidia-smi
+  nvcc_executable: auto
+  curl_executable: /usr/bin/curl
+  storage_root: /local-data/jslee202403/putpocket-glm52-smoke
+  cache_root: /local-data/jslee202403/putpocket-glm52-smoke/cache
+  artifact_root: /local-data/jslee202403/putpocket-glm52-smoke/artifacts
+  slurm_log_root: /home2/jslee202403/putpocket-slurm
+model:
+  path: /local-data/jslee202403/putpocket-glm52-smoke/models/GLM-5.2-NVFP4
+  revision: main
+  source: huggingface
+job:
+  experiment_id: glm52-swepro-smoke
+  evaluation_workers: 1
+  agent_workers: 1

@@ -7,8 +7,9 @@ experiment-package foundation. `putpocket-cluster` validates GLM-5.2 profiles,
 renders Slurm jobs without submitting them, enforces compute-allocation guards,
 and performs staged readiness checks. See `docs/CLUSTER_GLM52_PHASE1.md`.
 
-The stacked phase-2 package adds a pinned, restartable public SWE-bench Pro
-baseline job for unmodified GLM-5.2 NVFP4 on four H200 GPUs. See
+The stacked phase-2 package adds a pinned, restartable, one-instance public
+SWE-bench Pro smoke job for unmodified GLM-5.2 NVFP4 on four H200 GPUs. Its
+official per-row result is always `NON_SCORE_ELIGIBLE_SMOKE_ONLY`. See
 `docs/CLUSTER_GLM52_SWEBENCH_PRO_BASELINE.md`. Montblanc support remains
 render/static-test only; heavy actions are allocation guarded.
 

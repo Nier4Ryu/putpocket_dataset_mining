@@ -1,6 +1,6 @@
-# GLM-5.2 SWE-bench Pro public baseline job
+# GLM-5.2 SWE-bench Pro one-instance baseline smoke
 
-This stacked phase-2 package runs the unmodified
+This bounded stacked phase-2 package runs one deterministic public instance with the unmodified
 `nvidia/GLM-5.2-NVFP4` baseline on exactly one Slurm node and four H200 GPUs.
 It uses TP1 + PCP4 + EP first. TP2 + PCP2 + EP is attempted only when the
 primary vLLM log contains a classified parallel-startup compatibility error;
@@ -20,32 +20,32 @@ model-behavior patch.
 - Images: `jefzda/sweap-images:<row.dockerhub_tag>`
 - Scorer: the pinned, unchanged `swe_bench_pro_eval.py`
 
-The adapter produces a deterministic lexicographically first one-instance
-smoke selection and the complete 731-instance public selection. It proves that
+The active adapter path produces the deterministic lexicographically first
+one-instance smoke selection. The full manifest remains a dormant extension
+point and is never loaded or referenced by the smoke renderer. The smoke proves that
 the pinned harness image helper resolves to each row's exact `dockerhub_tag`
 before inference. It turns mini-swe-agent `preds.json` into `.pred` inputs and
 then calls the official `gather_patches.py`; it does not implement scoring.
 
-Smoke results always have `score_percent: null` and
-`acceptance_pass: null`. A score and the explicit 40% pass/fail are emitted
-only when the unchanged official result mapping covers all 731 selected IDs.
+Smoke results always have `score_percent: null`, `acceptance_pass: null`, and
+the explicit `NON_SCORE_ELIGIBLE_SMOKE_ONLY` claim boundary. This task does not
+run the full manifest or calculate the 40% acceptance threshold.
 
 ## Safe Montblanc render
 
-Copy `configs/cluster/swebench_pro_site.example.yaml` outside the checkout and
-fill it only with values observed from Cluster inventory: partition, optional
-account/qos, exact four-H200 directive, wall time, memory, CPUs, absolute tool
-paths, storage/cache/artifact/log roots, and exact model revision/path. Do not
-put tokens or credentials in the site file.
+The tracked `configs/cluster/sites/herdr_h200_smoke.yaml` contains only values
+observed for this bounded run: H200, `gsai-account`, `hpgpu`, four typed GPUs,
+32 CPUs, 512G, six hours, shared log storage, and allocated-node local storage.
+The compute path loads `cuda/12.9` and rejects a different `nvcc` version.
 
 ```bash
-putpocket-swebench-pro validate
+putpocket-swebench-pro validate --smoke-only
 putpocket-swebench-pro render \
-  --site /absolute/path/cluster-swepro-site.yaml \
+  --site configs/cluster/sites/herdr_h200_smoke.yaml \
   --project-url https://github.com/Nier4Ryu/putpocket_dataset_mining.git \
   --project-commit <EXACT_PUSHED_COMMIT> \
-  --output /absolute/path/glm52-swepro-baseline.sbatch
-bash -n /absolute/path/glm52-swepro-baseline.sbatch
+  --smoke-only > /absolute/path/glm52-swepro-smoke.sbatch
+bash -n /absolute/path/glm52-swepro-smoke.sbatch
 ```
 
 Rendering never invokes Slurm, a GPU tool, Docker, a package installer, or a
@@ -53,21 +53,21 @@ network client. The rendered job requests one node and exactly four typed H200
 GPUs. `#SBATCH --export=NONE` prevents ambient Login credentials from being
 copied into the job.
 
-## Exact Login and compute sequence
+## Compact Login and compute sequence
 
-Login performs only inventory, creates the configured Slurm-log directory,
-and streams the already-rendered script to `sbatch`:
+On Montblanc, render one pasteable command after replacing the commit with the
+exact pushed source commit:
 
 ```bash
-ssh -o BatchMode=yes -o ConnectTimeout=8 Login-1 'mkdir -p <SLURM_LOG_ROOT>'
-job_id=$(ssh -o BatchMode=yes -o ConnectTimeout=8 Login-1 'sbatch --parsable' \
-  < /absolute/path/glm52-swepro-baseline.sbatch)
-ssh -o BatchMode=yes -o ConnectTimeout=8 Login-1 \
-  "squeue -j ${job_id} -o '%i|%T|%P|%N|%R'"
+putpocket-swebench-pro render-wrap \
+  --site configs/cluster/sites/herdr_h200_smoke.yaml \
+  --project-url https://github.com/Nier4Ryu/putpocket_dataset_mining.git \
+  --project-commit <EXACT_PUSHED_COMMIT>
 ```
 
-No Login checkout is created. Inside the allocated compute job only, the
-script validates explicit Slurm fields, then checks whether Docker is both
+Paste that single `mkdir ... && sbatch --parsable ... --wrap=...` command into
+the already authenticated Herdr Login pane. No Login checkout or source file is
+created. The wrapped compute command validates explicit Slurm fields, then checks whether Docker is both
 present and usable. This happens before project/harness clone, environment
 creation, dependency install, checkpoint download, model load, or benchmark.
 If unchanged official evaluation cannot use Docker, the job records
@@ -79,17 +79,18 @@ After preflight, the compute job:
 
 1. initializes a compute-local checkout and fetches only the exact pushed
    project commit;
-2. executes the phase-1 allocation-guarded H200/SM90 vLLM 0.26 bootstrap;
-3. checks out the pinned official harness and exact submodule Gitlinks;
-4. installs benchmark dependencies in the allocation;
-5. stages the exact model revision to the configured storage path, or validates
+2. bootstraps pinned uv 0.11.31 under allocated-node storage, initializes
+   Environment Modules, loads `cuda/12.9`, and verifies `nvcc` is 12.9;
+3. executes the phase-1 allocation-guarded H200/SM90 vLLM 0.26 bootstrap;
+4. checks out the pinned official harness and exact submodule Gitlinks;
+5. installs benchmark dependencies in the allocation;
+6. resolves the requested public model ref to an exact Hugging Face SHA and stages it, or validates
    the configured local checkpoint;
-6. captures phase-1 GPU/topology/driver/CUDA/NCCL/package provenance;
-7. starts the node-local OpenAI-compatible vLLM endpoint, records the parallel
+7. captures phase-1 GPU/topology/driver/CUDA/NCCL/package provenance;
+8. starts the node-local OpenAI-compatible vLLM endpoint, records the parallel
    profile, and runs a one-shot health/generation request;
-8. runs smoke prepare/inference/gather/official evaluation/finalize, then the
-   same restartable stages for the complete public test split;
-9. writes the full acceptance report and allowlisted provenance, then stops the
+9. runs one smoke prepare/inference/gather/unchanged official evaluation/finalize path;
+10. verifies the report is complete but non-score-eligible, writes allowlisted provenance, then stops the
    model server through a cleanup trap.
 
 Completed stage markers include an input fingerprint and are skipped on
@@ -100,6 +101,6 @@ Vikunja or AFFiNE.
 
 ## Claim boundary and next phase
 
-This package makes no quality claim until a complete Cluster artifact contains
-the 731-row official result mapping. Phase 3 remains the separate
+This smoke package makes no quality claim and cannot emit a threshold pass.
+Any future 731-row run requires a separate task and explicit authorization. Phase 3 remains the separate
 `vllm-026-sm90-trace-port`; no trace or model patch is included here.

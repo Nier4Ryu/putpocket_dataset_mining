@@ -29,6 +29,7 @@ FULL_TEST_ROWS = 731
 DOCKERHUB_NAMESPACE = "jefzda/sweap-images"
 MODEL_ID = "nvidia/GLM-5.2-NVFP4"
 ACCEPTANCE_THRESHOLD_PERCENT = 40.0
+NON_SCORE_ELIGIBLE_SMOKE_ONLY = "NON_SCORE_ELIGIBLE_SMOKE_ONLY"
 _SHA = re.compile(r"^[0-9a-f]{40}$")
 _DOCKER_TAG = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
 _STAGES = {"prepare", "inference", "gather", "evaluate", "finalize"}
@@ -312,6 +313,32 @@ def finalize_official_results(
         report["score_percent"] = score
         report["acceptance_pass"] = score >= ACCEPTANCE_THRESHOLD_PERCENT
     return report
+
+
+def validate_smoke_only_report(report: Mapping[str, Any]) -> dict[str, Any]:
+    """Fail closed unless an official one-instance report is non-score-eligible."""
+    required = (
+        ("selection_mode", lambda value: value == "smoke"),
+        ("expected_count", lambda value: type(value) is int and value == 1),
+        ("evaluated_count", lambda value: type(value) is int and value == 1),
+        ("missing_result_count", lambda value: type(value) is int and value == 0),
+        ("score_eligible", lambda value: value is False),
+        ("score_percent", lambda value: value is None),
+        ("acceptance_pass", lambda value: value is None),
+        ("status", lambda value: value == "complete"),
+    )
+    mismatches = [key for key, predicate in required if not predicate(report.get(key))]
+    if mismatches:
+        raise ConfigError(
+            "Smoke result violates the non-score-eligible one-instance contract: " + ", ".join(mismatches)
+        )
+    return {
+        "schema_version": 1,
+        "status": "passed",
+        "claim": NON_SCORE_ELIGIBLE_SMOKE_ONLY,
+        "selection_id": report.get("selection_id"),
+        "evaluated_count": 1,
+    }
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:

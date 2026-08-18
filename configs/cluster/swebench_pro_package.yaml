@@ -1,12 +1,16 @@
 schema_version: 1
 package_id: glm52_swebench_pro_public_baseline
-claim_boundary: full_score_only_after_complete_unchanged_official_evaluation
+claim_boundary: NON_SCORE_ELIGIBLE_SMOKE_ONLY
 source_lock: configs/cluster/swebench_pro_sources.lock.yaml
 agent_overlay: configs/cluster/swebench_pro_agent_overlay.yaml
 site_template: configs/cluster/swebench_pro_site.example.yaml
+active_site_preset: configs/cluster/sites/herdr_h200_smoke.yaml
+allocation_entrypoint: scripts/cluster/run_swebench_pro_smoke.sh
 selections:
   smoke: configs/cluster/selections/swebench_pro_smoke.yaml
   full: configs/cluster/selections/swebench_pro_full.yaml
+active_selection: smoke
+full_manifest_execution_for_this_task: forbidden
 schemas:
   acceptance_report: configs/cluster/schemas/swebench_pro_acceptance.schema.json
 model: nvidia/GLM-5.2-NVFP4
@@ -17,6 +21,8 @@ required_hardware:
   accelerator: H200
   gpus: 4
 official_scorer_modified: false
+official_evaluation_scope: one_deterministic_public_row
+score_eligible: false
 login_node_heavy_actions: false
 cluster_worker_edits_source: false
 deferred_extensions:

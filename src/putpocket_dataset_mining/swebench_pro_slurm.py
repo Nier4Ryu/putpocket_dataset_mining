@@ -32,12 +32,12 @@ class BaselineSite:
     memory: str
     cpus_per_task: int
     h200_gpu_directive: str
-    base_python: Path
-    uv_executable: Path
-    git_executable: Path
-    nvidia_smi_executable: Path
-    nvcc_executable: Path
-    curl_executable: Path
+    base_python: Path | str
+    uv_executable: Path | str
+    git_executable: Path | str
+    nvidia_smi_executable: Path | str
+    nvcc_executable: Path | str
+    curl_executable: Path | str
     storage_root: Path
     cache_root: Path
     artifact_root: Path
@@ -70,7 +70,7 @@ class BaselineSite:
             raise ConfigError("model.source must be huggingface or local")
         model_path = safe_absolute_path(model.get("path") or "", "model.path")
         storage = safe_absolute_path(site.get("storage_root") or "", "site.storage_root")
-        for field in ("cache_root", "artifact_root", "slurm_log_root"):
+        for field in ("cache_root", "artifact_root"):
             value = safe_absolute_path(site.get(field) or "", f"site.{field}", slurm_directive=field == "slurm_log_root")
             try:
                 value.relative_to(storage)
@@ -94,14 +94,12 @@ class BaselineSite:
             memory=memory,
             cpus_per_task=_positive_int(site.get("cpus_per_task"), "site.cpus_per_task"),
             h200_gpu_directive=gpu,
-            base_python=safe_absolute_path(site.get("base_python") or "", "site.base_python"),
-            uv_executable=safe_absolute_path(site.get("uv_executable") or "", "site.uv_executable"),
-            git_executable=safe_absolute_path(site.get("git_executable") or "", "site.git_executable"),
-            nvidia_smi_executable=safe_absolute_path(
-                site.get("nvidia_smi_executable") or "", "site.nvidia_smi_executable"
-            ),
-            nvcc_executable=safe_absolute_path(site.get("nvcc_executable") or "", "site.nvcc_executable"),
-            curl_executable=safe_absolute_path(site.get("curl_executable") or "", "site.curl_executable"),
+            base_python=_tool_path(site.get("base_python"), "site.base_python"),
+            uv_executable=_tool_path(site.get("uv_executable"), "site.uv_executable"),
+            git_executable=_tool_path(site.get("git_executable"), "site.git_executable"),
+            nvidia_smi_executable=_tool_path(site.get("nvidia_smi_executable"), "site.nvidia_smi_executable"),
+            nvcc_executable=_tool_path(site.get("nvcc_executable"), "site.nvcc_executable"),
+            curl_executable=_tool_path(site.get("curl_executable"), "site.curl_executable"),
             storage_root=storage,
             cache_root=safe_absolute_path(site["cache_root"], "site.cache_root"),
             artifact_root=safe_absolute_path(site["artifact_root"], "site.artifact_root"),
@@ -120,12 +118,20 @@ def load_baseline_site(path: str | Path) -> BaselineSite:
 
 
 def render_baseline_job(
-    *, site: BaselineSite, project_url: str, project_commit: str, preflight_only: bool = False
+    *,
+    site: BaselineSite,
+    project_url: str,
+    project_commit: str,
+    preflight_only: bool = False,
+    smoke_only: bool = False,
 ) -> str:
     _validate_project(project_url, project_commit)
+    if preflight_only and smoke_only:
+        raise ConfigError("preflight_only and smoke_only are mutually exclusive")
+    mode = "preflight" if preflight_only else "smoke" if smoke_only else "baseline"
     directives = [
         "#!/usr/bin/env bash",
-        f"#SBATCH --job-name=pp-glm52-swepro-{'preflight' if preflight_only else 'baseline'}",
+        f"#SBATCH --job-name=pp-glm52-swepro-{mode}",
         "#SBATCH --nodes=1",
         "#SBATCH --ntasks=1",
         f"#SBATCH {site.h200_gpu_directive}",
@@ -152,7 +158,8 @@ def render_baseline_job(
         f"HARNESS_COMMIT={HARNESS_SHA}",
         f"DATASET_REVISION={DATASET_REVISION}",
         f"MODEL_ID={shlex.quote(MODEL_ID)}",
-        f"MODEL_REVISION={shlex.quote(site.model_revision)}",
+        f"MODEL_REVISION_REQUESTED={shlex.quote(site.model_revision)}",
+        "MODEL_REVISION=$MODEL_REVISION_REQUESTED",
         f"MODEL_SOURCE={site.model_source}",
         f"MODEL_PATH={shlex.quote(str(site.model_path))}",
         f"STORAGE_ROOT={shlex.quote(str(site.storage_root))}",
@@ -218,6 +225,29 @@ def render_baseline_job(
         return "\n".join(directives + values)
     body = [
         "",
+        "initialize_modules() {",
+        "  type module >/dev/null 2>&1 && return 0",
+        "  for module_init in /etc/profile.d/modules.sh /usr/share/Modules/init/bash /usr/share/lmod/lmod/init/bash; do",
+        "    if [[ -r $module_init ]]; then source \"$module_init\"; type module >/dev/null 2>&1 && return 0; fi",
+        "  done",
+        "  return 1",
+        "}",
+        "initialize_modules || { echo E_COMPUTE_MODULE_COMMAND_MISSING >&2; exit 44; }",
+        "module load cuda/12.9",
+        "resolve_tool() {",
+        "  requested=$1; command_name=$2",
+        "  if [[ $requested == auto ]]; then command -v \"$command_name\"; else [[ -x $requested ]] && printf '%s\\n' \"$requested\"; fi",
+        "}",
+        "BASE_PYTHON=$(resolve_tool \"$BASE_PYTHON\" python3) || { echo E_COMPUTE_TOOL_MISSING:python3 >&2; exit 43; }",
+        "UV_EXECUTABLE=$(resolve_tool \"$UV_EXECUTABLE\" uv) || { echo E_COMPUTE_TOOL_MISSING:uv >&2; exit 43; }",
+        "GIT_EXECUTABLE=$(resolve_tool \"$GIT_EXECUTABLE\" git) || { echo E_COMPUTE_TOOL_MISSING:git >&2; exit 43; }",
+        "NVIDIA_SMI_EXECUTABLE=$(resolve_tool \"$NVIDIA_SMI_EXECUTABLE\" nvidia-smi) || { echo E_COMPUTE_TOOL_MISSING:nvidia-smi >&2; exit 43; }",
+        "NVCC_EXECUTABLE=$(resolve_tool \"$NVCC_EXECUTABLE\" nvcc) || { echo E_COMPUTE_TOOL_MISSING:nvcc >&2; exit 43; }",
+        "CURL_EXECUTABLE=$(resolve_tool \"$CURL_EXECUTABLE\" curl) || { echo E_COMPUTE_TOOL_MISSING:curl >&2; exit 43; }",
+        "\"$NVCC_EXECUTABLE\" --version > \"$RUN_ROOT/nvcc_version.txt\" 2>&1",
+        "grep -Eq 'release 12\\.9([,[:space:]]|$)' \"$RUN_ROOT/nvcc_version.txt\" || { echo E_CUDA_12_9_REQUIRED >&2; exit 45; }",
+        "printf '{\"schema_version\":1,\"status\":\"passed\",\"resolution\":\"compute-allocation-only\"}\\n' > \"$RUN_ROOT/tool_preflight.json\"",
+        "",
         "if [[ ! -d \"$PROJECT_ROOT/.git\" ]]; then",
         "  mkdir -p \"$PROJECT_ROOT\"",
         "  \"$GIT_EXECUTABLE\" -C \"$PROJECT_ROOT\" init",
@@ -227,7 +257,7 @@ def render_baseline_job(
         "fi",
         "[[ $(\"$GIT_EXECUTABLE\" -C \"$PROJECT_ROOT\" rev-parse HEAD) == \"$PROJECT_COMMIT\" ]] || { echo project commit mismatch >&2; exit 31; }",
         "export PYTHONPATH=\"$PROJECT_ROOT/src\"",
-        "\"$BASE_PYTHON\" -m putpocket_dataset_mining.swebench_pro_cli validate",
+        f"\"$BASE_PYTHON\" -m putpocket_dataset_mining.swebench_pro_cli validate{' --smoke-only' if smoke_only else ''}",
         "",
         "\"$BASE_PYTHON\" -m putpocket_dataset_mining.cluster_cli env-bootstrap \\",
         "  --lock \"$PROJECT_ROOT/configs/env/cluster_h200_sm90_vllm026.lock.yaml\" \\",
@@ -246,6 +276,9 @@ def render_baseline_job(
         "\"$UV_EXECUTABLE\" pip install --python \"$RUNTIME_PYTHON\" -e \"$HARNESS_ROOT/mini-swe-agent\"",
         "",
         "if [[ \"$MODEL_SOURCE\" == huggingface ]]; then",
+        "  MODEL_REVISION=$(\"$RUNTIME_PYTHON\" -c \"from huggingface_hub import HfApi; print(HfApi().model_info(repo_id='$MODEL_ID', revision='$MODEL_REVISION_REQUESTED').sha)\")",
+        "  [[ $MODEL_REVISION =~ ^[0-9a-f]{40}$ ]] || { echo resolved model revision is not a full SHA >&2; exit 33; }",
+        "  printf '%s\\n' \"$MODEL_REVISION\" > \"$RUN_ROOT/model_resolved_revision.txt\"",
         "  \"$RUNTIME_PYTHON\" -c \"from huggingface_hub import snapshot_download; snapshot_download(repo_id='$MODEL_ID', revision='$MODEL_REVISION', local_dir='$MODEL_PATH')\"",
         "fi",
         "[[ -d \"$MODEL_PATH\" ]] || { echo model checkpoint missing >&2; exit 33; }",
@@ -290,7 +323,8 @@ def render_baseline_job(
         "  -d '{\"model\":\"nvidia/GLM-5.2-NVFP4\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with READY only.\"}],\"max_tokens\":8,\"temperature\":0}' \\",
         "  http://127.0.0.1:8000/v1/chat/completions > \"$RUN_ROOT/one_shot_generation.json\"",
         "",
-        "for selection in smoke full; do",
+        "selection=smoke" if smoke_only else "for selection in smoke full; do",
+        "printf '%s\\n' NON_SCORE_ELIGIBLE_SMOKE_ONLY > \"$RUN_ROOT/claim_boundary.txt\"" if smoke_only else "",
         "  selection_root=\"$RUN_ROOT/$selection\"",
         "  \"$RUNTIME_PYTHON\" -m putpocket_dataset_mining.swebench_pro_cli stage --stage prepare \\",
         "    --artifact-root \"$selection_root\" --fingerprint \"$DATASET_REVISION-$selection\" -- \\",
@@ -319,7 +353,8 @@ def render_baseline_job(
         "    \"$RUNTIME_PYTHON\" -m putpocket_dataset_mining.swebench_pro_cli finalize \\",
         "    --selection \"$selection\" --selection-manifest \"$selection_root/prepared/selection_manifest.json\" \\",
         "    --eval-results \"$selection_root/evaluation/eval_results.json\" --output \"$selection_root/acceptance_report.json\"",
-        "done",
+        "" if smoke_only else "done",
+        "\"$RUNTIME_PYTHON\" -m putpocket_dataset_mining.swebench_pro_cli assert-smoke-report --report \"$selection_root/acceptance_report.json\" > \"$selection_root/non_score_eligible_smoke_only.json\"" if smoke_only else "",
         "",
         "PROFILE_USED=$(cat \"$RUN_ROOT/parallel_profile_used.txt\")",
         "\"$RUNTIME_PYTHON\" -m putpocket_dataset_mining.swebench_pro_cli provenance \\",
@@ -327,13 +362,65 @@ def render_baseline_job(
         "  --parallel-profile \"$PROFILE_USED\" --container-runtime docker \\",
         "  --runtime-manifest \"$RUNTIME_MANIFEST_ROOT/readiness_manifest.json\" --artifact-root \"$RUN_ROOT\" \\",
         "  --output \"$RUN_ROOT/provenance.json\"",
-        "JOB_STATUS=complete",
+        "JOB_STATUS=NON_SCORE_ELIGIBLE_SMOKE_ONLY" if smoke_only else "JOB_STATUS=complete",
         "",
     ]
     rendered = "\n".join(directives + values + body)
     if re.search(r"(^|\s)(?:sbatch|salloc)(?:\s|$)", rendered):
         raise AssertionError("SWE-bench Pro renderer must never submit or allocate")
     return rendered
+
+
+def render_compact_smoke_submission(*, site: BaselineSite, project_url: str, project_commit: str) -> str:
+    """Render one pasteable Login control-plane command; heavy work stays in the allocation."""
+    _validate_project(project_url, project_commit)
+    source_root = site.storage_root / "submission" / f"project-{project_commit}"
+    run_root_base = site.artifact_root / site.experiment_id
+    wrapper = "\n".join(
+        [
+            "set -euo pipefail",
+            "umask 077",
+            f"PROJECT_URL={shlex.quote(project_url)}",
+            f"PROJECT_COMMIT={project_commit}",
+            f"SOURCE_ROOT={shlex.quote(str(source_root))}",
+            f"RUN_ROOT={shlex.quote(str(run_root_base))}/\"${{SLURM_JOB_ID:-unknown}}\"",
+            "[[ ${SLURM_JOB_ID:-} =~ ^[0-9]+$ ]] || { echo E_SLURM_ALLOCATION_REQUIRED >&2; exit 20; }",
+            "[[ -n ${SLURM_JOB_NODELIST:-} && ${SLURM_JOB_NUM_NODES:-0} == 1 ]] || { echo E_SLURM_ALLOCATION_REQUIRED >&2; exit 20; }",
+            "mkdir -p \"$RUN_ROOT\"",
+            "if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then",
+            "  printf '{\"schema_version\":1,\"status\":\"failed\",\"failure_class\":\"OFFICIAL_EVALUATION_DOCKER_REQUIRED\",\"official_evaluation_supported\":false}\\n' > \"$RUN_ROOT/container_preflight.json\"",
+            "  printf '%s\\n' NON_SCORE_ELIGIBLE_SMOKE_ONLY > \"$RUN_ROOT/claim_boundary.txt\"",
+            "  exit 42",
+            "fi",
+            "printf '{\"schema_version\":1,\"status\":\"passed\",\"runtime\":\"docker\",\"official_evaluation_supported\":true}\\n' > \"$RUN_ROOT/container_preflight.json\"",
+            "mkdir -p \"$SOURCE_ROOT\"",
+            "if [[ ! -d \"$SOURCE_ROOT/.git\" ]]; then /usr/bin/git -C \"$SOURCE_ROOT\" init; fi",
+            "/usr/bin/git -C \"$SOURCE_ROOT\" diff --quiet --ignore-submodules -- || { echo E_DIRTY_COMPUTE_CHECKOUT >&2; exit 30; }",
+            "/usr/bin/git -C \"$SOURCE_ROOT\" fetch --depth=1 \"$PROJECT_URL\" \"$PROJECT_COMMIT\"",
+            "/usr/bin/git -C \"$SOURCE_ROOT\" checkout --detach FETCH_HEAD",
+            "[[ $(/usr/bin/git -C \"$SOURCE_ROOT\" rev-parse HEAD) == \"$PROJECT_COMMIT\" ]] || { echo E_PROJECT_COMMIT_MISMATCH >&2; exit 31; }",
+            "exec /bin/bash \"$SOURCE_ROOT/scripts/cluster/run_swebench_pro_smoke.sh\" \"$PROJECT_COMMIT\"",
+        ]
+    )
+    flags = [
+        "sbatch",
+        "--parsable",
+        "--job-name=pp-glm52-swepro-smoke",
+        "--nodes=1",
+        "--ntasks=1",
+        site.h200_gpu_directive,
+        f"--cpus-per-task={site.cpus_per_task}",
+        f"--mem={_directive(site.memory, 'memory')}",
+        f"--time={_directive(site.wall_time, 'wall_time')}",
+        f"--output={site.slurm_log_root}/%x-%j.out",
+        f"--error={site.slurm_log_root}/%x-%j.err",
+        "--export=NONE",
+    ]
+    for name, value in (("partition", site.partition), ("account", site.account), ("qos", site.qos)):
+        if value:
+            flags.append(f"--{name}={_directive(value, name)}")
+    flags.append(f"--wrap={wrapper}")
+    return f"mkdir -p {shlex.quote(str(site.slurm_log_root))} && " + shlex.join(flags)
 
 
 def _validate_project(url: str, commit: str) -> None:
@@ -350,3 +437,9 @@ def _directive(value: str, field: str) -> str:
     if not _DIRECTIVE.fullmatch(value):
         raise ConfigError(f"Unsafe Slurm directive value for {field}: {value!r}")
     return value
+
+
+def _tool_path(value: Any, field: str) -> Path | str:
+    if value == "auto":
+        return "auto"
+    return safe_absolute_path(value or "", field)

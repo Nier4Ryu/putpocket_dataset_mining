@@ -87,6 +87,15 @@ identity, recorded byte count, provenance file, and file digest is revalidated.
 The H200 entrypoint validates the bundle and SM90 compiled imports before model
 config or weight download.
 
+The compiled-import probe writes
+`<run-artifacts>/phase1/compiled_import_probe.log`. It labels the container,
+runtime nvcc, torch, vLLM extension, sparse-indexer, ModelOpt W4A16, diagnostic
+hook, and SM90-capability steps independently. If any step exits nonzero, the
+entrypoint replays the complete log between
+`COMPILED_SM90_IMPORT_PROBE_LOG_BEGIN/END` markers to the shared Slurm stderr
+before returning exit 31. This changes observability only: every original
+import, the CUDA 13.0 check, and the SM90 assertion remain fail closed.
+
 The CPU build deliberately passes upstream Docker build argument
 `RUN_WHEEL_CHECK=false`. That disables only vLLM's 500 MB release-packaging
 size policy for this intentional CUDA 13.0.3, SM90-only wheel; it does not
@@ -158,6 +167,14 @@ Expected paths:
   `<run-artifacts>/phase2/runtime_jit/runtime_jit_manifest.json`
 - runtime JIT checksums:
   `<run-artifacts>/phase2/runtime_jit/runtime_jit_SHA256SUMS`
+
+For an exit-31 `COMPILED_SM90_IMPORT_PROBE_FAILED`, retain the shared run stderr
+and recover these node-local files before diagnosing a dependency, driver, or
+extension issue: `phase1/compiled_import_probe.log`, `phase1/image_load.log`,
+`phase1/runtime_image_identity.txt`, `phase1/build_bundle_validation.json`,
+`phase0/gpu_inventory.csv`, `phase0/driver_versions.csv`, and
+`diagnostic_manifest.json`. The generic failure class alone does not identify
+which command or import failed.
 
 The older SGLang renderer and entrypoints are retained only as historical,
 unreachable package evidence. They are not called by this renderer or either

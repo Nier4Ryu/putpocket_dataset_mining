@@ -263,6 +263,30 @@ def test_scripts_gate_allocation_and_bundle_before_heavy_actions() -> None:
     assert "run_swebench" not in run.lower() and "swebench_pro_full" not in run.lower()
 
 
+def test_compiled_import_probe_is_stepwise_and_replays_failure_log() -> None:
+    run = (ROOT / "scripts/cluster/run_glm52_vllm_diagnostic.sh").read_text(encoding="utf-8")
+    required_steps = (
+        "runtime_nvcc",
+        "import_torch",
+        "import_vllm",
+        "import_vllm_C",
+        "import_sparse_attn_indexer",
+        "import_modelopt_nvfp4_w4a16",
+        "import_native_dsa_capture",
+        "validate_sm90_device_capability",
+    )
+    for step in required_steps:
+        assert f"PROBE_STEP_START={step}" in run or f'"{step}"' in run
+    assert 'COMPILED_IMPORT_PROBE_LOG="$RUN_ROOT/phase1/compiled_import_probe.log"' in run
+    assert 'cat "$COMPILED_IMPORT_PROBE_LOG" >&2' in run
+    assert "COMPILED_SM90_IMPORT_PROBE_LOG_BEGIN" in run
+    assert "COMPILED_SM90_IMPORT_PROBE_LOG_END" in run
+    assert run.index("validate-build-bundle") < run.index("COMPILED_IMPORT_PROBE_LOG=") < run.index("snapshot_download")
+    assert run.index("COMPILED_SM90_IMPORT_PROBE_LOG_BEGIN") < run.index("fail COMPILED_SM90_IMPORT_PROBE_FAILED 31")
+    assert 'tuple(capability) != (9, 0)' in run
+    assert 'grep -Fq \'release 13.0\' "$COMPILED_IMPORT_PROBE_LOG"' in run
+
+
 def test_inventory_requires_four_full_non_mig_h200s() -> None:
     header = "index,uuid,name,memory_total_mib,memory_free_mib,mig_mode,compute_capability\n"
     rows = "".join(f"{i},GPU-{i},NVIDIA H200,143771,140000,Disabled,9.0\n" for i in range(4))

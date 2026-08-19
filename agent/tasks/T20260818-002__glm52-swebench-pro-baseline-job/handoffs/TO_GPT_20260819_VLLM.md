@@ -94,6 +94,26 @@ PYTHONPATH=src python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli ren
 The raw one-line output excluding its trailing newline is 5,291 bytes and has
 SHA-256 `d57e0e782c25ada66c7b3bcc9b6ef2419c64662562adb9b17b45c40b6be495c0`.
 
+## H200 import-probe incident
+
+CPU build job `747490` completed and published the immutable bundle. Its wheel
+is 603,540,543 bytes with SHA-256
+`3c408df63c56e2a711116449d4324fcef5f2043de1b5c3dee4d3bf561908af52`.
+H200 job `747491` then exited 31 at the compiled-import probe before model
+metadata or weights. The pinned source contains every requested import symbol,
+but source and bundle metadata cannot distinguish Docker/GPU initialization,
+nvcc, extension loading, Python dependency, hook import, or capability-assert
+failures. The exact prior traceback is only in
+`artifacts/747491/phase1/compiled_import_probe.log` on n87.
+
+Replacement source keeps all checks unchanged and makes the probe stepwise. On
+failure it replays that log, with explicit begin/end markers and the container
+exit code, into the shared Slurm stderr. The existing validated bundle remains
+reusable; this runtime-script-only correction does not require recompiling the
+wheel or rebuilding the runtime image. The historical renderer example above
+must be re-rendered with the replacement pushed commit returned in the final
+handoff; do not resubmit its older project commit.
+
 ## Git/test result
 
 The Cluster CPU build job `746239` subsequently proved compilation and wheel

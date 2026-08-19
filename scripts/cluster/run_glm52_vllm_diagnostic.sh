@@ -91,16 +91,93 @@ RUNTIME_IMAGE_ID=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]
 [[ $RUNTIME_IMAGE_ID == sha256:* ]] || fail RUNTIME_IMAGE_ID_INVALID 30
 "$CONTAINER" image inspect "$RUNTIME_IMAGE_ID" --format '{{.Id}} {{.Architecture}}' > "$RUN_ROOT/phase1/runtime_image_identity.txt"
 grep -Fq "$RUNTIME_IMAGE_ID" "$RUN_ROOT/phase1/runtime_image_identity.txt" || fail RUNTIME_IMAGE_ID_MISMATCH 30
-"$CONTAINER" run --rm --gpus "device=$GPU_SELECTOR" --entrypoint /bin/bash "$RUNTIME_IMAGE_ID" -lc 'set -euo pipefail; nvcc --version; python3 - <<"PY"
-import torch, vllm
-import vllm._C
-from vllm.model_executor.layers.sparse_attn_indexer import sparse_attn_indexer
-from vllm.model_executor.layers.quantization.modelopt import ModelOptNvFp4W4A16LinearMethod
-from vllm.model_executor.layers.vllm_dsa_diagnostic_dump import maybe_capture_native_dsa
-assert torch.cuda.get_device_capability(0) == (9, 0)
-print(torch.__version__, torch.version.cuda, vllm.__version__, sparse_attn_indexer, ModelOptNvFp4W4A16LinearMethod, maybe_capture_native_dsa)
-PY' > "$RUN_ROOT/phase1/compiled_import_probe.log" 2>&1 || fail COMPILED_SM90_IMPORT_PROBE_FAILED 31
-grep -Fq 'release 13.0' "$RUN_ROOT/phase1/compiled_import_probe.log" || fail RUNTIME_CUDA_13_0_MISMATCH 31
+COMPILED_IMPORT_PROBE_LOG="$RUN_ROOT/phase1/compiled_import_probe.log"
+printf 'PROBE_STEP_START=container_runtime\n' > "$COMPILED_IMPORT_PROBE_LOG"
+set +e
+"$CONTAINER" run --rm --gpus "device=$GPU_SELECTOR" --entrypoint /bin/bash "$RUNTIME_IMAGE_ID" -lc 'set -euo pipefail
+printf "PROBE_STEP_START=runtime_nvcc\n"
+if nvcc --version; then
+  printf "PROBE_STEP_PASS=runtime_nvcc\n"
+else
+  rc=$?
+  printf "PROBE_STEP_FAILED=runtime_nvcc exit_code=%d\n" "$rc"
+  exit "$rc"
+fi
+python3 - <<"PY"
+import importlib
+import traceback
+
+
+def probe(label, operation):
+    print(f"PROBE_STEP_START={label}", flush=True)
+    try:
+        value = operation()
+    except BaseException as exc:
+        print(
+            f"PROBE_STEP_FAILED={label} exception_type={type(exc).__name__} exception={exc}",
+            flush=True,
+        )
+        traceback.print_exc()
+        raise
+    print(f"PROBE_STEP_PASS={label}", flush=True)
+    return value
+
+
+def imported_symbol(module_name, symbol_name):
+    module = importlib.import_module(module_name)
+    return getattr(module, symbol_name)
+
+
+def require_sm90_device():
+    capability = torch.cuda.get_device_capability(0)
+    if tuple(capability) != (9, 0):
+        raise RuntimeError(f"CUDA_DEVICE_CAPABILITY_MISMATCH:{capability!r}")
+    return capability
+
+
+torch = probe("import_torch", lambda: importlib.import_module("torch"))
+vllm = probe("import_vllm", lambda: importlib.import_module("vllm"))
+probe("import_vllm_C", lambda: importlib.import_module("vllm._C"))
+sparse_attn_indexer = probe(
+    "import_sparse_attn_indexer",
+    lambda: imported_symbol(
+        "vllm.model_executor.layers.sparse_attn_indexer", "sparse_attn_indexer"
+    ),
+)
+modelopt_method = probe(
+    "import_modelopt_nvfp4_w4a16",
+    lambda: imported_symbol(
+        "vllm.model_executor.layers.quantization.modelopt",
+        "ModelOptNvFp4W4A16LinearMethod",
+    ),
+)
+capture_hook = probe(
+    "import_native_dsa_capture",
+    lambda: imported_symbol(
+        "vllm.model_executor.layers.vllm_dsa_diagnostic_dump",
+        "maybe_capture_native_dsa",
+    ),
+)
+capability = probe("validate_sm90_device_capability", require_sm90_device)
+print(
+    "PROBE_SUMMARY "
+    f"torch={torch.__version__} torch_cuda={torch.version.cuda} "
+    f"vllm={vllm.__version__} capability={capability} "
+    f"symbols={sparse_attn_indexer.__name__},{modelopt_method.__name__},{capture_hook.__name__}",
+    flush=True,
+)
+PY' >> "$COMPILED_IMPORT_PROBE_LOG" 2>&1
+COMPILED_IMPORT_PROBE_RC=$?
+set -e
+if (( COMPILED_IMPORT_PROBE_RC != 0 )); then
+  printf 'PROBE_STEP_FAILED=container_runtime exit_code=%d\n' "$COMPILED_IMPORT_PROBE_RC" >> "$COMPILED_IMPORT_PROBE_LOG"
+  printf 'COMPILED_SM90_IMPORT_PROBE_LOG_BEGIN path=%s exit_code=%d\n' "$COMPILED_IMPORT_PROBE_LOG" "$COMPILED_IMPORT_PROBE_RC" >&2
+  cat "$COMPILED_IMPORT_PROBE_LOG" >&2
+  printf 'COMPILED_SM90_IMPORT_PROBE_LOG_END\n' >&2
+  fail COMPILED_SM90_IMPORT_PROBE_FAILED 31
+fi
+printf 'PROBE_STEP_PASS=container_runtime\n' >> "$COMPILED_IMPORT_PROBE_LOG"
+grep -Fq 'release 13.0' "$COMPILED_IMPORT_PROBE_LOG" || fail RUNTIME_CUDA_13_0_MISMATCH 31
 
 container_env=(
   --env PYTHONPATH=/project/src --env HOME=/storage/home --env HF_HOME=/storage/cache/huggingface

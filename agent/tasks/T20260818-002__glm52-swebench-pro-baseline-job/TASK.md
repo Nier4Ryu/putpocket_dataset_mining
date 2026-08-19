@@ -6,7 +6,7 @@ objective: >
   single-instance diagnostic as a two-stage CPU-build/H200-run Slurm package.
   The fixed official SWE-bench Pro row is diagnostic only and never permits a
   full benchmark or quality-threshold claim.
-status: vllm_two_stage_package_complete_with_measured_site_values
+status: vllm_runtime_import_probe_observability_fix
 stacked base tip: 819854e28ae170ef43722118dfc3d2a53f43c7ce
 superseded diagnostic tip: c1d4569de8089f41f60761b577232a37ff3aa451
 measured-site source tip: 186d096a99bbe7a86c8eb6dff5302f88774c9133
@@ -50,6 +50,9 @@ site state:
   - H200 resources remain H200/gsai-account/hpgpu, exactly four typed H200s, CPU32, 512G, 06:00:00
   - H200 work and artifact roots are configured below the measured writable /local-data/user-data parent
   - the H200 allocation validates and creates those roots before any clone or model access
+  - CPU build job 747490 completed and published the validated immutable bundle; its wheel is 603540543 bytes with SHA-256 3c408df63c56e2a711116449d4324fcef5f2043de1b5c3dee4d3bf561908af52
+  - H200 job 747491 failed before model metadata/weights with exit 31 and only COMPILED_SM90_IMPORT_PROBE_FAILED in shared stderr; the step-specific node-local probe log was not yet recovered
+  - replacement source preserves every gate and replays a step-labelled compiled-import log to shared Slurm stderr on failure
 plan:
   - validate exact official vLLM source capabilities and immutable build identities
   - patch only native sparse_attn_indexer score/top-k exposure and build inside CPU allocation

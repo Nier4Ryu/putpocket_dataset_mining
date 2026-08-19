@@ -9,6 +9,7 @@ objective: >
 status: vllm_two_stage_package_complete_with_measured_site_values
 stacked base tip: 819854e28ae170ef43722118dfc3d2a53f43c7ce
 superseded diagnostic tip: c1d4569de8089f41f60761b577232a37ff3aa451
+measured-site source tip: 186d096a99bbe7a86c8eb6dff5302f88774c9133
 branch: agent/T20260818-001__glm52-cluster-package-foundation
 worktree: /home/dyryu/putpocket_dataset_mining_worktrees/T20260818-001__glm52-cluster-package-foundation
 stacking note: >

@@ -1,7 +1,8 @@
 # vLLM two-stage GLM-5.2 diagnostic handoff
 
-This handoff records the tested implementation commit. The orchestrator must
-still supply measured CPU-site values before rendering or submission.
+This handoff records the tested implementation and measured-site correction.
+The orchestrator owns rendering/submission; Codex made no Login or Slurm
+connection.
 
 ## Authoritative runtime
 
@@ -59,32 +60,49 @@ out-of-scope provenance is BLOCKED; vLLM itself is never rebuilt on H200.
 - tokenizer/model revision:
   `aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa`
 
-## Site fields still required
+## Measured site contract
 
-Supply measured CPU build values only: partition, account, qos, CPUs, memory,
-wall time, node-local scratch root, and container executable. The committed
-site file keeps them null and rendering fails closed until all are supplied.
-The H200 job is fixed to H200/gsai-account/hpgpu, one node, exactly four typed
-H200 GPUs, 32 CPUs, 512G, and six hours.
+- CPU: `cpu-max24` / `gsai-account` / `nogpu`, one node, 24 CPUs,
+  192G, 06:00:00, `/usr/bin/docker`
+- CPU scratch:
+  `/local-data/user-data/jslee202403/putpocket-vllm-build-scratch`
+- H200: `H200` / `gsai-account` / `hpgpu`, one node, exactly
+  `--gres=gpu:H200:4`, 32 CPUs, 512G, 06:00:00
+- measured local-storage parent: `/local-data/user-data`
+- H200 work root:
+  `/local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic`
+
+The H200 allocation wrapper validates that the measured parent exists and is
+writable, creates and validates the work/artifact roots, and only then fetches
+the exact project commit. The tracked entrypoint independently revalidates the
+same relationship before any model metadata or weights.
 
 ## Paths
 
 - shared bundle root: `/home2/jslee202403/putpocket-builds/vllm`
 - Slurm logs: `/home2/jslee202403/putpocket-slurm`
 - run artifacts:
-  `/local-data/jslee202403/putpocket-glm52-vllm-diagnostic/artifacts/<RUN_JOB_ID>`
+  `/local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic/artifacts/<RUN_JOB_ID>`
 - final classified result: `<run-artifacts>/diagnostic_manifest.json`
+
+## Exact renderer
+
+```bash
+PYTHONPATH=src python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli render-wrap --site configs/cluster/sites/herdr_vllm_diagnostic.json --project-url https://github.com/Nier4Ryu/putpocket_dataset_mining.git --project-commit 186d096a99bbe7a86c8eb6dff5302f88774c9133 --cpu-partition cpu-max24 --cpu-account gsai-account --cpu-qos nogpu --cpu-cpus-per-task 24 --cpu-memory 192G --cpu-wall-time 06:00:00 --cpu-local-scratch-root /local-data/user-data/jslee202403/putpocket-vllm-build-scratch --container-executable /usr/bin/docker
+```
+
+The raw one-line output excluding its trailing newline is 5,291 bytes and has
+SHA-256 `d57e0e782c25ada66c7b3bcc9b6ef2419c64662562adb9b17b45c40b6be495c0`.
 
 ## Git/test result
 
 - implementation/source commit:
-  `bb33d316f47bbabba2ffcd6db9682b8e0b3b3fcc`
+  `186d096a99bbe7a86c8eb6dff5302f88774c9133`
 - final branch tip: the docs-only handoff commit containing this record
 - pushed branch: `agent/T20260818-001__glm52-cluster-package-foundation`
-- focused/regression tests: 106 passed plus 59 subtests
-- broad safe CPU tests: 284 passed plus 85 subtests; only
+- focused measured-site/vLLM tests: 27 passed
+- broad safe CPU tests: 287 passed plus 85 subtests; only
   `tests/test_glm_h192_triton.py` was excluded because it queries CUDA
-- exact upstream preimage/patch/postimage validation: passed
-- shell syntax: both entrypoints, compiler wrapper, outer renderer, and both
-  decoded wrappers passed `bash -n`; shellcheck was unavailable
+- shell syntax: both tracked entrypoints, the exact outer renderer output, and
+  both exact decoded wrappers passed `bash -n`; shellcheck was unavailable
 - no Login/Slurm/tracker/GPU/model-weight access occurred

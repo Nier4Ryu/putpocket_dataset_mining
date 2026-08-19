@@ -87,6 +87,16 @@ identity, recorded byte count, provenance file, and file digest is revalidated.
 The H200 entrypoint validates the bundle and SM90 compiled imports before model
 config or weight download.
 
+The CPU build deliberately passes upstream Docker build argument
+`RUN_WHEEL_CHECK=false`. That disables only vLLM's 500 MB release-packaging
+size policy for this intentional CUDA 13.0.3, SM90-only wheel; it does not
+disable compilation, wheel cardinality/existence checks, compiled-SM90
+inspection, runtime-image creation, or bundle validation. Before the runtime
+image build, `logs/wheel_artifact.json` records the wheel's exact byte size and
+SHA-256. `build_manifest.json` repeats those values under
+`wheel_release_policy`, and validation requires them to match the immutable
+`files.vllm_wheel` entry and `SHA256SUMS`.
+
 ## Runtime gates
 
 The H200 job first proves one node, exactly four visible physical H200 GPUs,

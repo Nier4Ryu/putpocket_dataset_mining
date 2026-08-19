@@ -65,6 +65,7 @@ build_args=(
   --build-arg PYTHON_VERSION=3.12
   --build-arg torch_cuda_arch_list=9.0
   --build-arg vllm_target_device=cuda
+  --build-arg RUN_WHEEL_CHECK=false
   --build-arg "max_jobs=${SLURM_CPUS_PER_TASK:-1}"
   --build-arg nvcc_threads=2
 )
@@ -76,6 +77,23 @@ if grep -Eqi 'VLLM_USE_PRECOMPILED=(1|true)|precompiled wheel' "$STAGING/logs/bu
 wheel_count=$(find "$STAGING/wheels" -maxdepth 1 -type f -name 'vllm-*.whl' | wc -l)
 [[ $wheel_count == 1 ]] || fail VLLM_WHEEL_CARDINALITY_MISMATCH 32
 WHEEL=$(find "$STAGING/wheels" -maxdepth 1 -type f -name 'vllm-*.whl')
+python3 - "$STAGING" "$WHEEL" <<'PY'
+import hashlib,json,pathlib,sys
+root,wheel=pathlib.Path(sys.argv[1]),pathlib.Path(sys.argv[2])
+h=hashlib.sha256()
+with wheel.open('rb') as stream:
+    for block in iter(lambda:stream.read(1024*1024),b''): h.update(block)
+audit={
+ 'schema_version':1,
+ 'run_wheel_check':False,
+ 'upstream_release_wheel_limit_mb':500,
+ 'exception_scope':'intentional_sm90_cuda13_source_build_only',
+ 'wheel_path':str(wheel.relative_to(root)),
+ 'wheel_bytes':wheel.stat().st_size,
+ 'wheel_sha256':h.hexdigest(),
+}
+(root/'logs/wheel_artifact.json').write_text(json.dumps(audit,indent=2,sort_keys=True)+'\n')
+PY
 "$CONTAINER" run --rm --entrypoint /bin/bash "$BUILD_TAG" -lc 'set -euo pipefail; mkdir -p /tmp/inspect; python3 -m zipfile -e /workspace/dist/vllm-*.whl /tmp/inspect; find /tmp/inspect -type f -name "*.so" -print0 | xargs -0 -r cuobjdump -lelf' > "$STAGING/logs/compiled_arches.txt" 2>&1
 grep -Fq 'sm_90' "$STAGING/logs/compiled_arches.txt" || fail COMPILED_SM90_EVIDENCE_MISSING 32
 "$CONTAINER" run --rm --entrypoint python3 "$BUILD_TAG" -c 'import importlib.metadata as m,json,platform,sys,torch; p=sorted(f"{d.metadata.get(chr(78)+chr(97)+chr(109)+chr(101),d.name)}=={d.version}" for d in m.distributions()); print(json.dumps({"python":platform.python_version(),"python_major_minor":f"{sys.version_info.major}.{sys.version_info.minor}","torch":torch.__version__,"torch_base":torch.__version__.split("+",1)[0],"torch_cuda":torch.version.cuda,"resolved_packages":p},sort_keys=True))' > "$STAGING/logs/build_environment.json"
@@ -107,12 +125,25 @@ files={
 provenance_paths=[
  root/'logs/source_preflight.json',root/'logs/source_post_patch.json',
  root/'logs/build-wheel-image.log',root/'logs/compiled_arches.txt',
+ root/'logs/wheel_artifact.json',
  root/'logs/build_environment.json',root/'logs/build_nvcc.txt',
  root/'logs/build-runtime-image.log',root/'logs/runtime_environment.json',
  root/'logs/runtime_nvcc.txt',
 ]
 build_identity=json.loads((root/'logs/build_environment.json').read_text())
 runtime_identity=json.loads((root/'logs/runtime_environment.json').read_text())
+wheel_artifact=json.loads((root/'logs/wheel_artifact.json').read_text())
+wheel_sha256=digest(wheel)
+if wheel_artifact != {
+ 'schema_version':1,
+ 'run_wheel_check':False,
+ 'upstream_release_wheel_limit_mb':500,
+ 'exception_scope':'intentional_sm90_cuda13_source_build_only',
+ 'wheel_path':str(wheel.relative_to(root)),
+ 'wheel_bytes':wheel.stat().st_size,
+ 'wheel_sha256':wheel_sha256,
+}:
+    raise SystemExit('WHEEL_ARTIFACT_AUDIT_MISMATCH')
 for label,identity in [('build',build_identity),('runtime',runtime_identity)]:
     if identity['python_major_minor']!='3.12' or identity['torch_base']!='2.13.0' or identity['torch_cuda']!='13.0':
         raise SystemExit(f'{label.upper()}_ENVIRONMENT_IDENTITY_MISMATCH')
@@ -130,6 +161,7 @@ manifest={
  'base_image':'nvidia/cuda:13.0.3-devel-ubuntu22.04@sha256:3869b846a8cc495ce11c172d87cfc0da8874b910d14a9810bec6b6182e9ee9f8',
  'python':'3.12','torch':'2.13.0','cuda':'13.0.3','torch_cuda_arch_list':'9.0',
  'cmake_cuda_architectures':'90','vllm_target_device':'cuda','vllm_use_precompiled':False,
+ 'wheel_release_policy':wheel_artifact,
  'general_h200_compilation_allowed':False,'h200_runtime_jit_scope':'native_first_use_deepgemm_dsa_only','pinned_source_runtime_jit_required':True,'runtime_jit_cache_reuse':False,
  'prebuilt_vllm_wheel_used':False,'built_from_scratch':True,'compiled_arch_evidence':['sm_90'],
  'runtime_gate':'ALLOW_NATIVE_FIRST_USE_JIT_WITH_RUN_LOCAL_AUDIT',

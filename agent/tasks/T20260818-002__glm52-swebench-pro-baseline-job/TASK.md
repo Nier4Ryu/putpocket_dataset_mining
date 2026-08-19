@@ -43,6 +43,8 @@ fixed decisions:
     unproven or out-of-scope compiler/cache activity is classified BLOCKED
   - unchanged official one-row evaluator only; no full selection or >=40 calculation
 site state:
+  - CPU job 746239 proved the pinned SM90 source build and wheel creation, then failed only because upstream RUN_WHEEL_CHECK=true enforced its 500 MB release-policy limit against the intentional 575.59 MB-class CUDA 13 wheel
+  - replacement builds set RUN_WHEEL_CHECK=false only; exact wheel bytes/SHA256 remain mandatory in wheel_artifact.json, build_manifest.json, and SHA256SUMS
   - CPU build is cpu-max24/gsai-account/nogpu, 24 CPUs, 192G, 06:00:00
   - CPU build scratch is /local-data/user-data/jslee202403/putpocket-vllm-build-scratch and Docker is /usr/bin/docker
   - H200 resources remain H200/gsai-account/hpgpu, exactly four typed H200s, CPU32, 512G, 06:00:00

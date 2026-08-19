@@ -9,6 +9,7 @@
     "compiler_audit_sha256", "base_image", "python", "torch", "cuda",
     "torch_cuda_arch_list", "cmake_cuda_architectures", "vllm_target_device",
     "vllm_use_precompiled", "prebuilt_vllm_wheel_used", "built_from_scratch",
+    "wheel_release_policy",
     "compiled_arch_evidence", "runtime_gate", "runtime_image_id",
     "build_environment", "runtime_environment", "files", "provenance_files"
   ],
@@ -22,6 +23,23 @@
     "vllm_use_precompiled": {"const": false},
     "prebuilt_vllm_wheel_used": {"const": false},
     "built_from_scratch": {"const": true},
+    "wheel_release_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "run_wheel_check", "upstream_release_wheel_limit_mb",
+        "exception_scope", "wheel_path", "wheel_bytes", "wheel_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "run_wheel_check": {"const": false},
+        "upstream_release_wheel_limit_mb": {"const": 500},
+        "exception_scope": {"const": "intentional_sm90_cuda13_source_build_only"},
+        "wheel_path": {"type": "string"},
+        "wheel_bytes": {"type": "integer", "minimum": 1},
+        "wheel_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
     "general_h200_compilation_allowed": {"const": false},
     "h200_runtime_jit_scope": {"const": "native_first_use_deepgemm_dsa_only"},
     "runtime_jit_cache_reuse": {"const": false},
@@ -42,7 +60,7 @@
     },
     "provenance_files": {
       "type": "object",
-      "minProperties": 9,
+      "minProperties": 10,
       "additionalProperties": {"$ref": "#/$defs/file"}
     }
   },

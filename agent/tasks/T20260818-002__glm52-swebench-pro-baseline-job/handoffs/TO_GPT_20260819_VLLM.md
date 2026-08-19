@@ -96,6 +96,20 @@ SHA-256 `d57e0e782c25ada66c7b3bcc9b6ef2419c64662562adb9b17b45c40b6be495c0`.
 
 ## Git/test result
 
+The Cluster CPU build job `746239` subsequently proved compilation and wheel
+creation but hit only upstream's 500 MB release-wheel policy (`575.59 MB`
+reported). Replacement source passes `RUN_WHEEL_CHECK=false` solely for that
+policy. The allocated build records the exact rebuilt wheel bytes and SHA-256
+in `logs/wheel_artifact.json`, `build_manifest.json#wheel_release_policy`, the
+immutable `files.vllm_wheel` entry, and `SHA256SUMS`; bundle validation requires
+all copies to agree before publication or H200 use.
+
+Replacement-package verification: 31 focused vLLM tests passed; the focused
+Cluster/GLM group passed 113 tests plus 59 subtests; the broad safe CPU suite
+passed 291 tests plus 85 subtests with only the known CUDA-querying
+`tests/test_glm_h192_triton.py` excluded. Both tracked entrypoints passed
+`bash -n`.
+
 - implementation/source commit:
   `186d096a99bbe7a86c8eb6dff5302f88774c9133`
 - final branch tip: the docs-only handoff commit containing this record

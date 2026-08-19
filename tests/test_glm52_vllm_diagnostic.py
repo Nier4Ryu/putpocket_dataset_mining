@@ -45,6 +45,10 @@ def test_lock_is_exact_vllm_diagnostic() -> None:
     assert report["vllm_commit"] == "4a3447d200e5aa428d68d1a00aa00f1a19a1a729"
     assert report["instance_id"] == INSTANCE_ID
     assert len(report["full_layers"]) == 21
+    build = load_lock()["build"]
+    assert build["run_wheel_check"] is False
+    assert build["upstream_release_wheel_limit_mb"] == 500
+    assert build["wheel_size_exception_scope"] == "intentional_sm90_cuda13_source_build_only"
 
 
 def test_lock_rejects_precompiled_substitution_and_secrets() -> None:
@@ -82,7 +86,7 @@ def _bundle(tmp_path: Path) -> tuple[dict, Path]:
         target = root / name; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(name.encode())
     provenance_names = (
         "source_preflight.json", "source_post_patch.json", "build-wheel-image.log",
-        "compiled_arches.txt", "build_environment.json", "build_nvcc.txt",
+        "compiled_arches.txt", "wheel_artifact.json", "build_environment.json", "build_nvcc.txt",
         "build-runtime-image.log", "runtime_environment.json", "runtime_nvcc.txt",
     )
     provenance_paths = {name: f"logs/{name}" for name in provenance_names}
@@ -90,6 +94,9 @@ def _bundle(tmp_path: Path) -> tuple[dict, Path]:
         target = root / name; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(name.encode())
     (root / "SUCCESS").write_text("SUCCESS\n", encoding="utf-8")
     lock = load_lock(); build = lock["build"]
+    wheel_entry = {"path": paths["vllm_wheel"], "sha256": hashlib.sha256((root / paths["vllm_wheel"]).read_bytes()).hexdigest(), "bytes": (root / paths["vllm_wheel"]).stat().st_size}
+    wheel_policy = {"schema_version": 1, "run_wheel_check": False, "upstream_release_wheel_limit_mb": 500, "exception_scope": "intentional_sm90_cuda13_source_build_only", "wheel_path": wheel_entry["path"], "wheel_bytes": wheel_entry["bytes"], "wheel_sha256": wheel_entry["sha256"]}
+    (root / provenance_paths["wheel_artifact.json"]).write_text(json.dumps(wheel_policy, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     manifest = {
         "schema_version": 1, "status": "SUCCESS", "vllm_commit": lock["vllm"]["commit"],
         "bundle_key": build["bundle_key"], "patch_sha256": lock["vllm"]["patch_sha256"],
@@ -99,6 +106,7 @@ def _bundle(tmp_path: Path) -> tuple[dict, Path]:
         "compiler_audit_sha256": lock["vllm"]["compiler_audit_sha256"],
         "python": "3.12", "torch": "2.13.0", "cuda": "13.0.3", "torch_cuda_arch_list": "9.0",
         "cmake_cuda_architectures": "90", "vllm_target_device": "cuda", "vllm_use_precompiled": False,
+        "wheel_release_policy": wheel_policy,
         "general_h200_compilation_allowed": False, "h200_runtime_jit_scope": "native_first_use_deepgemm_dsa_only", "pinned_source_runtime_jit_required": True, "runtime_jit_cache_reuse": False,
         "prebuilt_vllm_wheel_used": False, "built_from_scratch": True, "compiled_arch_evidence": ["sm_90"],
         "runtime_gate": "ALLOW_NATIVE_FIRST_USE_JIT_WITH_RUN_LOCAL_AUDIT",
@@ -131,6 +139,24 @@ def test_build_bundle_rejects_target_or_prebuilt_substitution(tmp_path: Path, fi
 def test_build_bundle_rejects_changed_file_before_model(tmp_path: Path) -> None:
     manifest, root = _bundle(tmp_path); (root / "runtime-image.tar").write_bytes(b"changed")
     with pytest.raises(ConfigError, match="DIGEST_MISMATCH"):
+        validate_build_manifest(manifest, root, load_lock())
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("run_wheel_check", True),
+        ("upstream_release_wheel_limit_mb", 501),
+        ("wheel_bytes", 1),
+        ("wheel_sha256", "0" * 64),
+    ],
+)
+def test_build_bundle_rejects_wheel_policy_or_artifact_mismatch(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    manifest, root = _bundle(tmp_path)
+    manifest["wheel_release_policy"][field] = value
+    with pytest.raises(ConfigError, match="WHEEL_POLICY|WHEEL_ARTIFACT"):
         validate_build_manifest(manifest, root, load_lock())
 
 
@@ -217,6 +243,9 @@ def test_scripts_gate_allocation_and_bundle_before_heavy_actions() -> None:
     assert build.index("CPU_SLURM_ALLOCATION_REQUIRED") < build.index("vllm-project/vllm.git") < build.index('"$CONTAINER" build')
     assert "TORCH_CUDA_ARCH_LIST" not in build or "torch_cuda_arch_list=9.0" in build
     assert "--build-arg VLLM_USE_PRECOMPILED" not in build
+    assert build.count("--build-arg RUN_WHEEL_CHECK=false") == 1
+    assert "--build-arg RUN_WHEEL_CHECK=true" not in build
+    assert "wheel_artifact.json" in build and "wheel_release_policy" in build
     patch = (ROOT / load_lock()["vllm"]["patch_path"]).read_text(encoding="utf-8")
     added = "\n".join(line[1:] for line in patch.splitlines() if line.startswith("+") and not line.startswith("+++"))
     assert "unset VLLM_USE_PRECOMPILED VLLM_PRECOMPILED_WHEEL_LOCATION" in added

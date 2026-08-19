@@ -82,6 +82,9 @@ def validate_lock(lock: Mapping[str, Any]) -> dict[str, Any]:
         (build, "cmake_cuda_architectures", "90"),
         (build, "vllm_target_device", "cuda"),
         (build, "vllm_use_precompiled", False),
+        (build, "run_wheel_check", False),
+        (build, "upstream_release_wheel_limit_mb", 500),
+        (build, "wheel_size_exception_scope", "intentional_sm90_cuda13_source_build_only"),
         (build, "general_h200_compilation_allowed", False),
         (build, "h200_runtime_jit_scope", "native_first_use_deepgemm_dsa_only"),
         (build, "pinned_source_runtime_jit_required", True),
@@ -197,6 +200,16 @@ def validate_build_manifest(manifest: Mapping[str, Any], bundle_root: str | Path
             raise ConfigError(f"BUILD_MANIFEST_TARGET_MISMATCH:{key}")
     if manifest.get("prebuilt_vllm_wheel_used") is not False or manifest.get("built_from_scratch") is not True:
         raise ConfigError("PREBUILT_VLLM_SUBSTITUTION_FORBIDDEN")
+    wheel_policy = _mapping(manifest.get("wheel_release_policy"), "wheel_release_policy")
+    wheel_policy_exact = {
+        "schema_version": 1,
+        "run_wheel_check": False,
+        "upstream_release_wheel_limit_mb": build["upstream_release_wheel_limit_mb"],
+        "exception_scope": build["wheel_size_exception_scope"],
+    }
+    for key, expected in wheel_policy_exact.items():
+        if wheel_policy.get(key) != expected:
+            raise ConfigError(f"BUILD_MANIFEST_WHEEL_POLICY_MISMATCH:{key}")
     if manifest.get("runtime_gate") != "ALLOW_NATIVE_FIRST_USE_JIT_WITH_RUN_LOCAL_AUDIT":
         raise ConfigError("BUILD_MANIFEST_RUNTIME_JIT_GATE_MISSING")
     if "sm_90" not in manifest.get("compiled_arch_evidence", []):
@@ -225,11 +238,18 @@ def validate_build_manifest(manifest: Mapping[str, Any], bundle_root: str | Path
     provenance = _mapping(manifest.get("provenance_files"), "provenance_files")
     required_provenance = {
         "source_preflight.json", "source_post_patch.json", "build-wheel-image.log",
-        "compiled_arches.txt", "build_environment.json", "build_nvcc.txt",
+        "compiled_arches.txt", "wheel_artifact.json", "build_environment.json", "build_nvcc.txt",
         "build-runtime-image.log", "runtime_environment.json", "runtime_nvcc.txt",
     }
     if set(provenance) != required_provenance:
         raise ConfigError("BUILD_MANIFEST_PROVENANCE_FILE_SET_MISMATCH")
+    wheel_entry = _mapping(files["vllm_wheel"], "files.vllm_wheel")
+    if (
+        wheel_policy.get("wheel_path") != wheel_entry.get("path")
+        or wheel_policy.get("wheel_bytes") != wheel_entry.get("bytes")
+        or wheel_policy.get("wheel_sha256") != wheel_entry.get("sha256")
+    ):
+        raise ConfigError("BUILD_MANIFEST_WHEEL_ARTIFACT_MISMATCH")
     checksum_lines: list[str] = []
     for name, item in [*files.items(), *provenance.items()]:
         entry = _mapping(item, f"files.{name}")
@@ -240,6 +260,12 @@ def validate_build_manifest(manifest: Mapping[str, Any], bundle_root: str | Path
         if not path.is_file() or file_sha256(path) != entry.get("sha256") or path.stat().st_size != entry.get("bytes"):
             raise ConfigError(f"BUILD_BUNDLE_DIGEST_MISMATCH:{name}")
         checksum_lines.append(f"{entry['sha256']}  {relative}\n")
+    try:
+        wheel_artifact = json.loads((root / provenance["wheel_artifact.json"]["path"]).read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, TypeError) as exc:
+        raise ConfigError("BUILD_MANIFEST_WHEEL_ARTIFACT_INVALID") from exc
+    if wheel_artifact != dict(wheel_policy):
+        raise ConfigError("BUILD_MANIFEST_WHEEL_ARTIFACT_MISMATCH")
     if (root / "SHA256SUMS").read_text(encoding="utf-8") != "".join(sorted(checksum_lines, key=lambda line: line.split("  ", 1)[1])):
         raise ConfigError("BUILD_BUNDLE_SHA256SUMS_MISMATCH")
     if not (root / "SUCCESS").is_file():

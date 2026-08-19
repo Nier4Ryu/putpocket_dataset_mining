@@ -37,17 +37,7 @@ PROJECT_COMMIT = "1" * 40
 
 
 def _site():
-    return load_site(
-        SITE_PATH,
-        cpu_partition="cpu-measured",
-        cpu_account="account-measured",
-        cpu_qos="qos-measured",
-        cpu_cpus_per_task=64,
-        cpu_memory="256G",
-        cpu_wall_time="04:00:00",
-        cpu_local_scratch_root="/cpu-local/measured",
-        container_executable="/usr/bin/docker",
-    )
+    return load_site(SITE_PATH)
 
 
 def test_lock_is_exact_vllm_diagnostic() -> None:
@@ -144,15 +134,29 @@ def test_build_bundle_rejects_changed_file_before_model(tmp_path: Path) -> None:
         validate_build_manifest(manifest, root, load_lock())
 
 
-def test_site_refuses_unmeasured_cpu_values() -> None:
-    with pytest.raises(ConfigError, match="CPU_BUILD_SITE_FIELDS_UNSET"):
-        load_site(SITE_PATH)
+def test_site_uses_measured_cpu_and_h200_storage_values() -> None:
+    site = load_site(SITE_PATH)
+    assert (site.cpu.partition, site.cpu.account, site.cpu.qos) == ("cpu-max24", "gsai-account", "nogpu")
+    assert (site.cpu.cpus_per_task, site.cpu.memory, site.cpu.wall_time) == (24, "192G", "06:00:00")
+    assert site.cpu.local_scratch_root == Path("/local-data/user-data/jslee202403/putpocket-vllm-build-scratch")
+    assert site.h200_storage_parent == Path("/local-data/user-data")
+    assert site.h200_work_root == Path("/local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic")
+    assert site.h200_artifact_root == site.h200_work_root / "artifacts"
+
+
+def test_site_refuses_invalid_runtime_or_artifact_root(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="OFFICIAL_DOCKER_RUNTIME_REQUIRED"):
         load_site(
             SITE_PATH, cpu_partition="cpu", cpu_account="account", cpu_qos="qos",
             cpu_cpus_per_task=8, cpu_memory="32G", cpu_wall_time="01:00:00",
             cpu_local_scratch_root="/scratch", container_executable="/usr/bin/apptainer",
         )
+    value = json.loads(SITE_PATH.read_text(encoding="utf-8"))
+    value["h200_run"]["artifact_root"] = "/local-data/user-data/jslee202403/other-artifacts"
+    invalid = tmp_path / "invalid-site.json"
+    invalid.write_text(json.dumps(value), encoding="utf-8")
+    with pytest.raises(ConfigError, match="H200_ARTIFACT_ROOT"):
+        load_site(invalid)
 
 
 def test_renderer_is_two_stage_exact_and_has_afterok_dependency() -> None:
@@ -160,8 +164,12 @@ def test_renderer_is_two_stage_exact_and_has_afterok_dependency() -> None:
     assert command.count("sbatch --parsable") == 2
     assert "--dependency=afterok:$BUILD_JOB_ID" in command
     assert "--gres=gpu:H200:4" in command
-    assert "--partition=cpu-measured" in command
+    assert "--partition=cpu-max24" in command
+    assert "--account=gsai-account" in command and "--qos=nogpu" in command
+    assert "--cpus-per-task=24" in command and "--mem=192G" in command
     assert "--partition=H200" in command
+    assert "PUTPOCKET_RUN_ARTIFACT_ROOT=/local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic/artifacts" in command
+    assert "/local-data/jslee202403" not in command
     assert "BUILD_JOB_ID=%s\\nRUN_JOB_ID=%s" in command
     assert "sglang" not in command.lower()
     assert "swe_bench_pro_eval" not in command.lower()
@@ -180,6 +188,24 @@ def test_rendered_command_and_wrapped_bodies_are_bash_syntax_valid() -> None:
         assert result.returncode == 0, result.stderr
 
 
+def test_h200_wrapper_validates_and_creates_site_root_before_clone() -> None:
+    site = _site(); bundle_key = load_lock()["build"]["bundle_key"]
+    body = _run_wrapper(site, "https://github.com/openai/putpocket-dataset-mining.git", PROJECT_COMMIT, bundle_key)
+    assert body.index("E_H200_LOCAL_STORAGE_PARENT_UNWRITABLE") < body.index("mkdir -p /local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic")
+    assert body.index("E_H200_RUN_ROOT_UNWRITABLE") < body.index("git -C")
+    assert "PUTPOCKET_H200_STORAGE_PARENT=/local-data/user-data" in body
+    assert "PUTPOCKET_H200_WORK_ROOT=/local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic" in body
+
+
+def test_login_control_shell_only_creates_shared_parents() -> None:
+    site = _site()
+    command = render_two_stage_submission(site=site, project_url="https://github.com/openai/putpocket-dataset-mining.git", project_commit=PROJECT_COMMIT, lock_path=LOCK_PATH)
+    expected = f"mkdir -p {site.slurm_log_root} {site.shared_build_root}"
+    assert command.startswith(f"set -euo pipefail && {expected} && BUILD_JOB_ID=$(sbatch ")
+    assert " fetch --depth=1 " in command  # quoted inside allocation-only --wrap bodies
+    assert command.index(expected) < command.index("BUILD_JOB_ID=$(sbatch")
+
+
 def test_renderer_rejects_credential_url() -> None:
     with pytest.raises(ConfigError, match="CREDENTIAL"):
         render_two_stage_submission(site=_site(), project_url="https://name:secret@github.com/openai/repo.git", project_commit=PROJECT_COMMIT, lock_path=LOCK_PATH)
@@ -196,6 +222,10 @@ def test_scripts_gate_allocation_and_bundle_before_heavy_actions() -> None:
     assert "unset VLLM_USE_PRECOMPILED VLLM_PRECOMPILED_WHEEL_LOCATION" in added
     assert "export VLLM_USE_PRECOMPILED=1" not in added
     assert run.index("ALLOCATION_INVENTORY_MISMATCH") < run.index("validate-build-bundle") < run.index("snapshot_download")
+    assert run.index("COMPUTE_LOCAL_STORAGE_PARENT_UNWRITABLE") < run.index("snapshot_download")
+    assert run.index('RUN_ROOT="$ARTIFACT_ROOT/') < run.index("snapshot_download")
+    assert "PUTPOCKET_RUN_ARTIFACT_ROOT" in run
+    assert "/local-data/jslee202403" not in run
     assert run.index("RUNTIME_JIT_POLICY_MANIFEST_INVALID") < run.index("snapshot_download")
     assert "--jit-monitor-mode error" in run and "runtime_jit_manifest.json" in run
     assert "--tensor-parallel-size 4" in run and "--cpu-offload-gb 0" in run

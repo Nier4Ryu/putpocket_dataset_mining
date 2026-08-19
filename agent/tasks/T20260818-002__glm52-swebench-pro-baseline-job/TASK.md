@@ -6,7 +6,7 @@ objective: >
   single-instance diagnostic as a two-stage CPU-build/H200-run Slurm package.
   The fixed official SWE-bench Pro row is diagnostic only and never permits a
   full benchmark or quality-threshold claim.
-status: vllm_two_stage_package_complete_awaiting_cpu_site_values
+status: vllm_two_stage_package_complete_with_measured_site_values
 stacked base tip: 819854e28ae170ef43722118dfc3d2a53f43c7ce
 superseded diagnostic tip: c1d4569de8089f41f60761b577232a37ff3aa451
 branch: agent/T20260818-001__glm52-cluster-package-foundation
@@ -42,9 +42,11 @@ fixed decisions:
     unproven or out-of-scope compiler/cache activity is classified BLOCKED
   - unchanged official one-row evaluator only; no full selection or >=40 calculation
 site state:
-  - H200 resources and paths are fixed from observed inventory
-  - CPU partition/account/qos/resources/local scratch and container executable are deliberately unset
-  - renderer must fail until the orchestrator supplies measured CPU values
+  - CPU build is cpu-max24/gsai-account/nogpu, 24 CPUs, 192G, 06:00:00
+  - CPU build scratch is /local-data/user-data/jslee202403/putpocket-vllm-build-scratch and Docker is /usr/bin/docker
+  - H200 resources remain H200/gsai-account/hpgpu, exactly four typed H200s, CPU32, 512G, 06:00:00
+  - H200 work and artifact roots are configured below the measured writable /local-data/user-data parent
+  - the H200 allocation validates and creates those roots before any clone or model access
 plan:
   - validate exact official vLLM source capabilities and immutable build identities
   - patch only native sparse_attn_indexer score/top-k exposure and build inside CPU allocation
@@ -58,6 +60,6 @@ completion criteria:
   - active renderer and entrypoints contain no SGLang/full-transition path
   - source changes committed and pushed normally on the stacked branch
 submission boundary: >
-  Codex does not connect or submit. The orchestrator supplies measured CPU
-  inventory, renders the new exact project commit, and submits both jobs.
+  Codex does not connect or submit. The orchestrator renders the exact project
+  commit with the recorded measured inventory and submits both jobs.
 final handoff link: agent/tasks/T20260818-002__glm52-swebench-pro-baseline-job/handoffs/TO_GPT_20260819_VLLM.md

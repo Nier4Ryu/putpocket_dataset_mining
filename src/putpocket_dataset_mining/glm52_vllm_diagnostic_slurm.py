@@ -31,6 +31,9 @@ class CpuBuildSite:
 class VllmDiagnosticSite:
     cpu: CpuBuildSite
     h200: Mapping[str, Any]
+    h200_storage_parent: Path
+    h200_work_root: Path
+    h200_artifact_root: Path
     shared_build_root: Path
     slurm_log_root: Path
     git_executable: Path
@@ -88,12 +91,19 @@ def load_site(
         Path(str(value["slurm_log_root"])),
         Path(str(value["git_executable"])),
         Path(str(value["nvidia_smi"])),
-        Path(str(h200["local_storage_root"])),
+        Path(str(h200["local_storage_parent"])),
+        Path(str(h200["work_root"])),
+        Path(str(h200["artifact_root"])),
     ]
     if not all(item.is_absolute() for item in paths):
         raise ConfigError("SITE_PATHS_MUST_BE_ABSOLUTE")
     if paths[1].name != "docker":
         raise ConfigError("OFFICIAL_DOCKER_RUNTIME_REQUIRED")
+    storage_parent, work_root, artifact_root = paths[6:9]
+    if work_root == storage_parent or storage_parent not in work_root.parents:
+        raise ConfigError("H200_WORK_ROOT_MUST_BE_INSIDE_STORAGE_PARENT")
+    if artifact_root != work_root / "artifacts":
+        raise ConfigError("H200_ARTIFACT_ROOT_MUST_EQUAL_WORK_ROOT_ARTIFACTS")
     return VllmDiagnosticSite(
         cpu=CpuBuildSite(
             partition=str(resolved["partition"]),
@@ -106,6 +116,9 @@ def load_site(
             container_executable=paths[1],
         ),
         h200=h200,
+        h200_storage_parent=storage_parent,
+        h200_work_root=work_root,
+        h200_artifact_root=artifact_root,
         shared_build_root=paths[2],
         slurm_log_root=paths[3],
         git_executable=paths[4],
@@ -179,19 +192,20 @@ def _build_wrapper(site: VllmDiagnosticSite, url: str, commit: str, bundle_key: 
 
 
 def _run_wrapper(site: VllmDiagnosticSite, url: str, commit: str, bundle_key: str) -> str:
-    storage = Path(str(site.h200["local_storage_root"]))
-    source = f'{shlex.quote(str(storage / "putpocket-glm52-vllm-diagnostic" / "source"))}/"${{SLURM_JOB_ID}}-{commit[:12]}"'
+    source = f'{shlex.quote(str(site.h200_work_root / "source"))}/"${{SLURM_JOB_ID}}-{commit[:12]}"'
     parts = (
         "set -euo pipefail", "umask 077",
         "[[ ${SLURM_JOB_ID:-} =~ ^[0-9]+$ && ${SLURM_JOB_NUM_NODES:-0} == 1 && ${SLURM_GPUS_ON_NODE:-0} == 4 ]] || { echo E_H200_SLURM_ALLOCATION_REQUIRED >&2; exit 20; }",
         f"[[ -x {shlex.quote(str(site.cpu.container_executable))} ]] && {shlex.quote(str(site.cpu.container_executable))} info >/dev/null 2>&1 || {{ echo E_H200_CONTAINER_RUNTIME_UNAVAILABLE >&2; exit 21; }}",
-        f"[[ -d {shlex.quote(str(storage))} ]] || {{ echo E_H200_LOCAL_STORAGE_MISSING >&2; exit 21; }}",
+        f"[[ -d {shlex.quote(str(site.h200_storage_parent))} && -w {shlex.quote(str(site.h200_storage_parent))} ]] || {{ echo E_H200_LOCAL_STORAGE_PARENT_UNWRITABLE >&2; exit 21; }}",
+        f"mkdir -p {shlex.quote(str(site.h200_work_root))} {shlex.quote(str(site.h200_artifact_root))}",
+        f"[[ -d {shlex.quote(str(site.h200_work_root))} && -w {shlex.quote(str(site.h200_work_root))} && -d {shlex.quote(str(site.h200_artifact_root))} && -w {shlex.quote(str(site.h200_artifact_root))} ]] || {{ echo E_H200_RUN_ROOT_UNWRITABLE >&2; exit 21; }}",
         f"mkdir -p {source}",
         f"{shlex.quote(str(site.git_executable))} -C {source} init",
         f"{shlex.quote(str(site.git_executable))} -C {source} fetch --depth=1 {shlex.quote(url)} {commit}",
         f"{shlex.quote(str(site.git_executable))} -C {source} checkout --detach FETCH_HEAD",
         f"[[ $({shlex.quote(str(site.git_executable))} -C {source} rev-parse HEAD) == {commit} ]] || exit 22",
-        f"exec env PUTPOCKET_CONTAINER_EXECUTABLE={shlex.quote(str(site.cpu.container_executable))} PUTPOCKET_SHARED_BUILD_ROOT={shlex.quote(str(site.shared_build_root))} PUTPOCKET_EXPECTED_BUNDLE_KEY={bundle_key} PUTPOCKET_NVIDIA_SMI={shlex.quote(str(site.nvidia_smi))} /bin/bash {source}/scripts/cluster/run_glm52_vllm_diagnostic.sh {commit}",
+        f"exec env PUTPOCKET_CONTAINER_EXECUTABLE={shlex.quote(str(site.cpu.container_executable))} PUTPOCKET_SHARED_BUILD_ROOT={shlex.quote(str(site.shared_build_root))} PUTPOCKET_EXPECTED_BUNDLE_KEY={bundle_key} PUTPOCKET_NVIDIA_SMI={shlex.quote(str(site.nvidia_smi))} PUTPOCKET_H200_STORAGE_PARENT={shlex.quote(str(site.h200_storage_parent))} PUTPOCKET_H200_WORK_ROOT={shlex.quote(str(site.h200_work_root))} PUTPOCKET_RUN_ARTIFACT_ROOT={shlex.quote(str(site.h200_artifact_root))} /bin/bash {source}/scripts/cluster/run_glm52_vllm_diagnostic.sh {commit}",
     )
     return "; ".join(parts)
 

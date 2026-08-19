@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
   "cpu_build": {
-    "partition": null,
-    "account": null,
-    "qos": null,
+    "partition": "cpu-max24",
+    "account": "gsai-account",
+    "qos": "nogpu",
     "nodes": 1,
     "ntasks": 1,
-    "cpus_per_task": null,
-    "memory": null,
-    "wall_time": null,
-    "local_scratch_root": null,
-    "container_executable": null
+    "cpus_per_task": 24,
+    "memory": "192G",
+    "wall_time": "06:00:00",
+    "local_scratch_root": "/local-data/user-data/jslee202403/putpocket-vllm-build-scratch",
+    "container_executable": "/usr/bin/docker"
   },
   "h200_run": {
     "partition": "H200",
@@ -22,7 +22,9 @@
     "cpus_per_task": 32,
     "memory": "512G",
     "wall_time": "06:00:00",
-    "local_storage_root": "/local-data/jslee202403"
+    "local_storage_parent": "/local-data/user-data",
+    "work_root": "/local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic",
+    "artifact_root": "/local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic/artifacts"
   },
   "shared_build_root": "/home2/jslee202403/putpocket-builds/vllm",
   "slurm_log_root": "/home2/jslee202403/putpocket-slurm",

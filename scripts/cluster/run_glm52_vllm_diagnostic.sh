@@ -10,14 +10,16 @@ SHARED_ROOT=${PUTPOCKET_SHARED_BUILD_ROOT:-}
 BUNDLE_KEY=${PUTPOCKET_EXPECTED_BUNDLE_KEY:-}
 NVIDIA_SMI=${PUTPOCKET_NVIDIA_SMI:-/usr/bin/nvidia-smi}
 BUNDLE="$SHARED_ROOT/$BUNDLE_KEY"
-STORAGE=/local-data/jslee202403/putpocket-glm52-vllm-diagnostic
-RUN_ROOT="$STORAGE/artifacts/${SLURM_JOB_ID:-unknown}"
-CACHE="$STORAGE/cache"
-EPHEMERAL="$STORAGE/tmp/${SLURM_JOB_ID:-unknown}"
+STORAGE_PARENT=${PUTPOCKET_H200_STORAGE_PARENT:-}
+STORAGE=${PUTPOCKET_H200_WORK_ROOT:-}
+ARTIFACT_ROOT=${PUTPOCKET_RUN_ARTIFACT_ROOT:-}
+RUN_ROOT=
+CACHE=
+EPHEMERAL=
 MODEL_REVISION=aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa
-MODEL_ROOT="$CACHE/models/$MODEL_REVISION"
+MODEL_ROOT=
 HARNESS_COMMIT=ca10a60a5fcae51e6948ffe1485d4153d421e6c5
-HARNESS="$CACHE/harness/$HARNESS_COMMIT"
+HARNESS=
 PORT=8000
 SERVER_NAME="pp-vllm-glm52-${SLURM_JOB_ID:-unknown}"
 AGENT_NAME="pp-vllm-agent-${SLURM_JOB_ID:-unknown}"
@@ -35,7 +37,7 @@ cleanup() {
   stop_sampler
   "$CONTAINER" rm -f "$SERVER_NAME" "$AGENT_NAME" >/dev/null 2>&1 || true
   if [[ -n $SERVER_PID ]]; then wait "$SERVER_PID" >/dev/null 2>&1 || true; fi
-  if [[ $STATUS != PASS ]]; then
+  if [[ $STATUS != PASS && -n $RUN_ROOT ]]; then
     mkdir -p "$RUN_ROOT" 2>/dev/null || true
     printf '{"schema_version":1,"status":"%s","phase":"%s","failure_class":"%s","returncode":%d,"quality_score_eligible":false,"full_selection_reachable":false,"fallback_attempted":false,"offload_attempted":false}\n' "$STATUS" "$PHASE" "$FAILURE_CLASS" "$rc" > "$RUN_ROOT/diagnostic_manifest.json.partial" 2>/dev/null || true
     mv "$RUN_ROOT/diagnostic_manifest.json.partial" "$RUN_ROOT/diagnostic_manifest.json" 2>/dev/null || true
@@ -47,9 +49,18 @@ trap cleanup EXIT INT TERM
 [[ ${SLURM_JOB_ID:-} =~ ^[0-9]+$ && ${SLURM_JOB_NUM_NODES:-0} == 1 ]] || fail SLURM_ALLOCATION_REQUIRED 20
 [[ ${SLURM_GPUS_ON_NODE:-0} == 4 ]] || fail SLURM_GPU_COUNT_MISMATCH 20
 [[ $PROJECT_COMMIT =~ ^[0-9a-f]{40}$ && $(git -C "$SOURCE_ROOT" rev-parse HEAD) == "$PROJECT_COMMIT" ]] || fail PROJECT_COMMIT_MISMATCH 21
-[[ -n $CONTAINER && -x $CONTAINER && -n $SHARED_ROOT && -n $BUNDLE_KEY && -x $NVIDIA_SMI ]] || fail RUN_SITE_CONFIGURATION_MISSING 21
+[[ -n $CONTAINER && -x $CONTAINER && -n $SHARED_ROOT && -n $BUNDLE_KEY && -x $NVIDIA_SMI && $STORAGE_PARENT == /* && $STORAGE == /* && $ARTIFACT_ROOT == /* ]] || fail RUN_SITE_CONFIGURATION_MISSING 21
 "$CONTAINER" info >/dev/null 2>&1 || fail CONTAINER_RUNTIME_UNAVAILABLE 21
-[[ -d /local-data/jslee202403 ]] || fail COMPUTE_LOCAL_STORAGE_MISSING 21
+case "$STORAGE/" in "$STORAGE_PARENT"/*) ;; *) fail COMPUTE_WORK_ROOT_OUTSIDE_STORAGE_PARENT 21 ;; esac
+[[ $STORAGE != "$STORAGE_PARENT" && $ARTIFACT_ROOT == "$STORAGE/artifacts" ]] || fail COMPUTE_ARTIFACT_ROOT_INVALID 21
+[[ -d $STORAGE_PARENT && -w $STORAGE_PARENT ]] || fail COMPUTE_LOCAL_STORAGE_PARENT_UNWRITABLE 21
+mkdir -p "$STORAGE" "$ARTIFACT_ROOT"
+[[ -d $STORAGE && -w $STORAGE && -d $ARTIFACT_ROOT && -w $ARTIFACT_ROOT ]] || fail COMPUTE_RUN_ROOT_UNWRITABLE 21
+RUN_ROOT="$ARTIFACT_ROOT/${SLURM_JOB_ID:-unknown}"
+CACHE="$STORAGE/cache"
+EPHEMERAL="$STORAGE/tmp/${SLURM_JOB_ID:-unknown}"
+MODEL_ROOT="$CACHE/models/$MODEL_REVISION"
+HARNESS="$CACHE/harness/$HARNESS_COMMIT"
 mkdir -p "$RUN_ROOT/phase0" "$RUN_ROOT/phase1" "$RUN_ROOT/phase2" "$RUN_ROOT/phase3/native_raw" "$RUN_ROOT/official" "$CACHE" "$EPHEMERAL"
 export PYTHONPATH="$SOURCE_ROOT/src"
 python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli validate-lock --lock "$LOCK" > "$RUN_ROOT/lock_validation.json"

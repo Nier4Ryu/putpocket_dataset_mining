@@ -40,10 +40,12 @@ or missing provenance is classified BLOCKED.
   `25d6597314bbb6c4df5afa886b064bebbdb7b57d27414d1e584e6a0127eeeab5`
 
 The source/build lock is
-`configs/cluster/glm52_vllm_diagnostic.lock.json`. The site file intentionally
-leaves all CPU build inventory unset. Rendering fails until the orchestrator
-supplies measured CPU partition, account, qos, CPU count, memory, wall time,
-node-local scratch, and container executable.
+`configs/cluster/glm52_vllm_diagnostic.lock.json`. The Herdr site file records
+the measured CPU allocation contract (`cpu-max24`, `gsai-account`, `nogpu`, 24
+CPUs, 192G, six hours), `/usr/bin/docker`, and node-local build scratch below
+`/local-data/user-data/jslee202403`. The CLI still requires these values on the
+render command so an orchestrator must state, and can audit, the exact site
+contract used for each submission.
 
 ## Native instrumentation
 
@@ -103,9 +105,9 @@ Exact output token IDs and hashes must match. The server is stopped before the
 model action is applied in the official row image and unchanged pinned
 `swe_bench_pro_eval.py` runs for that row only.
 
-## Rendering after CPU inventory
+## Rendering with measured site inventory
 
-From an exact project checkout, replace only the `MEASURED_*` values:
+From an exact project checkout:
 
 ```bash
 PYTHONPATH=src python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli \
@@ -113,21 +115,25 @@ PYTHONPATH=src python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli \
   --site configs/cluster/sites/herdr_vllm_diagnostic.json \
   --project-url https://github.com/Nier4Ryu/putpocket_dataset_mining.git \
   --project-commit <exact-40-char-project-commit> \
-  --cpu-partition MEASURED_CPU_PARTITION \
-  --cpu-account MEASURED_CPU_ACCOUNT \
-  --cpu-qos MEASURED_CPU_QOS \
-  --cpu-cpus-per-task MEASURED_CPU_COUNT \
-  --cpu-memory MEASURED_CPU_MEMORY \
-  --cpu-wall-time MEASURED_CPU_WALLTIME \
-  --cpu-local-scratch-root MEASURED_CPU_LOCAL_SCRATCH \
-  --container-executable MEASURED_CONTAINER_EXECUTABLE
+  --cpu-partition cpu-max24 \
+  --cpu-account gsai-account \
+  --cpu-qos nogpu \
+  --cpu-cpus-per-task 24 \
+  --cpu-memory 192G \
+  --cpu-wall-time 06:00:00 \
+  --cpu-local-scratch-root /local-data/user-data/jslee202403/putpocket-vllm-build-scratch \
+  --container-executable /usr/bin/docker
 ```
 
 The one-line result creates only the shared build/log parent directories on
 Login, submits the CPU job, validates its parsable ID, submits the exact H200
 job with `afterok`, and prints `BUILD_JOB_ID` and `RUN_JOB_ID`. Clone, patch,
 build, downloads, installs, image operations, inference, and evaluation occur
-only inside allocated compute jobs.
+only inside allocated compute jobs. Before the H200 wrapper clones the project,
+it requires the measured `/local-data/user-data` parent to exist and be
+writable, creates the configured work/artifact roots, and verifies both are
+writable. A node with a different or unavailable local-storage layout exits
+before project, model metadata, or weight download.
 
 Expected paths:
 
@@ -136,7 +142,7 @@ Expected paths:
 - run stdout/stderr:
   `/home2/jslee202403/putpocket-slurm/pp-glm52-vllm-dsa-<RUN_JOB_ID>.{out,err}`
 - run artifacts:
-  `/local-data/jslee202403/putpocket-glm52-vllm-diagnostic/artifacts/<RUN_JOB_ID>`
+  `/local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic/artifacts/<RUN_JOB_ID>`
 - result: `<run-artifacts>/diagnostic_manifest.json`
 - runtime JIT provenance:
   `<run-artifacts>/phase2/runtime_jit/runtime_jit_manifest.json`

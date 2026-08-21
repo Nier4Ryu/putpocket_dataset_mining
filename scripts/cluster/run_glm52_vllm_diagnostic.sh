@@ -33,6 +33,16 @@ STATUS=FAIL
 FAILURE_CLASS=UNCLASSIFIED_FAILURE
 
 fail() { FAILURE_CLASS=$1; printf '%s\n' "$1" >&2; exit "${2:-2}"; }
+replay_file_to_stderr() {
+  local label=$1 path=$2 exit_code=${3:-not_applicable}
+  printf '%s_BEGIN path=%s exit_code=%s\n' "$label" "$path" "$exit_code" >&2
+  if [[ -f $path ]]; then
+    cat "$path" >&2 || printf '%s_REPLAY_FAILED path=%s\n' "$label" "$path" >&2
+  else
+    printf '%s_MISSING path=%s\n' "$label" "$path" >&2
+  fi
+  printf '%s_END\n' "$label" >&2
+}
 stop_sampler() { if [[ -n $SAMPLER_PID ]]; then kill "$SAMPLER_PID" >/dev/null 2>&1 || true; wait "$SAMPLER_PID" >/dev/null 2>&1 || true; SAMPLER_PID=; fi; }
 cleanup() {
   rc=$?
@@ -44,6 +54,13 @@ cleanup() {
     mkdir -p "$RUN_ROOT" 2>/dev/null || true
     printf '{"schema_version":1,"status":"%s","phase":"%s","failure_class":"%s","returncode":%d,"quality_score_eligible":false,"full_selection_reachable":false,"fallback_attempted":false,"offload_attempted":false,"immutable_build_source_commit":"%s","runtime_source_commit":"%s","wrapper_source_commit":"%s"}\n' "$STATUS" "$PHASE" "$FAILURE_CLASS" "$rc" "$BUILD_SOURCE_COMMIT" "$RUNTIME_SOURCE_COMMIT" "$WRAPPER_SOURCE_COMMIT" > "$RUN_ROOT/diagnostic_manifest.json.partial" 2>/dev/null || true
     mv "$RUN_ROOT/diagnostic_manifest.json.partial" "$RUN_ROOT/diagnostic_manifest.json" 2>/dev/null || true
+    replay_file_to_stderr DIAGNOSTIC_FAILURE_ARTIFACT "$RUN_ROOT/diagnostic_manifest.json" "$rc"
+    if [[ $STATUS == BLOCKED ]]; then
+      for blocked_artifact in "$RUN_ROOT"/phase3/native_raw/BLOCKED*.json "$RUN_ROOT"/phase3/capture/capture_manifest.json; do
+        [[ -f $blocked_artifact ]] || continue
+        replay_file_to_stderr BLOCKED_ARTIFACT "$blocked_artifact" "$rc"
+      done
+    fi
   fi
   exit "$rc"
 }
@@ -336,7 +353,16 @@ container_env=(
   --volume "$SOURCE_ROOT:/project:ro" --volume "$STORAGE:/storage"
 )
 mkdir -p "$CACHE/model-metadata/$SLURM_JOB_ID"
-"$CONTAINER" run --rm --gpus "$GPU_REQUEST" "${container_env[@]}" --entrypoint python3 "$RUNTIME_IMAGE_ID" -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli phase1 --lock /project/configs/cluster/glm52_vllm_diagnostic.lock.json --metadata-root /storage/cache/model-metadata/"$SLURM_JOB_ID" --artifact-root /storage/artifacts/"$SLURM_JOB_ID"/phase1 > "$RUN_ROOT/phase1/weightless_probe.log" 2>&1 || fail WEIGHTLESS_VLLM_COMPATIBILITY_FAILED 32
+WEIGHTLESS_COMPATIBILITY_LOG="$RUN_ROOT/phase1/weightless_probe.log"
+set +e
+"$CONTAINER" run --rm --gpus "$GPU_REQUEST" "${container_env[@]}" --entrypoint python3 "$RUNTIME_IMAGE_ID" -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli phase1 --lock /project/configs/cluster/glm52_vllm_diagnostic.lock.json --metadata-root /storage/cache/model-metadata/"$SLURM_JOB_ID" --artifact-root /storage/artifacts/"$SLURM_JOB_ID"/phase1 > "$WEIGHTLESS_COMPATIBILITY_LOG" 2>&1
+WEIGHTLESS_COMPATIBILITY_RC=$?
+set -e
+if (( WEIGHTLESS_COMPATIBILITY_RC != 0 )); then
+  STATUS=BLOCKED
+  replay_file_to_stderr WEIGHTLESS_VLLM_COMPATIBILITY_LOG "$WEIGHTLESS_COMPATIBILITY_LOG" "$WEIGHTLESS_COMPATIBILITY_RC"
+  fail WEIGHTLESS_VLLM_COMPATIBILITY_FAILED 32
+fi
 printf 'passed\n' > "$RUN_ROOT/phase1/PASSED"
 
 PHASE=runtime_jit_provenance_preflight

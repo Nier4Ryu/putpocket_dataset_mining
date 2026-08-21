@@ -532,6 +532,70 @@ def test_compiled_import_probe_replays_failure_log_before_model_access() -> None
     assert 'grep -Fq \'release 13.0\' "$COMPILED_IMPORT_PROBE_LOG"' in run
 
 
+def test_weightless_probe_replays_exact_failure_and_blocked_artifacts_to_shared_slurm_stderr(tmp_path: Path) -> None:
+    run = (ROOT / "scripts/cluster/run_glm52_vllm_diagnostic.sh").read_text(encoding="utf-8")
+    phase1 = (ROOT / "src/putpocket_dataset_mining/glm52_vllm_diagnostic_cli.py").read_text(encoding="utf-8")
+    command = _render()
+    assert 'WEIGHTLESS_COMPATIBILITY_LOG="$RUN_ROOT/phase1/weightless_probe.log"' in run
+    assert 'replay_file_to_stderr WEIGHTLESS_VLLM_COMPATIBILITY_LOG "$WEIGHTLESS_COMPATIBILITY_LOG" "$WEIGHTLESS_COMPATIBILITY_RC"' in run
+    assert run.index("WEIGHTLESS_COMPATIBILITY_RC=$?") < run.index("STATUS=BLOCKED") < run.index("fail WEIGHTLESS_VLLM_COMPATIBILITY_FAILED 32")
+    assert 'replay_file_to_stderr DIAGNOSTIC_FAILURE_ARTIFACT "$RUN_ROOT/diagnostic_manifest.json" "$rc"' in run
+    assert 'replay_file_to_stderr BLOCKED_ARTIFACT "$blocked_artifact" "$rc"' in run
+    assert "printf '%s_BEGIN path=%s exit_code=%s\\n'" in run
+    assert run.index("replay_file_to_stderr WEIGHTLESS_VLLM_COMPATIBILITY_LOG") < run.index("fail WEIGHTLESS_VLLM_COMPATIBILITY_FAILED 32")
+    for step in (
+        "model_revision_resolution",
+        "weightless_metadata_download",
+        "model_config_validation",
+        "vllm_capability_validation",
+    ):
+        assert f'start("{step}")' in phase1
+    assert "PHASE1_STEP_FAILED=" in phase1 and "exception_type=" in phase1 and "detail=" in phase1
+    probe_log = tmp_path / "weightless_probe.log"
+    probe_log.write_text("exact phase failure detail\n", encoding="utf-8")
+    helper_start = run.index("replay_file_to_stderr() {")
+    helper_end = run.index("\n}\n", helper_start) + len("\n}\n")
+    replay = subprocess.run(
+        ["bash", "-s", "--", str(probe_log)],
+        input=run[helper_start:helper_end] + '\nreplay_file_to_stderr WEIGHTLESS_VLLM_COMPATIBILITY_LOG "$1" 32\n',
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert replay.returncode == 0
+    assert replay.stderr == (
+        f"WEIGHTLESS_VLLM_COMPATIBILITY_LOG_BEGIN path={probe_log} exit_code=32\n"
+        "exact phase failure detail\n"
+        "WEIGHTLESS_VLLM_COMPATIBILITY_LOG_END\n"
+    )
+    slurm_stdout = f"--output={_site().slurm_log_root}/%x-%j.out"
+    slurm_stderr = f"--error={_site().slurm_log_root}/%x-%j.err"
+    assert command.count(slurm_stdout) == 2
+    assert command.count(slurm_stderr) == 2
+
+
+def test_weightless_probe_reports_the_exact_failing_step(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    for name in ("SLURM_JOB_ID", "SLURM_JOB_NODELIST", "SLURM_JOB_NUM_NODES", "SLURM_STEP_ID", "SLURM_JOB_NAME"):
+        monkeypatch.delenv(name, raising=False)
+    result = diagnostic_cli_main(
+        [
+            "phase1",
+            "--lock", str(LOCK_PATH),
+            "--metadata-root", str(tmp_path / "metadata"),
+            "--artifact-root", str(tmp_path / "artifacts"),
+        ]
+    )
+    assert result == 2
+    stderr = capsys.readouterr().err
+    assert "PHASE1_STEP_START=slurm_allocation" in stderr
+    assert "PHASE1_STEP_FAILED=slurm_allocation exception_type=ConfigError" in stderr
+    assert "E_SLURM_ALLOCATION_REQUIRED" in stderr
+
+
 def test_inventory_requires_four_full_non_mig_h200s() -> None:
     header = "index,uuid,name,memory_total_mib,memory_free_mib,mig_mode,compute_capability\n"
     rows = "".join(f"{i},GPU-{i},NVIDIA H200,143771,140000,Disabled,9.0\n" for i in range(4))

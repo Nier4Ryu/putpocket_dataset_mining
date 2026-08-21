@@ -170,31 +170,68 @@ def _validate_inventory(args: argparse.Namespace) -> int:
 
 
 def _phase1(args: argparse.Namespace) -> int:
-    require_slurm_allocation()
-    lock = load_lock(args.lock); validate_lock(lock)
-    metadata = safe_absolute_path(args.metadata_root, "metadata_root")
-    artifacts = safe_absolute_path(args.artifact_root, "artifact_root")
-    metadata.mkdir(parents=True, exist_ok=True); artifacts.mkdir(parents=True, exist_ok=True)
-    import transformers
-    from huggingface_hub import HfApi, snapshot_download
-    from packaging.version import Version
-    if Version(transformers.__version__) < Version("5.3"):
-        raise ConfigError(f"TRANSFORMERS_5_3_REQUIRED:{transformers.__version__}")
-    info = HfApi().model_info(MODEL_ID, revision=MODEL_REVISION)
-    if info.sha != MODEL_REVISION:
-        raise ConfigError("MODEL_REVISION_RESOLUTION_MISMATCH")
-    snapshot_download(
-        repo_id=MODEL_ID, revision=MODEL_REVISION, local_dir=metadata,
-        allow_patterns=["config.json", "hf_quant_config.json", "tokenizer.json", "tokenizer_config.json", "chat_template.jinja"],
-    )
-    config = _load_json(metadata / "config.json")
-    config_report = validate_model_config(config, lock)
-    capabilities = _vllm_capability_probe()
-    _write_json(artifacts / "model_config.json", config)
-    _write_json(artifacts / "model_config_validation.json", config_report)
-    _write_json(artifacts / "capability_probe.json", capabilities)
-    (artifacts / "model_revision.txt").write_text(MODEL_REVISION + "\n", encoding="utf-8")
-    return 0
+    current_step = "initialization"
+
+    def start(step: str) -> None:
+        nonlocal current_step
+        current_step = step
+        print(f"PHASE1_STEP_START={step}", file=sys.stderr, flush=True)
+
+    def passed() -> None:
+        print(f"PHASE1_STEP_PASS={current_step}", file=sys.stderr, flush=True)
+
+    try:
+        start("slurm_allocation")
+        require_slurm_allocation()
+        passed()
+        start("locked_contract")
+        lock = load_lock(args.lock); validate_lock(lock)
+        metadata = safe_absolute_path(args.metadata_root, "metadata_root")
+        artifacts = safe_absolute_path(args.artifact_root, "artifact_root")
+        metadata.mkdir(parents=True, exist_ok=True); artifacts.mkdir(parents=True, exist_ok=True)
+        passed()
+        start("runtime_imports")
+        import transformers
+        from huggingface_hub import HfApi, snapshot_download
+        from packaging.version import Version
+        passed()
+        start("transformers_version")
+        if Version(transformers.__version__) < Version("5.3"):
+            raise ConfigError(f"TRANSFORMERS_5_3_REQUIRED:{transformers.__version__}")
+        passed()
+        start("model_revision_resolution")
+        info = HfApi().model_info(MODEL_ID, revision=MODEL_REVISION)
+        if info.sha != MODEL_REVISION:
+            raise ConfigError("MODEL_REVISION_RESOLUTION_MISMATCH")
+        passed()
+        start("weightless_metadata_download")
+        snapshot_download(
+            repo_id=MODEL_ID, revision=MODEL_REVISION, local_dir=metadata,
+            allow_patterns=["config.json", "hf_quant_config.json", "tokenizer.json", "tokenizer_config.json", "chat_template.jinja"],
+        )
+        passed()
+        start("model_config_validation")
+        config = _load_json(metadata / "config.json")
+        config_report = validate_model_config(config, lock)
+        passed()
+        start("vllm_capability_validation")
+        capabilities = _vllm_capability_probe()
+        passed()
+        start("artifact_publication")
+        _write_json(artifacts / "model_config.json", config)
+        _write_json(artifacts / "model_config_validation.json", config_report)
+        _write_json(artifacts / "capability_probe.json", capabilities)
+        (artifacts / "model_revision.txt").write_text(MODEL_REVISION + "\n", encoding="utf-8")
+        passed()
+        return 0
+    except Exception as exc:
+        detail = json.dumps(str(exc), ensure_ascii=True)
+        print(
+            f"PHASE1_STEP_FAILED={current_step} exception_type={type(exc).__name__} detail={detail}",
+            file=sys.stderr,
+            flush=True,
+        )
+        raise
 
 
 def _finalize_runtime_jit(args: argparse.Namespace) -> int:

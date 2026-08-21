@@ -459,20 +459,69 @@ printf 'provenance=%s split=%s\n' "${provenance_args[*]}" "${source_split_args[*
         assert result.stdout == expected
 
 
-def test_compiled_import_probe_is_stepwise_and_replays_failure_log() -> None:
+def test_compiled_import_probe_has_pinned_native_steps() -> None:
     run = (ROOT / "scripts/cluster/run_glm52_vllm_diagnostic.sh").read_text(encoding="utf-8")
     required_steps = (
         "runtime_nvcc",
         "import_torch",
         "import_vllm",
-        "import_vllm_C",
+        "validate_sm90_device_capability",
+        "import_vllm_C_stable_libtorch",
+        "import_vllm_moe_C_stable_libtorch",
+        "validate_vllm_C_stable_native_symbols",
+        "validate_vllm_moe_marlin_symbols",
+        "import_vllm_flashmla_C",
+        "import_vllm_flashmla_extension_C",
+        "validate_flashmla_sparse_native_symbols",
+        "validate_flashmla_sparse_support",
+        "import_vendored_deep_gemm_C",
+        "validate_vendored_deep_gemm_selection",
+        "validate_vendored_deep_gemm_C_symbols",
+        "validate_vendored_deep_gemm_symbols",
         "import_sparse_attn_indexer",
         "import_modelopt_nvfp4_w4a16",
+        "import_glm_moe_dsa_model",
+        "import_flashmla_sparse_backend",
         "import_native_dsa_capture",
-        "validate_sm90_device_capability",
     )
     for step in required_steps:
         assert f"PROBE_STEP_START={step}" in run or f'"{step}"' in run
+
+
+def test_compiled_import_probe_uses_pinned_cuda_extension_abi() -> None:
+    run = (ROOT / "scripts/cluster/run_glm52_vllm_diagnostic.sh").read_text(encoding="utf-8")
+    assert 'importlib.import_module("vllm._C")' not in run
+    for module in (
+        "vllm._C_stable_libtorch",
+        "vllm._moe_C_stable_libtorch",
+        "vllm._flashmla_C",
+        "vllm._flashmla_extension_C",
+        "vllm.third_party.deep_gemm._C",
+    ):
+        assert f'importlib.import_module("{module}")' in run
+    for symbol in (
+        "top_k_per_row_prefill",
+        "top_k_per_row_decode",
+        "cooperative_topk",
+        "persistent_topk",
+        "gptq_marlin_repack",
+        "marlin_gemm",
+        "moe_wna16_marlin_gemm",
+        "moe_sum",
+        "sparse_prefill_fwd",
+        "sparse_decode_fwd",
+        "fp8_fp4_mqa_logits",
+        "fp8_fp4_paged_mqa_logits",
+        "get_paged_mqa_logits_metadata",
+    ):
+        assert f'"{symbol}"' in run
+    probe_source = run.split('python3 - <<"PY"\n', 1)[1].split("\nPY' >>", 1)[0]
+    assert "'" not in probe_source  # Probe is carried inside the outer bash -lc single quotes.
+    compile(probe_source, "compiled_import_probe.py", "exec")
+
+
+def test_compiled_import_probe_replays_failure_log_before_model_access() -> None:
+    run = (ROOT / "scripts/cluster/run_glm52_vllm_diagnostic.sh").read_text(encoding="utf-8")
     assert 'COMPILED_IMPORT_PROBE_LOG="$RUN_ROOT/phase1/compiled_import_probe.log"' in run
     assert 'cat "$COMPILED_IMPORT_PROBE_LOG" >&2' in run
     assert "COMPILED_SM90_IMPORT_PROBE_LOG_BEGIN" in run

@@ -147,6 +147,44 @@ def imported_symbol(module_name, symbol_name):
     return getattr(module, symbol_name)
 
 
+def require_symbols(namespace, namespace_name, names):
+    missing = [name for name in names if not hasattr(namespace, name)]
+    if missing:
+        missing_csv = ",".join(missing)
+        raise RuntimeError(
+            f"REQUIRED_COMPILED_SYMBOLS_MISSING:{namespace_name}:{missing_csv}"
+        )
+    return tuple(f"{namespace_name}.{name}" for name in names)
+
+
+def require_callables(module, names):
+    missing = [name for name in names if not callable(getattr(module, name, None))]
+    if missing:
+        missing_csv = ",".join(missing)
+        raise RuntimeError(
+            f"REQUIRED_COMPILED_CALLABLES_MISSING:{module.__name__}:{missing_csv}"
+        )
+    return tuple(f"{module.__name__}.{name}" for name in names)
+
+
+def require_vendored_deep_gemm():
+    vendored = importlib.import_module("vllm.third_party.deep_gemm")
+    adapter = importlib.import_module("vllm.utils.deep_gemm")
+    selected = adapter._import_deep_gemm()
+    if selected is not vendored:
+        selected_name = getattr(selected, "__name__", None)
+        raise RuntimeError(f"VENDORED_DEEP_GEMM_NOT_SELECTED:{selected_name}")
+    return vendored
+
+
+def require_flashmla_sparse_support():
+    flashmla = importlib.import_module("vllm.v1.attention.ops.flashmla")
+    supported, reason = flashmla.is_flashmla_sparse_supported()
+    if not supported:
+        raise RuntimeError(f"FLASHMLA_SPARSE_UNSUPPORTED:{reason}")
+    return flashmla
+
+
 def require_sm90_device():
     capability = torch.cuda.get_device_capability(0)
     if tuple(capability) != (9, 0):
@@ -156,7 +194,75 @@ def require_sm90_device():
 
 torch = probe("import_torch", lambda: importlib.import_module("torch"))
 vllm = probe("import_vllm", lambda: importlib.import_module("vllm"))
-probe("import_vllm_C", lambda: importlib.import_module("vllm._C"))
+capability = probe("validate_sm90_device_capability", require_sm90_device)
+stable_extension = probe(
+    "import_vllm_C_stable_libtorch",
+    lambda: importlib.import_module("vllm._C_stable_libtorch"),
+)
+moe_extension = probe(
+    "import_vllm_moe_C_stable_libtorch",
+    lambda: importlib.import_module("vllm._moe_C_stable_libtorch"),
+)
+stable_symbols = probe(
+    "validate_vllm_C_stable_native_symbols",
+    lambda: require_symbols(
+        torch.ops._C,
+        "torch.ops._C",
+        (
+            "top_k_per_row_prefill",
+            "top_k_per_row_decode",
+            "cooperative_topk",
+            "persistent_topk",
+            "gptq_marlin_repack",
+            "marlin_gemm",
+        ),
+    ),
+)
+moe_symbols = probe(
+    "validate_vllm_moe_marlin_symbols",
+    lambda: require_symbols(
+        torch.ops._moe_C,
+        "torch.ops._moe_C",
+        ("moe_wna16_marlin_gemm", "moe_sum"),
+    ),
+)
+flashmla_extension = probe(
+    "import_vllm_flashmla_C",
+    lambda: importlib.import_module("vllm._flashmla_C"),
+)
+flashmla_aux_extension = probe(
+    "import_vllm_flashmla_extension_C",
+    lambda: importlib.import_module("vllm._flashmla_extension_C"),
+)
+flashmla_symbols = probe(
+    "validate_flashmla_sparse_native_symbols",
+    lambda: require_symbols(
+        torch.ops._flashmla_C,
+        "torch.ops._flashmla_C",
+        ("sparse_prefill_fwd", "sparse_decode_fwd"),
+    ),
+)
+probe("validate_flashmla_sparse_support", require_flashmla_sparse_support)
+deep_gemm_extension = probe(
+    "import_vendored_deep_gemm_C",
+    lambda: importlib.import_module("vllm.third_party.deep_gemm._C"),
+)
+vendored_deep_gemm = probe(
+    "validate_vendored_deep_gemm_selection", require_vendored_deep_gemm
+)
+deep_gemm_symbol_names = (
+    "fp8_fp4_mqa_logits",
+    "fp8_fp4_paged_mqa_logits",
+    "get_paged_mqa_logits_metadata",
+)
+deep_gemm_c_symbols = probe(
+    "validate_vendored_deep_gemm_C_symbols",
+    lambda: require_callables(deep_gemm_extension, deep_gemm_symbol_names),
+)
+deep_gemm_symbols = probe(
+    "validate_vendored_deep_gemm_symbols",
+    lambda: require_callables(vendored_deep_gemm, deep_gemm_symbol_names),
+)
 sparse_attn_indexer = probe(
     "import_sparse_attn_indexer",
     lambda: imported_symbol(
@@ -170,6 +276,18 @@ modelopt_method = probe(
         "ModelOptNvFp4W4A16LinearMethod",
     ),
 )
+glm_model = probe(
+    "import_glm_moe_dsa_model",
+    lambda: imported_symbol(
+        "vllm.model_executor.models.deepseek_v2", "GlmMoeDsaForCausalLM"
+    ),
+)
+flashmla_backend = probe(
+    "import_flashmla_sparse_backend",
+    lambda: imported_symbol(
+        "vllm.v1.attention.backends.mla.flashmla_sparse", "FlashMLASparseBackend"
+    ),
+)
 capture_hook = probe(
     "import_native_dsa_capture",
     lambda: imported_symbol(
@@ -177,12 +295,23 @@ capture_hook = probe(
         "maybe_capture_native_dsa",
     ),
 )
-capability = probe("validate_sm90_device_capability", require_sm90_device)
+compiled_symbol_names = ",".join(
+    stable_symbols
+    + moe_symbols
+    + flashmla_symbols
+    + deep_gemm_c_symbols
+    + deep_gemm_symbols
+)
 print(
     "PROBE_SUMMARY "
     f"torch={torch.__version__} torch_cuda={torch.version.cuda} "
     f"vllm={vllm.__version__} capability={capability} "
-    f"symbols={sparse_attn_indexer.__name__},{modelopt_method.__name__},{capture_hook.__name__}",
+    f"extensions={stable_extension.__name__},{moe_extension.__name__},"
+    f"{flashmla_extension.__name__},{flashmla_aux_extension.__name__},"
+    f"{deep_gemm_extension.__name__} "
+    f"compiled_symbols={compiled_symbol_names} "
+    f"python_symbols={sparse_attn_indexer.__name__},{modelopt_method.__name__},"
+    f"{glm_model.__name__},{flashmla_backend.__name__},{capture_hook.__name__}",
     flush=True,
 )
 PY' >> "$COMPILED_IMPORT_PROBE_LOG" 2>&1

@@ -399,6 +399,34 @@ def test_scripts_gate_allocation_and_bundle_before_heavy_actions() -> None:
     assert "'source_provenance':source_provenance" in run
 
 
+def test_shell_gpu_request_preserves_literal_csv_quotes_in_docker_argv() -> None:
+    run = (ROOT / "scripts/cluster/run_glm52_vllm_diagnostic.sh").read_text(encoding="utf-8")
+    request_assignment = next(line for line in run.splitlines() if line.startswith("GPU_REQUEST="))
+    snippet = f"""
+set -euo pipefail
+GPU_SELECTOR=0,1,2,3
+{request_assignment}
+set -- docker run --gpus "$GPU_REQUEST" image
+printf '%s\\0' "$@"
+"""
+    result = subprocess.run(
+        ["bash", "-c", snippet],
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr.decode()
+    assert result.stdout.split(b"\0") == [
+        b"docker",
+        b"run",
+        b"--gpus",
+        b'"device=0,1,2,3"',
+        b"image",
+        b"",
+    ]
+    assert run.count('--gpus "$GPU_REQUEST"') == 3
+    assert '--gpus "device=$GPU_SELECTOR"' not in run
+
+
 def test_shell_split_boolean_authorizes_only_literal_one() -> None:
     build = (ROOT / "scripts/cluster/build_glm52_vllm_sm90.sh").read_text(encoding="utf-8")
     run = (ROOT / "scripts/cluster/run_glm52_vllm_diagnostic.sh").read_text(encoding="utf-8")

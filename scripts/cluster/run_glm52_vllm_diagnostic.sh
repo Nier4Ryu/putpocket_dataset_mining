@@ -88,6 +88,7 @@ GPU_SELECTOR=${CUDA_VISIBLE_DEVICES:-${SLURM_JOB_GPUS:-}}
 IFS=',' read -r -a GPU_IDS <<< "$GPU_SELECTOR"
 [[ ${#GPU_IDS[@]} == 4 ]] || fail GPU_VISIBILITY_COUNT_MISMATCH 22
 for value in "${GPU_IDS[@]}"; do [[ $value =~ ^([0-9]+|GPU-[A-Za-z0-9-]+)$ ]] || fail GPU_SELECTOR_INVALID 22; done
+GPU_REQUEST="\"device=$GPU_SELECTOR\""
 printf 'index,uuid,name,memory_total_mib,memory_free_mib,mig_mode,compute_capability\n' > "$RUN_ROOT/phase0/gpu_inventory.csv"
 "$NVIDIA_SMI" --id="$GPU_SELECTOR" --query-gpu=index,uuid,name,memory.total,memory.free,mig.mode.current,compute_cap --format=csv,noheader,nounits >> "$RUN_ROOT/phase0/gpu_inventory.csv" || fail GPU_INVENTORY_QUERY_FAILED 22
 "$NVIDIA_SMI" -L > "$RUN_ROOT/phase0/nvidia_smi_listing.txt" || fail GPU_LISTING_QUERY_FAILED 22
@@ -112,7 +113,7 @@ grep -Fq "$RUNTIME_IMAGE_ID" "$RUN_ROOT/phase1/runtime_image_identity.txt" || fa
 COMPILED_IMPORT_PROBE_LOG="$RUN_ROOT/phase1/compiled_import_probe.log"
 printf 'PROBE_STEP_START=container_runtime\n' > "$COMPILED_IMPORT_PROBE_LOG"
 set +e
-"$CONTAINER" run --rm --gpus "device=$GPU_SELECTOR" --entrypoint /bin/bash "$RUNTIME_IMAGE_ID" -lc 'set -euo pipefail
+"$CONTAINER" run --rm --gpus "$GPU_REQUEST" --entrypoint /bin/bash "$RUNTIME_IMAGE_ID" -lc 'set -euo pipefail
 printf "PROBE_STEP_START=runtime_nvcc\n"
 if nvcc --version; then
   printf "PROBE_STEP_PASS=runtime_nvcc\n"
@@ -206,7 +207,7 @@ container_env=(
   --volume "$SOURCE_ROOT:/project:ro" --volume "$STORAGE:/storage"
 )
 mkdir -p "$CACHE/model-metadata/$SLURM_JOB_ID"
-"$CONTAINER" run --rm --gpus "device=$GPU_SELECTOR" "${container_env[@]}" --entrypoint python3 "$RUNTIME_IMAGE_ID" -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli phase1 --lock /project/configs/cluster/glm52_vllm_diagnostic.lock.json --metadata-root /storage/cache/model-metadata/"$SLURM_JOB_ID" --artifact-root /storage/artifacts/"$SLURM_JOB_ID"/phase1 > "$RUN_ROOT/phase1/weightless_probe.log" 2>&1 || fail WEIGHTLESS_VLLM_COMPATIBILITY_FAILED 32
+"$CONTAINER" run --rm --gpus "$GPU_REQUEST" "${container_env[@]}" --entrypoint python3 "$RUNTIME_IMAGE_ID" -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli phase1 --lock /project/configs/cluster/glm52_vllm_diagnostic.lock.json --metadata-root /storage/cache/model-metadata/"$SLURM_JOB_ID" --artifact-root /storage/artifacts/"$SLURM_JOB_ID"/phase1 > "$RUN_ROOT/phase1/weightless_probe.log" 2>&1 || fail WEIGHTLESS_VLLM_COMPATIBILITY_FAILED 32
 printf 'passed\n' > "$RUN_ROOT/phase1/PASSED"
 
 PHASE=runtime_jit_provenance_preflight
@@ -284,7 +285,7 @@ printf '%s\n' \
   "CC=$AUDIT_CUDA_CONTAINER/bin/gcc" \
   "CXX=$AUDIT_CUDA_CONTAINER/bin/g++" > "$JIT_ROOT/jit_environment.txt"
 JIT_STARTED_UTC=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)
-"$CONTAINER" run --rm --name "$SERVER_NAME" --gpus "device=$GPU_SELECTOR" --ipc=host --network=host "${container_env[@]}" "${jit_env[@]}" --volume "$MODEL_ROOT:/model:ro" --entrypoint vllm "$RUNTIME_IMAGE_ID" "${server_args[@]}" > "$SERVER_LOG" 2>&1 &
+"$CONTAINER" run --rm --name "$SERVER_NAME" --gpus "$GPU_REQUEST" --ipc=host --network=host "${container_env[@]}" "${jit_env[@]}" --volume "$MODEL_ROOT:/model:ro" --entrypoint vllm "$RUNTIME_IMAGE_ID" "${server_args[@]}" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 ready=false
 for _ in $(seq 1 360); do

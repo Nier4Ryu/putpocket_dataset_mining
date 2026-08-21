@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import subprocess
@@ -7,8 +8,10 @@ from pathlib import Path
 
 import pytest
 
+import putpocket_dataset_mining.glm52_vllm_diagnostic as diagnostic
 from putpocket_dataset_mining.errors import ConfigError
 from putpocket_dataset_mining.glm52_vllm_diagnostic import (
+    BUILD_SOURCE_COMMIT,
     FULL_LAYERS,
     INSTANCE_ID,
     file_sha256,
@@ -20,6 +23,7 @@ from putpocket_dataset_mining.glm52_vllm_diagnostic import (
     validate_lock,
     validate_model_config,
     validate_source_tree,
+    validate_source_provenance,
     validate_trace_equivalence,
 )
 from putpocket_dataset_mining.glm52_vllm_diagnostic_slurm import (
@@ -28,6 +32,7 @@ from putpocket_dataset_mining.glm52_vllm_diagnostic_slurm import (
     load_site,
     render_two_stage_submission,
 )
+from putpocket_dataset_mining.glm52_vllm_diagnostic_cli import main as diagnostic_cli_main
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +45,17 @@ def _site():
     return load_site(SITE_PATH)
 
 
+def _render(*, runtime_source_commit: str = PROJECT_COMMIT, allow_runtime_source_split: bool = True) -> str:
+    return render_two_stage_submission(
+        site=_site(),
+        project_url="https://github.com/openai/putpocket-dataset-mining.git",
+        runtime_source_commit=runtime_source_commit,
+        build_source_commit=BUILD_SOURCE_COMMIT,
+        allow_runtime_source_split=allow_runtime_source_split,
+        lock_path=LOCK_PATH,
+    )
+
+
 def test_lock_is_exact_vllm_diagnostic() -> None:
     report = validate_lock(load_lock())
     assert report["vllm_commit"] == "4a3447d200e5aa428d68d1a00aa00f1a19a1a729"
@@ -49,6 +65,9 @@ def test_lock_is_exact_vllm_diagnostic() -> None:
     assert build["run_wheel_check"] is False
     assert build["upstream_release_wheel_limit_mb"] == 500
     assert build["wheel_size_exception_scope"] == "intentional_sm90_cuda13_source_build_only"
+    assert build["project_source_commit"] == BUILD_SOURCE_COMMIT
+    assert build["immutable_bundle_root"] == "/home2/jslee202403/putpocket-builds/vllm/vllm-4a3447d200e5-sm90-cu1303-py312-torch2130-patch-fc2f3734-image-3869b846"
+    assert build["vllm_wheel_sha256"] == "3c408df63c56e2a711116449d4324fcef5f2043de1b5c3dee4d3bf561908af52"
 
 
 def test_lock_rejects_precompiled_substitution_and_secrets() -> None:
@@ -79,7 +98,7 @@ def test_source_tree_wrong_digest_fails_before_patch(tmp_path: Path) -> None:
         validate_source_tree(ROOT, source_root, lock)
 
 
-def _bundle(tmp_path: Path) -> tuple[dict, Path]:
+def _bundle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[dict, Path, dict]:
     root = tmp_path / "bundle"; root.mkdir()
     paths = {"runtime_image_tar": "runtime-image.tar", "vllm_wheel": "wheels/vllm-test.whl", "source_bundle": "vllm-source-bundle.tar.gz"}
     for name in paths.values():
@@ -95,10 +114,13 @@ def _bundle(tmp_path: Path) -> tuple[dict, Path]:
     (root / "SUCCESS").write_text("SUCCESS\n", encoding="utf-8")
     lock = load_lock(); build = lock["build"]
     wheel_entry = {"path": paths["vllm_wheel"], "sha256": hashlib.sha256((root / paths["vllm_wheel"]).read_bytes()).hexdigest(), "bytes": (root / paths["vllm_wheel"]).stat().st_size}
+    monkeypatch.setattr(diagnostic, "VLLM_WHEEL_SHA256", wheel_entry["sha256"])
+    build["vllm_wheel_sha256"] = wheel_entry["sha256"]
     wheel_policy = {"schema_version": 1, "run_wheel_check": False, "upstream_release_wheel_limit_mb": 500, "exception_scope": "intentional_sm90_cuda13_source_build_only", "wheel_path": wheel_entry["path"], "wheel_bytes": wheel_entry["bytes"], "wheel_sha256": wheel_entry["sha256"]}
     (root / provenance_paths["wheel_artifact.json"]).write_text(json.dumps(wheel_policy, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     manifest = {
-        "schema_version": 1, "status": "SUCCESS", "vllm_commit": lock["vllm"]["commit"],
+        "schema_version": 1, "status": "SUCCESS", "project_commit": BUILD_SOURCE_COMMIT,
+        "vllm_commit": lock["vllm"]["commit"],
         "bundle_key": build["bundle_key"], "patch_sha256": lock["vllm"]["patch_sha256"],
         "patch_target_post_sha256": lock["vllm"]["patch_target_post_sha256"],
         "build_patch_target_post_sha256": lock["vllm"]["build_patch_target_post_sha256"],
@@ -118,28 +140,31 @@ def _bundle(tmp_path: Path) -> tuple[dict, Path]:
     }
     checksum_lines = [f"{item['sha256']}  {item['path']}\n" for group in ("files", "provenance_files") for item in manifest[group].values()]
     (root / "SHA256SUMS").write_text("".join(sorted(checksum_lines, key=lambda line: line.split("  ", 1)[1])), encoding="utf-8")
-    return manifest, root
+    return manifest, root, lock
 
 
-def test_build_bundle_validates_all_immutable_targets(tmp_path: Path) -> None:
-    manifest, root = _bundle(tmp_path)
-    assert validate_build_manifest(manifest, root, load_lock())["status"] == "passed"
+def test_build_bundle_validates_all_immutable_targets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest, root, lock = _bundle(tmp_path, monkeypatch)
+    report = validate_build_manifest(manifest, root, lock)
+    assert report["status"] == "passed"
+    assert report["immutable_build_source_commit"] == BUILD_SOURCE_COMMIT
+    assert report["vllm_wheel_sha256"] == manifest["files"]["vllm_wheel"]["sha256"]
 
 
 @pytest.mark.parametrize(
     ("field", "value", "error"),
     [("torch_cuda_arch_list", "", "TARGET_MISMATCH"), ("vllm_use_precompiled", True, "TARGET_MISMATCH"), ("prebuilt_vllm_wheel_used", True, "PREBUILT")],
 )
-def test_build_bundle_rejects_target_or_prebuilt_substitution(tmp_path: Path, field: str, value: object, error: str) -> None:
-    manifest, root = _bundle(tmp_path); manifest[field] = value
+def test_build_bundle_rejects_target_or_prebuilt_substitution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str, value: object, error: str) -> None:
+    manifest, root, lock = _bundle(tmp_path, monkeypatch); manifest[field] = value
     with pytest.raises(ConfigError, match=error):
-        validate_build_manifest(manifest, root, load_lock())
+        validate_build_manifest(manifest, root, lock)
 
 
-def test_build_bundle_rejects_changed_file_before_model(tmp_path: Path) -> None:
-    manifest, root = _bundle(tmp_path); (root / "runtime-image.tar").write_bytes(b"changed")
+def test_build_bundle_rejects_changed_file_before_model(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest, root, lock = _bundle(tmp_path, monkeypatch); (root / "runtime-image.tar").write_bytes(b"changed")
     with pytest.raises(ConfigError, match="DIGEST_MISMATCH"):
-        validate_build_manifest(manifest, root, load_lock())
+        validate_build_manifest(manifest, root, lock)
 
 
 @pytest.mark.parametrize(
@@ -152,12 +177,60 @@ def test_build_bundle_rejects_changed_file_before_model(tmp_path: Path) -> None:
     ],
 )
 def test_build_bundle_rejects_wheel_policy_or_artifact_mismatch(
-    tmp_path: Path, field: str, value: object
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str, value: object
 ) -> None:
-    manifest, root = _bundle(tmp_path)
+    manifest, root, lock = _bundle(tmp_path, monkeypatch)
     manifest["wheel_release_policy"][field] = value
     with pytest.raises(ConfigError, match="WHEEL_POLICY|WHEEL_ARTIFACT"):
-        validate_build_manifest(manifest, root, load_lock())
+        validate_build_manifest(manifest, root, lock)
+
+
+def test_source_provenance_accepts_only_explicit_runtime_split(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest, root, lock = _bundle(tmp_path, monkeypatch)
+    report = validate_source_provenance(
+        manifest,
+        root,
+        lock,
+        expected_build_source_commit=BUILD_SOURCE_COMMIT,
+        runtime_source_commit=PROJECT_COMMIT,
+        observed_runtime_source_commit=PROJECT_COMMIT,
+        wrapper_source_commit=PROJECT_COMMIT,
+        allow_runtime_source_split=True,
+    )
+    assert report["immutable_build_source_commit"] == BUILD_SOURCE_COMMIT
+    assert report["runtime_wrapper_source_commit"] == PROJECT_COMMIT
+    assert report["source_split_explicitly_authorized"] is True
+    assert report["vllm_wheel_sha256"] == manifest["files"]["vllm_wheel"]["sha256"]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "error"),
+    [
+        ({"expected_build_source_commit": "0" * 40}, "IMMUTABLE_BUILD_SOURCE_COMMIT_MISMATCH"),
+        ({"observed_runtime_source_commit": "2" * 40}, "RUNTIME_SOURCE_COMMIT_MISMATCH"),
+        ({"wrapper_source_commit": "3" * 40}, "WRAPPER_SOURCE_COMMIT_MISMATCH"),
+        ({"allow_runtime_source_split": False}, "RUNTIME_BUILD_SOURCE_SPLIT_NOT_EXPLICITLY_AUTHORIZED"),
+    ],
+)
+def test_source_provenance_rejects_either_identity_or_implicit_split(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    overrides: dict[str, object],
+    error: str,
+) -> None:
+    manifest, root, lock = _bundle(tmp_path, monkeypatch)
+    values: dict[str, object] = {
+        "expected_build_source_commit": BUILD_SOURCE_COMMIT,
+        "runtime_source_commit": PROJECT_COMMIT,
+        "observed_runtime_source_commit": PROJECT_COMMIT,
+        "wrapper_source_commit": PROJECT_COMMIT,
+        "allow_runtime_source_split": True,
+    }
+    values.update(overrides)
+    with pytest.raises(ConfigError, match=error):
+        validate_source_provenance(manifest, root, lock, **values)  # type: ignore[arg-type]
 
 
 def test_site_uses_measured_cpu_and_h200_storage_values() -> None:
@@ -186,9 +259,9 @@ def test_site_refuses_invalid_runtime_or_artifact_root(tmp_path: Path) -> None:
 
 
 def test_renderer_is_two_stage_exact_and_has_afterok_dependency() -> None:
-    command = render_two_stage_submission(site=_site(), project_url="https://github.com/openai/putpocket-dataset-mining.git", project_commit=PROJECT_COMMIT, lock_path=LOCK_PATH)
+    command = _render()
     assert command.count("sbatch --parsable") == 2
-    assert "--dependency=afterok:$BUILD_JOB_ID" in command
+    assert "--dependency=afterok:$VALIDATOR_JOB_ID" in command
     assert "--gres=gpu:H200:4" in command
     assert "--partition=cpu-max24" in command
     assert "--account=gsai-account" in command and "--qos=nogpu" in command
@@ -196,7 +269,12 @@ def test_renderer_is_two_stage_exact_and_has_afterok_dependency() -> None:
     assert "--partition=H200" in command
     assert "PUTPOCKET_RUN_ARTIFACT_ROOT=/local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic/artifacts" in command
     assert "/local-data/jslee202403" not in command
-    assert "BUILD_JOB_ID=%s\\nRUN_JOB_ID=%s" in command
+    assert "VALIDATOR_JOB_ID=%s\\nRUN_JOB_ID=%s" in command
+    assert "--job-name=pp-vllm-bundle-validate" in command
+    assert "PUTPOCKET_IMMUTABLE_BUNDLE_REUSE_ONLY=1" in command
+    assert f"PUTPOCKET_BUILD_SOURCE_COMMIT={BUILD_SOURCE_COMMIT}" in command
+    assert f"PUTPOCKET_RUNTIME_SOURCE_COMMIT={PROJECT_COMMIT}" in command
+    assert "PUTPOCKET_ALLOW_RUNTIME_SOURCE_SPLIT=1" in command
     assert "sglang" not in command.lower()
     assert "swe_bench_pro_eval" not in command.lower()
     assert "swebench_pro_full" not in command.lower()
@@ -205,18 +283,21 @@ def test_renderer_is_two_stage_exact_and_has_afterok_dependency() -> None:
 def test_rendered_command_and_wrapped_bodies_are_bash_syntax_valid() -> None:
     site = _site()
     url = "https://github.com/openai/putpocket-dataset-mining.git"
-    command = render_two_stage_submission(site=site, project_url=url, project_commit=PROJECT_COMMIT, lock_path=LOCK_PATH)
+    command = _render()
     result = subprocess.run(["bash", "-n"], input=command + "\n", text=True, capture_output=True, check=False)
     assert result.returncode == 0, result.stderr
     bundle_key = load_lock()["build"]["bundle_key"]
-    for body in (_build_wrapper(site, url, PROJECT_COMMIT, bundle_key), _run_wrapper(site, url, PROJECT_COMMIT, bundle_key)):
+    for body in (
+        _build_wrapper(site, url, PROJECT_COMMIT, BUILD_SOURCE_COMMIT, bundle_key, True),
+        _run_wrapper(site, url, PROJECT_COMMIT, BUILD_SOURCE_COMMIT, bundle_key, True),
+    ):
         result = subprocess.run(["bash", "-n"], input=body + "\n", text=True, capture_output=True, check=False)
         assert result.returncode == 0, result.stderr
 
 
 def test_h200_wrapper_validates_and_creates_site_root_before_clone() -> None:
     site = _site(); bundle_key = load_lock()["build"]["bundle_key"]
-    body = _run_wrapper(site, "https://github.com/openai/putpocket-dataset-mining.git", PROJECT_COMMIT, bundle_key)
+    body = _run_wrapper(site, "https://github.com/openai/putpocket-dataset-mining.git", PROJECT_COMMIT, BUILD_SOURCE_COMMIT, bundle_key, True)
     assert body.index("E_H200_LOCAL_STORAGE_PARENT_UNWRITABLE") < body.index("mkdir -p /local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic")
     assert body.index("E_H200_RUN_ROOT_UNWRITABLE") < body.index("git -C")
     assert "PUTPOCKET_H200_STORAGE_PARENT=/local-data/user-data" in body
@@ -225,27 +306,78 @@ def test_h200_wrapper_validates_and_creates_site_root_before_clone() -> None:
 
 def test_login_control_shell_only_creates_shared_parents() -> None:
     site = _site()
-    command = render_two_stage_submission(site=site, project_url="https://github.com/openai/putpocket-dataset-mining.git", project_commit=PROJECT_COMMIT, lock_path=LOCK_PATH)
+    command = _render()
     expected = f"mkdir -p {site.slurm_log_root} {site.shared_build_root}"
-    assert command.startswith(f"set -euo pipefail && {expected} && BUILD_JOB_ID=$(sbatch ")
+    assert command.startswith(f"set -euo pipefail && {expected} && VALIDATOR_JOB_ID=$(sbatch ")
     assert " fetch --depth=1 " in command  # quoted inside allocation-only --wrap bodies
-    assert command.index(expected) < command.index("BUILD_JOB_ID=$(sbatch")
+    assert command.index(expected) < command.index("VALIDATOR_JOB_ID=$(sbatch")
+
+
+def test_renderer_requires_explicit_split_authorization_and_handles_zero_and_one() -> None:
+    with pytest.raises(ConfigError, match="NOT_EXPLICITLY_AUTHORIZED"):
+        _render(allow_runtime_source_split=False)
+    unsplit = _render(runtime_source_commit=BUILD_SOURCE_COMMIT, allow_runtime_source_split=False)
+    split = _render()
+    assert "PUTPOCKET_ALLOW_RUNTIME_SOURCE_SPLIT=0" in unsplit
+    assert "PUTPOCKET_ALLOW_RUNTIME_SOURCE_SPLIT=1" not in unsplit
+    assert "PUTPOCKET_ALLOW_RUNTIME_SOURCE_SPLIT=1" in split
+    assert "PUTPOCKET_ALLOW_RUNTIME_SOURCE_SPLIT=0" not in split
+
+
+def test_cli_renders_login_safe_base64_wrapper(capsys: pytest.CaptureFixture[str]) -> None:
+    result = diagnostic_cli_main(
+        [
+            "render-wrap",
+            "--site", str(SITE_PATH),
+            "--project-url", "https://github.com/openai/putpocket-dataset-mining.git",
+            "--runtime-source-commit", PROJECT_COMMIT,
+            "--build-source-commit", BUILD_SOURCE_COMMIT,
+            "--allow-runtime-source-split",
+            "--login-safe-base64",
+            "--cpu-partition", "cpu-max24",
+            "--cpu-account", "gsai-account",
+            "--cpu-qos", "nogpu",
+            "--cpu-cpus-per-task", "24",
+            "--cpu-memory", "192G",
+            "--cpu-wall-time", "06:00:00",
+            "--cpu-local-scratch-root", "/local-data/user-data/jslee202403/putpocket-vllm-build-scratch",
+            "--container-executable", "/usr/bin/docker",
+        ]
+    )
+    assert result == 0
+    wrapper = capsys.readouterr().out.strip()
+    assert wrapper.startswith("printf '%s' '")
+    assert wrapper.endswith("' | base64 --decode | /bin/bash")
+    encoded = wrapper.split("'", 3)[3].split("'", 1)[0]
+    assert base64.b64decode(encoded).decode("utf-8") == _render() + "\n"
+    syntax = subprocess.run(["bash", "-n"], input=wrapper + "\n", text=True, capture_output=True, check=False)
+    assert syntax.returncode == 0, syntax.stderr
 
 
 def test_renderer_rejects_credential_url() -> None:
     with pytest.raises(ConfigError, match="CREDENTIAL"):
-        render_two_stage_submission(site=_site(), project_url="https://name:secret@github.com/openai/repo.git", project_commit=PROJECT_COMMIT, lock_path=LOCK_PATH)
+        render_two_stage_submission(
+            site=_site(),
+            project_url="https://name:secret@github.com/openai/repo.git",
+            runtime_source_commit=PROJECT_COMMIT,
+            build_source_commit=BUILD_SOURCE_COMMIT,
+            allow_runtime_source_split=True,
+            lock_path=LOCK_PATH,
+        )
 
 
 def test_scripts_gate_allocation_and_bundle_before_heavy_actions() -> None:
     build = (ROOT / "scripts/cluster/build_glm52_vllm_sm90.sh").read_text(encoding="utf-8")
     run = (ROOT / "scripts/cluster/run_glm52_vllm_diagnostic.sh").read_text(encoding="utf-8")
     assert build.index("CPU_SLURM_ALLOCATION_REQUIRED") < build.index("vllm-project/vllm.git") < build.index('"$CONTAINER" build')
+    assert build.index("IMMUTABLE_BUILD_BUNDLE_MISSING_REBUILD_FORBIDDEN") < build.index("vllm-project/vllm.git")
+    assert build.index("REUSED_BUILD_BUNDLE") < build.index('mv "$TARGET"')
     assert "TORCH_CUDA_ARCH_LIST" not in build or "torch_cuda_arch_list=9.0" in build
     assert "--build-arg VLLM_USE_PRECOMPILED" not in build
     assert build.count("--build-arg RUN_WHEEL_CHECK=false") == 1
     assert "--build-arg RUN_WHEEL_CHECK=true" not in build
     assert "wheel_artifact.json" in build and "wheel_release_policy" in build
+    assert "PUTPOCKET_IMMUTABLE_BUNDLE_REUSE_ONLY" in build
     patch = (ROOT / load_lock()["vllm"]["patch_path"]).read_text(encoding="utf-8")
     added = "\n".join(line[1:] for line in patch.splitlines() if line.startswith("+") and not line.startswith("+++"))
     assert "unset VLLM_USE_PRECOMPILED VLLM_PRECOMPILED_WHEEL_LOCATION" in added
@@ -254,6 +386,7 @@ def test_scripts_gate_allocation_and_bundle_before_heavy_actions() -> None:
     assert run.index("COMPUTE_LOCAL_STORAGE_PARENT_UNWRITABLE") < run.index("snapshot_download")
     assert run.index('RUN_ROOT="$ARTIFACT_ROOT/') < run.index("snapshot_download")
     assert "PUTPOCKET_RUN_ARTIFACT_ROOT" in run
+    assert "IMMUTABLE_BUNDLE_ROOT_MISMATCH" in build and "IMMUTABLE_BUNDLE_ROOT_MISMATCH" in run
     assert "/local-data/jslee202403" not in run
     assert run.index("RUNTIME_JIT_POLICY_MANIFEST_INVALID") < run.index("snapshot_download")
     assert "--jit-monitor-mode error" in run and "runtime_jit_manifest.json" in run
@@ -261,6 +394,41 @@ def test_scripts_gate_allocation_and_bundle_before_heavy_actions() -> None:
     assert "--no-enable-prefix-caching" in run and "/reset_prefix_cache" in run
     assert "--disable-log-requests" not in run
     assert "run_swebench" not in run.lower() and "swebench_pro_full" not in run.lower()
+    assert "'immutable_build_source_commit':source_provenance['immutable_build_source_commit']" in run
+    assert "'runtime_source_commit':source_provenance['runtime_source_commit']" in run
+    assert "'source_provenance':source_provenance" in run
+
+
+def test_shell_split_boolean_authorizes_only_literal_one() -> None:
+    build = (ROOT / "scripts/cluster/build_glm52_vllm_sm90.sh").read_text(encoding="utf-8")
+    run = (ROOT / "scripts/cluster/run_glm52_vllm_diagnostic.sh").read_text(encoding="utf-8")
+    for script in (build, run):
+        assert "${ALLOW_RUNTIME_SOURCE_SPLIT:+--allow-runtime-source-split}" not in script
+        assert "if [[ $ALLOW_RUNTIME_SOURCE_SPLIT == 1 ]]" in script
+        assert "provenance_args+=(--allow-runtime-source-split)" in script
+    assert "source_split_args=()" in run
+    assert "\"${source_split_args[@]}\"" in run
+
+    snippet = """
+set -euo pipefail
+provenance_args=(base)
+source_split_args=()
+if [[ $ALLOW_RUNTIME_SOURCE_SPLIT == 1 ]]; then
+  provenance_args+=(--allow-runtime-source-split)
+  source_split_args+=(--allow-runtime-source-split)
+fi
+printf 'provenance=%s split=%s\n' "${provenance_args[*]}" "${source_split_args[*]}"
+"""
+    for value, expected in (("0", "provenance=base split=\n"), ("1", "provenance=base --allow-runtime-source-split split=--allow-runtime-source-split\n")):
+        result = subprocess.run(
+            ["bash", "-c", snippet],
+            text=True,
+            capture_output=True,
+            check=False,
+            env={"ALLOW_RUNTIME_SOURCE_SPLIT": value},
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == expected
 
 
 def test_compiled_import_probe_is_stepwise_and_replays_failure_log() -> None:
@@ -364,8 +532,8 @@ def test_tracked_shell_scripts_are_syntax_valid() -> None:
         assert result.returncode == 0, result.stderr
 
 
-def test_runtime_jit_manifest_is_run_local_native_and_checksummed(tmp_path: Path) -> None:
-    build, bundle = _bundle(tmp_path)
+def test_runtime_jit_manifest_is_run_local_native_and_checksummed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    build, bundle, lock = _bundle(tmp_path, monkeypatch)
     build["_bundle_root"] = str(bundle)
     cache = tmp_path / "run" / "cache" / "deep_gemm"; cache.mkdir(parents=True)
     (cache / "native-sm90.cubin").write_bytes(b"sm90")
@@ -374,17 +542,25 @@ def test_runtime_jit_manifest_is_run_local_native_and_checksummed(tmp_path: Path
     report = build_runtime_jit_manifest(
         tmp_path / "run" / "cache", audit,
         started_utc="2026-08-19T12:00:00+00:00", completed_utc="2026-08-19T12:00:02+00:00",
-        project_commit=PROJECT_COMMIT, runtime_image_id="sha256:" + "2" * 64,
-        build_manifest=build, lock=load_lock(),
+        build_source_commit=BUILD_SOURCE_COMMIT,
+        runtime_source_commit=PROJECT_COMMIT,
+        observed_runtime_source_commit=PROJECT_COMMIT,
+        wrapper_source_commit=PROJECT_COMMIT,
+        allow_runtime_source_split=True,
+        runtime_image_id="sha256:" + "2" * 64,
+        build_manifest=build, lock=lock,
     )
     assert report["components"] == ["deep_gemm_native_dsa"]
     assert report["files"][0]["sha256"] == hashlib.sha256(b"sm90").hexdigest()
+    assert report["build_source_commit"] == BUILD_SOURCE_COMMIT
+    assert report["runtime_source_commit"] == PROJECT_COMMIT
+    assert report["source_provenance"]["source_split_explicitly_authorized"] is True
 
 
-def test_runtime_jit_manifest_rejects_general_project_compilation(tmp_path: Path) -> None:
-    build, bundle = _bundle(tmp_path); build["_bundle_root"] = str(bundle)
+def test_runtime_jit_manifest_rejects_general_project_compilation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    build, bundle, lock = _bundle(tmp_path, monkeypatch); build["_bundle_root"] = str(bundle)
     cache = tmp_path / "cache" / "deep_gemm"; cache.mkdir(parents=True); (cache / "x").write_bytes(b"x")
     audit = tmp_path / "audit.jsonl"
     audit.write_text(json.dumps({"schema_version": 1, "timestamp_utc": "2026-08-19T12:00:01+00:00", "tool": "nvcc", "argv": ["nvcc", "/project/src/setup.py", "/cache/deep_gemm/x.cu"]}) + "\n", encoding="utf-8")
     with pytest.raises(ConfigError, match="GENERAL_PROJECT_COMPILATION"):
-        build_runtime_jit_manifest(tmp_path / "cache", audit, started_utc="2026-08-19T12:00:00+00:00", completed_utc="2026-08-19T12:00:02+00:00", project_commit=PROJECT_COMMIT, runtime_image_id="sha256:" + "2" * 64, build_manifest=build, lock=load_lock())
+        build_runtime_jit_manifest(tmp_path / "cache", audit, started_utc="2026-08-19T12:00:00+00:00", completed_utc="2026-08-19T12:00:02+00:00", build_source_commit=BUILD_SOURCE_COMMIT, runtime_source_commit=PROJECT_COMMIT, observed_runtime_source_commit=PROJECT_COMMIT, wrapper_source_commit=PROJECT_COMMIT, allow_runtime_source_split=True, runtime_image_id="sha256:" + "2" * 64, build_manifest=build, lock=lock)

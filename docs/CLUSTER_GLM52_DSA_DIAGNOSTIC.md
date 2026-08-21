@@ -1,8 +1,9 @@
 # GLM-5.2 vLLM native-DSA diagnostic
 
-This is a two-job feasibility diagnostic, not a SWE-bench quality run. It
-builds vLLM from pinned source in a CPU Slurm allocation and permits the exact
-four-H200 run only through `afterok:<BUILD_JOB_ID>`. It executes one hard-pinned
+This is a two-job feasibility diagnostic, not a SWE-bench quality run. Its CPU
+Slurm allocation revalidates and reuses the already-published immutable vLLM
+bundle; it does not rebuild or modify that bundle. The exact four-H200 run is
+permitted only through `afterok:<VALIDATOR_JOB_ID>`. It executes one hard-pinned
 SWE-bench Pro instance, records the unchanged official one-row evaluation
 result, and can never select the full split or calculate the 40% acceptance
 threshold.
@@ -19,6 +20,11 @@ or missing provenance is classified BLOCKED.
 
 ## Immutable contract
 
+- immutable build source:
+  `173d5125b6c8e95bd2cc4e66d5240482064a78f3`
+- runtime/wrapper source: a separate explicit full SHA supplied to the
+  renderer; a split from the immutable build source requires
+  `--allow-runtime-source-split`
 - vLLM source: `4a3447d200e5aa428d68d1a00aa00f1a19a1a729`
 - model: `nvidia/GLM-5.2-NVFP4` at
   `aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa`
@@ -29,6 +35,8 @@ or missing provenance is classified BLOCKED.
 - build: Python 3.12, PyTorch 2.13.0, CUDA 13.0.3,
   `TORCH_CUDA_ARCH_LIST=9.0`, CMake architecture 90, target `cuda`, and no
   precompiled vLLM wheel
+- immutable vLLM wheel SHA-256:
+  `3c408df63c56e2a711116449d4324fcef5f2043de1b5c3dee4d3bf561908af52`
 - runtime: TP4, `modelopt_fp4`, `--linear-backend marlin`,
   `--attention-backend FLASHMLA_SPARSE`, context 4096, concurrency one,
   prefix caching disabled, eager execution, and no CPU offload/speculation/PD
@@ -73,10 +81,8 @@ and deterministic gzip/checksums. Missing native exposure produces a preserved
 
 ## Build bundle gate
 
-The CPU entrypoint validates the exact vLLM source file hashes, applies the
-tracked patch, validates post-patch hashes, and uses the pinned official vLLM
-Dockerfile to build the wheel and runtime image from scratch. It publishes an
-atomic bundle below:
+Cluster job `747490` built the wheel and runtime image from the immutable build
+source and published the atomic bundle below:
 
 `/home2/jslee202403/putpocket-builds/vllm/vllm-4a3447d200e5-sm90-cu1303-py312-torch2130-patch-fc2f3734-image-3869b846`
 
@@ -84,8 +90,13 @@ The bundle contains the wheel, patched source bundle, saved runtime image,
 build logs, resolved build/runtime package inventories, nvcc identities,
 `SHA256SUMS`, manifest, and `SUCCESS`. Reuse is allowed only after every
 identity, recorded byte count, provenance file, and file digest is revalidated.
-The H200 entrypoint validates the bundle and SM90 compiled imports before model
-config or weight download.
+The rendered CPU entrypoint is now a reuse-only validator: a missing bundle
+fails and cannot enter the retained build path. It independently checks the
+manifest's
+immutable build-source SHA, the runtime checkout and wrapper SHA, explicit
+split authorization, the exact wheel SHA-256, and all prior bundle checks. The
+H200 entrypoint repeats these provenance and bundle checks before image load,
+model config, or weight download.
 
 The compiled-import probe writes
 `<run-artifacts>/phase1/compiled_import_probe.log`. It labels the container,
@@ -133,7 +144,10 @@ PYTHONPATH=src python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli \
   render-wrap \
   --site configs/cluster/sites/herdr_vllm_diagnostic.json \
   --project-url https://github.com/Nier4Ryu/putpocket_dataset_mining.git \
-  --project-commit <exact-40-char-project-commit> \
+  --runtime-source-commit <exact-40-char-runtime-wrapper-commit> \
+  --build-source-commit 173d5125b6c8e95bd2cc4e66d5240482064a78f3 \
+  --allow-runtime-source-split \
+  --login-safe-base64 \
   --cpu-partition cpu-max24 \
   --cpu-account gsai-account \
   --cpu-qos nogpu \
@@ -144,11 +158,13 @@ PYTHONPATH=src python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli \
   --container-executable /usr/bin/docker
 ```
 
-The one-line result creates only the shared build/log parent directories on
-Login, submits the CPU job, validates its parsable ID, submits the exact H200
-job with `afterok`, and prints `BUILD_JOB_ID` and `RUN_JOB_ID`. Clone, patch,
-build, downloads, installs, image operations, inference, and evaluation occur
-only inside allocated compute jobs. Before the H200 wrapper clones the project,
+The one-line result is `printf` plus a base64 payload and decode pipe, avoiding
+nested shell-quoting loss when transferred to Login. When executed there it
+creates only the shared bundle/log parent directories, submits the reuse-only
+CPU validator, validates its parsable ID, submits the exact H200 job with
+`afterok`, and prints `VALIDATOR_JOB_ID` and `RUN_JOB_ID`. Clone, validation,
+downloads, image operations, inference, and evaluation occur only inside
+allocated compute jobs. Before the H200 wrapper clones the project,
 it requires the measured `/local-data/user-data` parent to exist and be
 writable, creates the configured work/artifact roots, and verifies both are
 writable. A node with a different or unavailable local-storage layout exits
@@ -156,8 +172,8 @@ before project, model metadata, or weight download.
 
 Expected paths:
 
-- build stdout/stderr:
-  `/home2/jslee202403/putpocket-slurm/pp-vllm-sm90-build-<BUILD_JOB_ID>.{out,err}`
+- validator stdout/stderr:
+  `/home2/jslee202403/putpocket-slurm/pp-vllm-bundle-validate-<VALIDATOR_JOB_ID>.{out,err}`
 - run stdout/stderr:
   `/home2/jslee202403/putpocket-slurm/pp-glm52-vllm-dsa-<RUN_JOB_ID>.{out,err}`
 - run artifacts:

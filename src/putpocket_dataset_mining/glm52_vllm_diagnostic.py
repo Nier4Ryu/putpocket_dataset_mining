@@ -14,6 +14,9 @@ from .errors import ConfigError
 
 
 VLLM_COMMIT = "4a3447d200e5aa428d68d1a00aa00f1a19a1a729"
+BUILD_SOURCE_COMMIT = "173d5125b6c8e95bd2cc4e66d5240482064a78f3"
+IMMUTABLE_BUNDLE_ROOT = "/home2/jslee202403/putpocket-builds/vllm/vllm-4a3447d200e5-sm90-cu1303-py312-torch2130-patch-fc2f3734-image-3869b846"
+VLLM_WHEEL_SHA256 = "3c408df63c56e2a711116449d4324fcef5f2043de1b5c3dee4d3bf561908af52"
 MODEL_ID = "nvidia/GLM-5.2-NVFP4"
 MODEL_REVISION = "aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa"
 INSTANCE_ID = "instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5"
@@ -79,6 +82,9 @@ def validate_lock(lock: Mapping[str, Any]) -> dict[str, Any]:
         (official, "score_eligible", False),
         (official, "full_selection_reachable", False),
         (build, "torch_cuda_arch_list", "9.0"),
+        (build, "project_source_commit", BUILD_SOURCE_COMMIT),
+        (build, "immutable_bundle_root", IMMUTABLE_BUNDLE_ROOT),
+        (build, "vllm_wheel_sha256", VLLM_WHEEL_SHA256),
         (build, "cmake_cuda_architectures", "90"),
         (build, "vllm_target_device", "cuda"),
         (build, "vllm_use_precompiled", False),
@@ -96,9 +102,14 @@ def validate_lock(lock: Mapping[str, Any]) -> dict[str, Any]:
     for key in ("speculative_mtp", "disaggregation"):
         if runtime.get(key) is not False:
             raise ConfigError(f"VLLM_RUNTIME_FORBIDDEN:{key}")
-    for value in (vllm["commit"], runtime["model_revision"], selection["dataset_revision"], official["harness_commit"]):
+    for value in (build["project_source_commit"], vllm["commit"], runtime["model_revision"], selection["dataset_revision"], official["harness_commit"]):
         if not _SHA40.fullmatch(str(value)):
             raise ConfigError("IMMUTABLE_40_CHARACTER_REVISION_REQUIRED")
+    if not _SHA256.fullmatch(str(build["vllm_wheel_sha256"])):
+        raise ConfigError("IMMUTABLE_VLLM_WHEEL_SHA256_REQUIRED")
+    expected_bundle_root = Path(str(build["shared_root"])) / str(build["bundle_key"])
+    if not expected_bundle_root.is_absolute() or str(expected_bundle_root) != build["immutable_bundle_root"]:
+        raise ConfigError("IMMUTABLE_BUNDLE_ROOT_MISMATCH")
     for key in (
         "patch_target_sha256",
         "patch_target_post_sha256",
@@ -124,7 +135,10 @@ def validate_lock(lock: Mapping[str, Any]) -> dict[str, Any]:
         "schema_version": 1,
         "status": "passed",
         "vllm_commit": VLLM_COMMIT,
+        "build_source_commit": BUILD_SOURCE_COMMIT,
         "bundle_key": build["bundle_key"],
+        "immutable_bundle_root": IMMUTABLE_BUNDLE_ROOT,
+        "vllm_wheel_sha256": VLLM_WHEEL_SHA256,
         "model_revision": MODEL_REVISION,
         "instance_id": INSTANCE_ID,
         "full_layers": list(FULL_LAYERS),
@@ -175,6 +189,7 @@ def validate_build_manifest(manifest: Mapping[str, Any], bundle_root: str | Path
     if manifest.get("schema_version") != 1 or manifest.get("status") != "SUCCESS":
         raise ConfigError("BUILD_MANIFEST_NOT_SUCCESSFUL")
     exact = {
+        "project_commit": build["project_source_commit"],
         "vllm_commit": VLLM_COMMIT,
         "bundle_key": build["bundle_key"],
         "patch_sha256": lock["vllm"]["patch_sha256"],
@@ -244,6 +259,8 @@ def validate_build_manifest(manifest: Mapping[str, Any], bundle_root: str | Path
     if set(provenance) != required_provenance:
         raise ConfigError("BUILD_MANIFEST_PROVENANCE_FILE_SET_MISMATCH")
     wheel_entry = _mapping(files["vllm_wheel"], "files.vllm_wheel")
+    if wheel_entry.get("sha256") != build["vllm_wheel_sha256"]:
+        raise ConfigError("IMMUTABLE_VLLM_WHEEL_SHA256_MISMATCH")
     if (
         wheel_policy.get("wheel_path") != wheel_entry.get("path")
         or wheel_policy.get("wheel_bytes") != wheel_entry.get("bytes")
@@ -270,7 +287,89 @@ def validate_build_manifest(manifest: Mapping[str, Any], bundle_root: str | Path
         raise ConfigError("BUILD_BUNDLE_SHA256SUMS_MISMATCH")
     if not (root / "SUCCESS").is_file():
         raise ConfigError("BUILD_BUNDLE_SUCCESS_MARKER_MISSING")
-    return {"schema_version": 1, "status": "passed", "bundle_key": build["bundle_key"]}
+    return {
+        "schema_version": 1,
+        "status": "passed",
+        "bundle_key": build["bundle_key"],
+        "immutable_build_source_commit": manifest["project_commit"],
+        "expected_immutable_bundle_root": build["immutable_bundle_root"],
+        "vllm_wheel_sha256": wheel_entry["sha256"],
+    }
+
+
+def validate_source_identities(
+    *,
+    pinned_build_source_commit: str,
+    expected_build_source_commit: str,
+    runtime_source_commit: str,
+    observed_runtime_source_commit: str,
+    wrapper_source_commit: str,
+    allow_runtime_source_split: bool,
+) -> dict[str, Any]:
+    identities = {
+        "pinned_build_source_commit": pinned_build_source_commit,
+        "expected_build_source_commit": expected_build_source_commit,
+        "runtime_source_commit": runtime_source_commit,
+        "observed_runtime_source_commit": observed_runtime_source_commit,
+        "wrapper_source_commit": wrapper_source_commit,
+    }
+    if not all(_SHA40.fullmatch(value) for value in identities.values()):
+        raise ConfigError("SOURCE_PROVENANCE_FULL_SHA_REQUIRED")
+    if expected_build_source_commit != pinned_build_source_commit:
+        raise ConfigError("IMMUTABLE_BUILD_SOURCE_COMMIT_MISMATCH")
+    if observed_runtime_source_commit != runtime_source_commit:
+        raise ConfigError("RUNTIME_SOURCE_COMMIT_MISMATCH")
+    if wrapper_source_commit != runtime_source_commit:
+        raise ConfigError("WRAPPER_SOURCE_COMMIT_MISMATCH")
+    split = runtime_source_commit != expected_build_source_commit
+    if split and allow_runtime_source_split is not True:
+        raise ConfigError("RUNTIME_BUILD_SOURCE_SPLIT_NOT_EXPLICITLY_AUTHORIZED")
+    if not split and allow_runtime_source_split is True:
+        raise ConfigError("RUNTIME_BUILD_SOURCE_SPLIT_AUTHORIZATION_UNNECESSARY")
+    return {
+        "schema_version": 1,
+        "status": "passed",
+        "immutable_build_source_commit": expected_build_source_commit,
+        "runtime_source_commit": runtime_source_commit,
+        "observed_runtime_source_commit": observed_runtime_source_commit,
+        "wrapper_source_commit": wrapper_source_commit,
+        "runtime_wrapper_source_commit": runtime_source_commit,
+        "source_split": split,
+        "source_split_explicitly_authorized": split and allow_runtime_source_split,
+        "source_split_authorization": "explicit_renderer_flag" if split else "not_required",
+    }
+
+
+def validate_source_provenance(
+    manifest: Mapping[str, Any],
+    bundle_root: str | Path,
+    lock: Mapping[str, Any],
+    *,
+    expected_build_source_commit: str,
+    runtime_source_commit: str,
+    observed_runtime_source_commit: str,
+    wrapper_source_commit: str,
+    allow_runtime_source_split: bool,
+) -> dict[str, Any]:
+    validate_lock(lock)
+    pinned_build = str(lock["build"]["project_source_commit"])
+    provenance = validate_source_identities(
+        pinned_build_source_commit=pinned_build,
+        expected_build_source_commit=expected_build_source_commit,
+        runtime_source_commit=runtime_source_commit,
+        observed_runtime_source_commit=observed_runtime_source_commit,
+        wrapper_source_commit=wrapper_source_commit,
+        allow_runtime_source_split=allow_runtime_source_split,
+    )
+    bundle = validate_build_manifest(manifest, bundle_root, lock)
+    if manifest.get("project_commit") != expected_build_source_commit:
+        raise ConfigError("IMMUTABLE_BUILD_SOURCE_COMMIT_MISMATCH")
+    return {
+        **provenance,
+        "bundle_key": bundle["bundle_key"],
+        "expected_immutable_bundle_root": bundle["expected_immutable_bundle_root"],
+        "vllm_wheel_sha256": bundle["vllm_wheel_sha256"],
+    }
 
 
 def validate_model_config(config: Mapping[str, Any], lock: Mapping[str, Any]) -> dict[str, Any]:
@@ -357,18 +456,34 @@ def build_runtime_jit_manifest(
     *,
     started_utc: str,
     completed_utc: str,
-    project_commit: str,
+    build_source_commit: str,
+    runtime_source_commit: str,
+    observed_runtime_source_commit: str,
+    wrapper_source_commit: str,
+    allow_runtime_source_split: bool,
     runtime_image_id: str,
     build_manifest: Mapping[str, Any],
     lock: Mapping[str, Any],
 ) -> dict[str, Any]:
-    validate_build_manifest(build_manifest, Path(str(build_manifest["_bundle_root"])), lock)
+    source_provenance = validate_source_provenance(
+        build_manifest,
+        Path(str(build_manifest["_bundle_root"])),
+        lock,
+        expected_build_source_commit=build_source_commit,
+        runtime_source_commit=runtime_source_commit,
+        observed_runtime_source_commit=observed_runtime_source_commit,
+        wrapper_source_commit=wrapper_source_commit,
+        allow_runtime_source_split=allow_runtime_source_split,
+    )
     try:
         started = dt.datetime.fromisoformat(started_utc.replace("Z", "+00:00"))
         completed = dt.datetime.fromisoformat(completed_utc.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ConfigError("RUNTIME_JIT_TIMESTAMP_INVALID") from exc
-    if completed < started or not _SHA40.fullmatch(project_commit) or not runtime_image_id.startswith("sha256:"):
+    if (
+        completed < started
+        or not re.fullmatch(r"sha256:[0-9a-f]{64}", runtime_image_id)
+    ):
         raise ConfigError("RUNTIME_JIT_PROVENANCE_IDENTITY_INVALID")
     root = Path(cache_root)
     if not root.is_absolute() or not root.is_dir():
@@ -424,7 +539,12 @@ def build_runtime_jit_manifest(
         "cache_reuse": False,
         "started_utc": started_utc,
         "completed_utc": completed_utc,
-        "project_commit": project_commit,
+        "project_commit": runtime_source_commit,
+        "build_source_commit": build_source_commit,
+        "runtime_source_commit": runtime_source_commit,
+        "wrapper_source_commit": wrapper_source_commit,
+        "source_split": source_provenance["source_split"],
+        "source_provenance": source_provenance,
         "vllm_commit": lock["vllm"]["commit"],
         "patch_sha256": lock["vllm"]["patch_sha256"],
         "build_image": lock["build"]["base_image"],

@@ -9,7 +9,7 @@ from typing import Any, Mapping
 from urllib.parse import urlsplit, urlunsplit
 
 from .errors import ConfigError
-from .glm52_vllm_diagnostic import load_lock, validate_lock
+from .glm52_vllm_diagnostic import load_lock, validate_lock, validate_source_identities
 
 
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
@@ -127,18 +127,34 @@ def load_site(
 
 
 def render_two_stage_submission(
-    *, site: VllmDiagnosticSite, project_url: str, project_commit: str, lock_path: str | Path
+    *,
+    site: VllmDiagnosticSite,
+    project_url: str,
+    runtime_source_commit: str,
+    build_source_commit: str,
+    allow_runtime_source_split: bool,
+    lock_path: str | Path,
 ) -> str:
     clean_url = _public_project_url(project_url)
-    if not _SHA40.fullmatch(project_commit):
-        raise ConfigError("PROJECT_COMMIT_MUST_BE_FULL_SHA")
+    if not _SHA40.fullmatch(runtime_source_commit) or not _SHA40.fullmatch(build_source_commit):
+        raise ConfigError("PROJECT_COMMITS_MUST_BE_FULL_SHA")
     lock = load_lock(lock_path)
     validate_lock(lock)
+    validate_source_identities(
+        pinned_build_source_commit=lock["build"]["project_source_commit"],
+        expected_build_source_commit=build_source_commit,
+        runtime_source_commit=runtime_source_commit,
+        observed_runtime_source_commit=runtime_source_commit,
+        wrapper_source_commit=runtime_source_commit,
+        allow_runtime_source_split=allow_runtime_source_split,
+    )
     bundle_key = lock["build"]["bundle_key"]
-    build_body = _build_wrapper(site, clean_url, project_commit, bundle_key)
-    run_body = _run_wrapper(site, clean_url, project_commit, bundle_key)
+    if str(site.shared_build_root / bundle_key) != lock["build"]["immutable_bundle_root"]:
+        raise ConfigError("SITE_IMMUTABLE_BUNDLE_ROOT_MISMATCH")
+    build_body = _build_wrapper(site, clean_url, runtime_source_commit, build_source_commit, bundle_key, allow_runtime_source_split)
+    run_body = _run_wrapper(site, clean_url, runtime_source_commit, build_source_commit, bundle_key, allow_runtime_source_split)
     build_flags = [
-        "sbatch", "--parsable", "--job-name=pp-vllm-sm90-build",
+        "sbatch", "--parsable", "--job-name=pp-vllm-bundle-validate",
         f"--partition={site.cpu.partition}", f"--account={site.cpu.account}", f"--qos={site.cpu.qos}",
         "--nodes=1", "--ntasks=1", f"--cpus-per-task={site.cpu.cpus_per_task}",
         f"--mem={site.cpu.memory}", f"--time={site.cpu.wall_time}",
@@ -149,22 +165,22 @@ def render_two_stage_submission(
         "sbatch", "--parsable", "--job-name=pp-glm52-vllm-dsa",
         "--partition=H200", "--account=gsai-account", "--qos=hpgpu",
         "--nodes=1", "--ntasks=1", "--gres=gpu:H200:4", "--cpus-per-task=32",
-        "--mem=512G", "--time=06:00:00", "--dependency=afterok:$BUILD_JOB_ID",
+        "--mem=512G", "--time=06:00:00", "--dependency=afterok:$VALIDATOR_JOB_ID",
         f"--output={site.slurm_log_root}/%x-%j.out", f"--error={site.slurm_log_root}/%x-%j.err",
         "--export=NONE", f"--wrap={run_body}",
     ]
     # shlex.join must not quote the dependency variable itself; it is expanded by
     # the Login control shell only after the build ID has been validated.
-    run_command = shlex.join(run_flags).replace("'--dependency=afterok:$BUILD_JOB_ID'", "--dependency=afterok:$BUILD_JOB_ID")
+    run_command = shlex.join(run_flags).replace("'--dependency=afterok:$VALIDATOR_JOB_ID'", "--dependency=afterok:$VALIDATOR_JOB_ID")
     command = " && ".join(
         (
             "set -euo pipefail",
             f"mkdir -p {shlex.quote(str(site.slurm_log_root))} {shlex.quote(str(site.shared_build_root))}",
-            f"BUILD_JOB_ID=$({shlex.join(build_flags)})",
-            "[[ $BUILD_JOB_ID =~ ^[0-9]+$ ]]",
+            f"VALIDATOR_JOB_ID=$({shlex.join(build_flags)})",
+            "[[ $VALIDATOR_JOB_ID =~ ^[0-9]+$ ]]",
             f"RUN_JOB_ID=$({run_command})",
             "[[ $RUN_JOB_ID =~ ^[0-9]+$ ]]",
-            "printf 'BUILD_JOB_ID=%s\\nRUN_JOB_ID=%s\\n' \"$BUILD_JOB_ID\" \"$RUN_JOB_ID\"",
+            "printf 'VALIDATOR_JOB_ID=%s\\nRUN_JOB_ID=%s\\n' \"$VALIDATOR_JOB_ID\" \"$RUN_JOB_ID\"",
         )
     )
     lowered = command.lower()
@@ -174,8 +190,16 @@ def render_two_stage_submission(
     return command
 
 
-def _build_wrapper(site: VllmDiagnosticSite, url: str, commit: str, bundle_key: str) -> str:
-    source = f'{shlex.quote(str(site.cpu.local_scratch_root / "putpocket-vllm-build"))}/"${{SLURM_JOB_ID}}-{commit[:12]}"'
+def _build_wrapper(
+    site: VllmDiagnosticSite,
+    url: str,
+    runtime_commit: str,
+    build_commit: str,
+    bundle_key: str,
+    allow_source_split: bool,
+) -> str:
+    source = f'{shlex.quote(str(site.cpu.local_scratch_root / "putpocket-vllm-build"))}/"${{SLURM_JOB_ID}}-{runtime_commit[:12]}"'
+    split = "1" if allow_source_split else "0"
     parts = (
         "set -euo pipefail", "umask 077",
         "[[ ${SLURM_JOB_ID:-} =~ ^[0-9]+$ && ${SLURM_JOB_NUM_NODES:-0} == 1 ]] || { echo E_CPU_SLURM_ALLOCATION_REQUIRED >&2; exit 20; }",
@@ -183,16 +207,24 @@ def _build_wrapper(site: VllmDiagnosticSite, url: str, commit: str, bundle_key: 
         f"[[ -x {shlex.quote(str(site.cpu.container_executable))} ]] && {shlex.quote(str(site.cpu.container_executable))} info >/dev/null 2>&1 || {{ echo E_CPU_CONTAINER_RUNTIME_UNAVAILABLE >&2; exit 21; }}",
         f"mkdir -p {source}",
         f"{shlex.quote(str(site.git_executable))} -C {source} init",
-        f"{shlex.quote(str(site.git_executable))} -C {source} fetch --depth=1 {shlex.quote(url)} {commit}",
+        f"{shlex.quote(str(site.git_executable))} -C {source} fetch --depth=1 {shlex.quote(url)} {runtime_commit}",
         f"{shlex.quote(str(site.git_executable))} -C {source} checkout --detach FETCH_HEAD",
-        f"[[ $({shlex.quote(str(site.git_executable))} -C {source} rev-parse HEAD) == {commit} ]] || exit 22",
-        f"exec env PUTPOCKET_CONTAINER_EXECUTABLE={shlex.quote(str(site.cpu.container_executable))} PUTPOCKET_CPU_LOCAL_SCRATCH_ROOT={shlex.quote(str(site.cpu.local_scratch_root))} PUTPOCKET_SHARED_BUILD_ROOT={shlex.quote(str(site.shared_build_root))} PUTPOCKET_EXPECTED_BUNDLE_KEY={bundle_key} /bin/bash {source}/scripts/cluster/build_glm52_vllm_sm90.sh {commit}",
+        f"[[ $({shlex.quote(str(site.git_executable))} -C {source} rev-parse HEAD) == {runtime_commit} ]] || exit 22",
+        f"exec env PUTPOCKET_CONTAINER_EXECUTABLE={shlex.quote(str(site.cpu.container_executable))} PUTPOCKET_CPU_LOCAL_SCRATCH_ROOT={shlex.quote(str(site.cpu.local_scratch_root))} PUTPOCKET_SHARED_BUILD_ROOT={shlex.quote(str(site.shared_build_root))} PUTPOCKET_EXPECTED_BUNDLE_KEY={bundle_key} PUTPOCKET_BUILD_SOURCE_COMMIT={build_commit} PUTPOCKET_RUNTIME_SOURCE_COMMIT={runtime_commit} PUTPOCKET_WRAPPER_SOURCE_COMMIT={runtime_commit} PUTPOCKET_ALLOW_RUNTIME_SOURCE_SPLIT={split} PUTPOCKET_IMMUTABLE_BUNDLE_REUSE_ONLY=1 /bin/bash {source}/scripts/cluster/build_glm52_vllm_sm90.sh",
     )
     return "; ".join(parts)
 
 
-def _run_wrapper(site: VllmDiagnosticSite, url: str, commit: str, bundle_key: str) -> str:
-    source = f'{shlex.quote(str(site.h200_work_root / "source"))}/"${{SLURM_JOB_ID}}-{commit[:12]}"'
+def _run_wrapper(
+    site: VllmDiagnosticSite,
+    url: str,
+    runtime_commit: str,
+    build_commit: str,
+    bundle_key: str,
+    allow_source_split: bool,
+) -> str:
+    source = f'{shlex.quote(str(site.h200_work_root / "source"))}/"${{SLURM_JOB_ID}}-{runtime_commit[:12]}"'
+    split = "1" if allow_source_split else "0"
     parts = (
         "set -euo pipefail", "umask 077",
         "[[ ${SLURM_JOB_ID:-} =~ ^[0-9]+$ && ${SLURM_JOB_NUM_NODES:-0} == 1 && ${SLURM_GPUS_ON_NODE:-0} == 4 ]] || { echo E_H200_SLURM_ALLOCATION_REQUIRED >&2; exit 20; }",
@@ -202,10 +234,10 @@ def _run_wrapper(site: VllmDiagnosticSite, url: str, commit: str, bundle_key: st
         f"[[ -d {shlex.quote(str(site.h200_work_root))} && -w {shlex.quote(str(site.h200_work_root))} && -d {shlex.quote(str(site.h200_artifact_root))} && -w {shlex.quote(str(site.h200_artifact_root))} ]] || {{ echo E_H200_RUN_ROOT_UNWRITABLE >&2; exit 21; }}",
         f"mkdir -p {source}",
         f"{shlex.quote(str(site.git_executable))} -C {source} init",
-        f"{shlex.quote(str(site.git_executable))} -C {source} fetch --depth=1 {shlex.quote(url)} {commit}",
+        f"{shlex.quote(str(site.git_executable))} -C {source} fetch --depth=1 {shlex.quote(url)} {runtime_commit}",
         f"{shlex.quote(str(site.git_executable))} -C {source} checkout --detach FETCH_HEAD",
-        f"[[ $({shlex.quote(str(site.git_executable))} -C {source} rev-parse HEAD) == {commit} ]] || exit 22",
-        f"exec env PUTPOCKET_CONTAINER_EXECUTABLE={shlex.quote(str(site.cpu.container_executable))} PUTPOCKET_SHARED_BUILD_ROOT={shlex.quote(str(site.shared_build_root))} PUTPOCKET_EXPECTED_BUNDLE_KEY={bundle_key} PUTPOCKET_NVIDIA_SMI={shlex.quote(str(site.nvidia_smi))} PUTPOCKET_H200_STORAGE_PARENT={shlex.quote(str(site.h200_storage_parent))} PUTPOCKET_H200_WORK_ROOT={shlex.quote(str(site.h200_work_root))} PUTPOCKET_RUN_ARTIFACT_ROOT={shlex.quote(str(site.h200_artifact_root))} /bin/bash {source}/scripts/cluster/run_glm52_vllm_diagnostic.sh {commit}",
+        f"[[ $({shlex.quote(str(site.git_executable))} -C {source} rev-parse HEAD) == {runtime_commit} ]] || exit 22",
+        f"exec env PUTPOCKET_CONTAINER_EXECUTABLE={shlex.quote(str(site.cpu.container_executable))} PUTPOCKET_SHARED_BUILD_ROOT={shlex.quote(str(site.shared_build_root))} PUTPOCKET_EXPECTED_BUNDLE_KEY={bundle_key} PUTPOCKET_NVIDIA_SMI={shlex.quote(str(site.nvidia_smi))} PUTPOCKET_H200_STORAGE_PARENT={shlex.quote(str(site.h200_storage_parent))} PUTPOCKET_H200_WORK_ROOT={shlex.quote(str(site.h200_work_root))} PUTPOCKET_RUN_ARTIFACT_ROOT={shlex.quote(str(site.h200_artifact_root))} PUTPOCKET_BUILD_SOURCE_COMMIT={build_commit} PUTPOCKET_RUNTIME_SOURCE_COMMIT={runtime_commit} PUTPOCKET_WRAPPER_SOURCE_COMMIT={runtime_commit} PUTPOCKET_ALLOW_RUNTIME_SOURCE_SPLIT={split} /bin/bash {source}/scripts/cluster/run_glm52_vllm_diagnostic.sh",
     )
     return "; ".join(parts)
 

@@ -2,7 +2,11 @@
 set -euo pipefail
 umask 077
 
-PROJECT_COMMIT=${1:-}
+BUILD_SOURCE_COMMIT=${PUTPOCKET_BUILD_SOURCE_COMMIT:-}
+RUNTIME_SOURCE_COMMIT=${PUTPOCKET_RUNTIME_SOURCE_COMMIT:-}
+WRAPPER_SOURCE_COMMIT=${PUTPOCKET_WRAPPER_SOURCE_COMMIT:-}
+ALLOW_RUNTIME_SOURCE_SPLIT=${PUTPOCKET_ALLOW_RUNTIME_SOURCE_SPLIT:-}
+IMMUTABLE_BUNDLE_REUSE_ONLY=${PUTPOCKET_IMMUTABLE_BUNDLE_REUSE_ONLY:-}
 SOURCE_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 LOCK="$SOURCE_ROOT/configs/cluster/glm52_vllm_diagnostic.lock.json"
 CONTAINER=${PUTPOCKET_CONTAINER_EXECUTABLE:-}
@@ -27,19 +31,31 @@ trap cleanup EXIT INT TERM
 
 [[ ${SLURM_JOB_ID:-} =~ ^[0-9]+$ && ${SLURM_JOB_NUM_NODES:-0} == 1 ]] || fail CPU_SLURM_ALLOCATION_REQUIRED 20
 [[ -z ${SLURM_JOB_GPUS:-} && -z ${SLURM_GPUS:-} && -z ${CUDA_VISIBLE_DEVICES:-} ]] || fail CPU_BUILD_GPU_ALLOCATION_FORBIDDEN 20
-[[ $PROJECT_COMMIT =~ ^[0-9a-f]{40}$ ]] || fail PROJECT_COMMIT_INVALID 21
+[[ $BUILD_SOURCE_COMMIT =~ ^[0-9a-f]{40}$ && $RUNTIME_SOURCE_COMMIT =~ ^[0-9a-f]{40}$ && $WRAPPER_SOURCE_COMMIT =~ ^[0-9a-f]{40}$ ]] || fail SOURCE_PROVENANCE_FULL_SHA_REQUIRED 21
+[[ $ALLOW_RUNTIME_SOURCE_SPLIT =~ ^[01]$ && $IMMUTABLE_BUNDLE_REUSE_ONLY =~ ^[01]$ ]] || fail SOURCE_PROVENANCE_MODE_INVALID 21
 [[ -n $CONTAINER && -x $CONTAINER && -n $CPU_SCRATCH && -n $SHARED_ROOT && -n $BUNDLE_KEY ]] || fail CPU_BUILD_SITE_CONFIGURATION_MISSING 21
 [[ $BUNDLE_KEY == vllm-4a3447d200e5-sm90-cu1303-py312-torch2130-patch-fc2f3734-image-3869b846 ]] || fail BUNDLE_KEY_MISMATCH 21
+[[ $TARGET == /home2/jslee202403/putpocket-builds/vllm/vllm-4a3447d200e5-sm90-cu1303-py312-torch2130-patch-fc2f3734-image-3869b846 ]] || fail IMMUTABLE_BUNDLE_ROOT_MISMATCH 21
 "$CONTAINER" info >/dev/null 2>&1 || fail CPU_CONTAINER_RUNTIME_UNAVAILABLE 21
-[[ $(git -C "$SOURCE_ROOT" rev-parse HEAD) == "$PROJECT_COMMIT" ]] || fail PROJECT_COMMIT_MISMATCH 22
+OBSERVED_RUNTIME_SOURCE_COMMIT=$(git -C "$SOURCE_ROOT" rev-parse HEAD)
+[[ $OBSERVED_RUNTIME_SOURCE_COMMIT == "$RUNTIME_SOURCE_COMMIT" ]] || fail RUNTIME_SOURCE_COMMIT_MISMATCH 22
 export PYTHONPATH="$SOURCE_ROOT/src"
 python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli validate-lock --lock "$LOCK" >/dev/null
+provenance_args=(
+  --expected-build-source-commit "$BUILD_SOURCE_COMMIT"
+  --runtime-source-commit "$RUNTIME_SOURCE_COMMIT"
+  --observed-runtime-source-commit "$OBSERVED_RUNTIME_SOURCE_COMMIT"
+  --wrapper-source-commit "$WRAPPER_SOURCE_COMMIT"
+)
+if [[ $ALLOW_RUNTIME_SOURCE_SPLIT == 1 ]]; then provenance_args+=(--allow-runtime-source-split); fi
 
 if [[ -f $TARGET/SUCCESS ]]; then
-  python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli validate-build-bundle --lock "$LOCK" --bundle-root "$TARGET" >/dev/null
+  python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli validate-build-bundle --lock "$LOCK" --bundle-root "$TARGET" "${provenance_args[@]}"
   printf 'REUSED_BUILD_BUNDLE=%s\n' "$TARGET"
   exit 0
 fi
+[[ $IMMUTABLE_BUNDLE_REUSE_ONLY == 0 ]] || fail IMMUTABLE_BUILD_BUNDLE_MISSING_REBUILD_FORBIDDEN 30
+[[ $BUILD_SOURCE_COMMIT == "$RUNTIME_SOURCE_COMMIT" && $RUNTIME_SOURCE_COMMIT == "$WRAPPER_SOURCE_COMMIT" && $ALLOW_RUNTIME_SOURCE_SPLIT == 0 ]] || fail NEW_BUILD_SOURCE_SPLIT_FORBIDDEN 30
 if [[ -e $TARGET ]]; then
   mv "$TARGET" "$TARGET.invalid-${SLURM_JOB_ID}"
 fi
@@ -109,7 +125,7 @@ install -m 0644 "$SOURCE_ROOT/$PATCH_REL" "$STAGING/source/"
 install -m 0644 "$SOURCE_ROOT/$INSTRUMENT_REL" "$STAGING/source/"
 tar -C "$STAGING/source" -czf "$STAGING/vllm-source-bundle.tar.gz" .
 
-python3 - "$STAGING" "$WHEEL" "$PROJECT_COMMIT" <<'PY'
+python3 - "$STAGING" "$WHEEL" "$BUILD_SOURCE_COMMIT" <<'PY'
 import hashlib,json,pathlib,sys
 root,wheel,project=pathlib.Path(sys.argv[1]),pathlib.Path(sys.argv[2]),sys.argv[3]
 def digest(path):
@@ -176,6 +192,6 @@ manifest={
 (root/'SHA256SUMS').write_text(''.join(f"{item['sha256']}  {item['path']}\n" for item in sorted((item for group in ('files','provenance_files') for item in manifest[group].values()),key=lambda item:item['path'])))
 PY
 printf 'SUCCESS\n' > "$STAGING/SUCCESS"
-python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli validate-build-bundle --lock "$LOCK" --bundle-root "$STAGING" > "$STAGING/logs/bundle_validation.json"
+python3 -m putpocket_dataset_mining.glm52_vllm_diagnostic_cli validate-build-bundle --lock "$LOCK" --bundle-root "$STAGING" "${provenance_args[@]}" > "$STAGING/logs/bundle_validation.json"
 mv "$STAGING" "$TARGET"
 printf 'BUILD_BUNDLE=%s\n' "$TARGET"

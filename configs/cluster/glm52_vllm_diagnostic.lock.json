@@ -38,6 +38,7 @@
     }
   },
   "build": {
+    "project_source_commit": "173d5125b6c8e95bd2cc4e66d5240482064a78f3",
     "base_image_human_tag": "nvidia/cuda:13.0.3-devel-ubuntu22.04",
     "base_image": "nvidia/cuda:13.0.3-devel-ubuntu22.04@sha256:3869b846a8cc495ce11c172d87cfc0da8874b910d14a9810bec6b6182e9ee9f8",
     "base_image_linux_amd64_digest": "sha256:dfb10241e392163c6ac5b8de0e55ef486b99f4e82075e6f5619cef243ef2aafb",
@@ -62,7 +63,9 @@
     ],
     "runtime_jit_cache_reuse": false,
     "bundle_key": "vllm-4a3447d200e5-sm90-cu1303-py312-torch2130-patch-fc2f3734-image-3869b846",
-    "shared_root": "/home2/jslee202403/putpocket-builds/vllm"
+    "shared_root": "/home2/jslee202403/putpocket-builds/vllm",
+    "immutable_bundle_root": "/home2/jslee202403/putpocket-builds/vllm/vllm-4a3447d200e5-sm90-cu1303-py312-torch2130-patch-fc2f3734-image-3869b846",
+    "vllm_wheel_sha256": "3c408df63c56e2a711116449d4324fcef5f2043de1b5c3dee4d3bf561908af52"
   },
   "runtime": {
     "model_id": "nvidia/GLM-5.2-NVFP4",

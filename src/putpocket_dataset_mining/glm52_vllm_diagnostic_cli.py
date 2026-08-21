@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -28,6 +29,8 @@ from .glm52_vllm_diagnostic import (
     validate_model_config,
     validate_patched_tree,
     validate_source_tree,
+    validate_source_identities,
+    validate_source_provenance,
     validate_trace_equivalence,
 )
 
@@ -65,7 +68,10 @@ def _parser() -> argparse.ArgumentParser:
     render = commands.add_parser("render-wrap")
     render.add_argument("--site", required=True)
     render.add_argument("--project-url", required=True)
-    render.add_argument("--project-commit", required=True)
+    render.add_argument("--runtime-source-commit", required=True)
+    render.add_argument("--build-source-commit", required=True)
+    render.add_argument("--allow-runtime-source-split", action="store_true")
+    render.add_argument("--login-safe-base64", action="store_true")
     render.add_argument("--cpu-partition", required=True)
     render.add_argument("--cpu-account", required=True)
     render.add_argument("--cpu-qos", required=True)
@@ -80,16 +86,21 @@ def _parser() -> argparse.ArgumentParser:
     patched.add_argument("--lock", default=str(LOCK_PATH)); patched.add_argument("--source-root", required=True)
     bundle = commands.add_parser("validate-build-bundle")
     bundle.add_argument("--lock", default=str(LOCK_PATH)); bundle.add_argument("--bundle-root", required=True)
+    bundle.add_argument("--expected-build-source-commit", required=True)
+    bundle.add_argument("--runtime-source-commit", required=True)
+    bundle.add_argument("--observed-runtime-source-commit", required=True)
+    bundle.add_argument("--wrapper-source-commit", required=True)
+    bundle.add_argument("--allow-runtime-source-split", action="store_true")
     inventory = commands.add_parser("validate-inventory")
     inventory.add_argument("--csv", required=True); inventory.add_argument("--listing", required=True); inventory.add_argument("--output", required=True)
     phase1 = commands.add_parser("phase1")
     phase1.add_argument("--lock", default=str(LOCK_PATH)); phase1.add_argument("--metadata-root", required=True); phase1.add_argument("--artifact-root", required=True)
     jit = commands.add_parser("finalize-runtime-jit")
-    jit.add_argument("--lock", default=str(LOCK_PATH)); jit.add_argument("--bundle-root", required=True); jit.add_argument("--cache-root", required=True); jit.add_argument("--audit-log", required=True); jit.add_argument("--started-utc", required=True); jit.add_argument("--completed-utc", required=True); jit.add_argument("--project-commit", required=True); jit.add_argument("--runtime-image-id", required=True); jit.add_argument("--output", required=True)
+    jit.add_argument("--lock", default=str(LOCK_PATH)); jit.add_argument("--bundle-root", required=True); jit.add_argument("--cache-root", required=True); jit.add_argument("--audit-log", required=True); jit.add_argument("--started-utc", required=True); jit.add_argument("--completed-utc", required=True); jit.add_argument("--build-source-commit", required=True); jit.add_argument("--runtime-source-commit", required=True); jit.add_argument("--observed-runtime-source-commit", required=True); jit.add_argument("--wrapper-source-commit", required=True); jit.add_argument("--allow-runtime-source-split", action="store_true"); jit.add_argument("--runtime-image-id", required=True); jit.add_argument("--output", required=True)
     prepare = commands.add_parser("prepare")
     prepare.add_argument("--lock", default=str(LOCK_PATH)); prepare.add_argument("--model-root", required=True); prepare.add_argument("--harness-root", required=True); prepare.add_argument("--ephemeral-root", required=True); prepare.add_argument("--artifact-root", required=True)
     control = commands.add_parser("control")
-    control.add_argument("--lock", default=str(LOCK_PATH)); control.add_argument("--mode", choices=["OFF", "ON"], required=True); control.add_argument("--run-id", required=True); control.add_argument("--output", required=True); control.add_argument("--project-commit", required=True); control.add_argument("--runtime-image-id", required=True)
+    control.add_argument("--lock", default=str(LOCK_PATH)); control.add_argument("--mode", choices=["OFF", "ON"], required=True); control.add_argument("--run-id", required=True); control.add_argument("--output", required=True); control.add_argument("--build-source-commit", required=True); control.add_argument("--runtime-source-commit", required=True); control.add_argument("--observed-runtime-source-commit", required=True); control.add_argument("--wrapper-source-commit", required=True); control.add_argument("--allow-runtime-source-split", action="store_true"); control.add_argument("--runtime-image-id", required=True)
     trace = commands.add_parser("trace-equivalence")
     trace.add_argument("--off-response", required=True); trace.add_argument("--on-response", required=True); trace.add_argument("--off-duration-ns", type=int, required=True); trace.add_argument("--on-duration-ns", type=int, required=True); trace.add_argument("--output", required=True)
     captures = commands.add_parser("finalize-captures")
@@ -114,7 +125,20 @@ def _render(args: argparse.Namespace) -> int:
         cpu_local_scratch_root=args.cpu_local_scratch_root,
         container_executable=args.container_executable,
     )
-    print(render_two_stage_submission(site=site, project_url=args.project_url, project_commit=args.project_commit, lock_path=LOCK_PATH)); return 0
+    command = render_two_stage_submission(
+        site=site,
+        project_url=args.project_url,
+        runtime_source_commit=args.runtime_source_commit,
+        build_source_commit=args.build_source_commit,
+        allow_runtime_source_split=args.allow_runtime_source_split,
+        lock_path=LOCK_PATH,
+    )
+    if args.login_safe_base64:
+        encoded = base64.b64encode((command + "\n").encode("utf-8")).decode("ascii")
+        print(f"printf '%s' '{encoded}' | base64 --decode | /bin/bash")
+    else:
+        print(command)
+    return 0
 
 
 def _validate_source(args: argparse.Namespace) -> int:
@@ -128,7 +152,17 @@ def _validate_patched(args: argparse.Namespace) -> int:
 def _validate_bundle(args: argparse.Namespace) -> int:
     require_slurm_allocation(); root = safe_absolute_path(args.bundle_root, "bundle_root")
     manifest = _load_json(root / "build_manifest.json")
-    print(json.dumps(validate_build_manifest(manifest, root, load_lock(args.lock)), sort_keys=True)); return 0
+    report = validate_source_provenance(
+        manifest,
+        root,
+        load_lock(args.lock),
+        expected_build_source_commit=args.expected_build_source_commit,
+        runtime_source_commit=args.runtime_source_commit,
+        observed_runtime_source_commit=args.observed_runtime_source_commit,
+        wrapper_source_commit=args.wrapper_source_commit,
+        allow_runtime_source_split=args.allow_runtime_source_split,
+    )
+    print(json.dumps(report, sort_keys=True)); return 0
 
 
 def _validate_inventory(args: argparse.Namespace) -> int:
@@ -166,7 +200,7 @@ def _phase1(args: argparse.Namespace) -> int:
 def _finalize_runtime_jit(args: argparse.Namespace) -> int:
     require_slurm_allocation(); bundle = safe_absolute_path(args.bundle_root, "bundle_root")
     build = _load_json(bundle / "build_manifest.json"); build["_bundle_root"] = str(bundle)
-    report = build_runtime_jit_manifest(args.cache_root, args.audit_log, started_utc=args.started_utc, completed_utc=args.completed_utc, project_commit=args.project_commit, runtime_image_id=args.runtime_image_id, build_manifest=build, lock=load_lock(args.lock))
+    report = build_runtime_jit_manifest(args.cache_root, args.audit_log, started_utc=args.started_utc, completed_utc=args.completed_utc, build_source_commit=args.build_source_commit, runtime_source_commit=args.runtime_source_commit, observed_runtime_source_commit=args.observed_runtime_source_commit, wrapper_source_commit=args.wrapper_source_commit, allow_runtime_source_split=args.allow_runtime_source_split, runtime_image_id=args.runtime_image_id, build_manifest=build, lock=load_lock(args.lock))
     _write_json(safe_absolute_path(args.output, "output"), report)
     checksums = Path(args.output).with_name("runtime_jit_SHA256SUMS")
     checksums.write_text("".join(f"{item['sha256']}  cache/{item['path']}\n" for item in report["files"]) + f"{report['audit_log_sha256']}  compiler_audit.jsonl\n", encoding="utf-8")
@@ -230,16 +264,28 @@ def _prepare(args: argparse.Namespace) -> int:
 
 def _control(args: argparse.Namespace) -> int:
     require_slurm_allocation(); lock = load_lock(args.lock); validate_lock(lock)
-    if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", args.run_id) or not re.fullmatch(r"[0-9a-f]{40}", args.project_commit): raise ConfigError("TRACE_CONTROL_ID_INVALID")
+    if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", args.run_id): raise ConfigError("TRACE_CONTROL_ID_INVALID")
+    source_provenance = validate_source_identities(
+        pinned_build_source_commit=lock["build"]["project_source_commit"],
+        expected_build_source_commit=args.build_source_commit,
+        runtime_source_commit=args.runtime_source_commit,
+        observed_runtime_source_commit=args.observed_runtime_source_commit,
+        wrapper_source_commit=args.wrapper_source_commit,
+        allow_runtime_source_split=args.allow_runtime_source_split,
+    )
     payload = {
         "schema_version": 1, "mode": args.mode, "run_id": args.run_id, "instance_id": INSTANCE_ID,
         "prompt_token_count": 2071, "full_indexer_layers": lock["model_layout"]["full_indexer_layers"],
         "shared_layer_mapping": lock["model_layout"]["shared_layer_mapping"],
         "shared_layer_mapping_sha256": lock["model_layout"]["shared_layer_mapping_sha256"],
+        "source_provenance": source_provenance,
         "revisions": {
             "model": MODEL_REVISION,
             "vllm": lock["vllm"]["commit"],
-            "project": args.project_commit,
+            "project": args.runtime_source_commit,
+            "build_source": args.build_source_commit,
+            "runtime_source": args.runtime_source_commit,
+            "wrapper_source": args.wrapper_source_commit,
             "patch_sha256": lock["vllm"]["patch_sha256"],
             "build_image": lock["build"]["base_image"],
             "bundle_key": lock["build"]["bundle_key"],

@@ -304,6 +304,22 @@ def test_h200_wrapper_validates_and_creates_site_root_before_clone() -> None:
     assert "PUTPOCKET_H200_WORK_ROOT=/local-data/user-data/jslee202403/putpocket-glm52-vllm-diagnostic" in body
 
 
+def test_h200_renderer_preserves_real_slurm_env_for_runtime_forwarding() -> None:
+    site = _site(); bundle_key = load_lock()["build"]["bundle_key"]
+    body = _run_wrapper(site, "https://github.com/openai/putpocket-dataset-mining.git", PROJECT_COMMIT, BUILD_SOURCE_COMMIT, bundle_key, True)
+    assert "exec env PUTPOCKET_CONTAINER_EXECUTABLE=" in body
+    assert "env -i" not in body
+    assert " SLURM_JOB_ID=" not in body
+    assert " SLURM_JOB_NODELIST=" not in body
+    assert " SLURM_JOB_NUM_NODES=" not in body
+    assert " SLURM_JOB_NAME=" not in body
+    assert "-n ${SLURM_JOB_NODELIST:-}" in body
+    assert "-n ${SLURM_STEP_ID:-} || -n ${SLURM_JOB_NAME:-}" in body
+    rejected = subprocess.run(["/bin/bash", "-c", body], env={}, capture_output=True, check=False)
+    assert rejected.returncode == 20
+    assert rejected.stderr == b"E_H200_SLURM_ALLOCATION_REQUIRED\n"
+
+
 def test_login_control_shell_only_creates_shared_parents() -> None:
     site = _site()
     command = _render()
@@ -425,6 +441,59 @@ printf '%s\\0' "$@"
     ]
     assert run.count('--gpus "$GPU_REQUEST"') == 3
     assert '--gpus "device=$GPU_SELECTOR"' not in run
+
+
+def test_shell_forwards_exact_outer_slurm_provenance_to_runtime_containers() -> None:
+    run = (ROOT / "scripts/cluster/run_glm52_vllm_diagnostic.sh").read_text(encoding="utf-8")
+    fail_source = next(line for line in run.splitlines() if line.startswith("fail()"))
+    function_start = run.index("configure_slurm_container_env() {")
+    function_end = run.index("\n}\n", function_start) + len("\n}\n")
+    snippet = "\n".join(
+        (
+            "set -euo pipefail",
+            fail_source,
+            run[function_start:function_end],
+            "configure_slurm_container_env",
+            "printf '%s\\0' \"${SLURM_CONTAINER_ENV[@]}\"",
+        )
+    )
+    outer = {
+        "SLURM_JOB_ID": "758673",
+        "SLURM_JOB_NODELIST": "n88",
+        "SLURM_JOB_NUM_NODES": "1",
+        "SLURM_JOB_NAME": "pp-glm52-vllm-dsa",
+    }
+    result = subprocess.run(["/bin/bash", "-c", snippet], env=outer, capture_output=True, check=False)
+    assert result.returncode == 0, result.stderr.decode()
+    assert result.stdout.split(b"\0") == [
+        b"--env",
+        b"SLURM_JOB_ID=758673",
+        b"--env",
+        b"SLURM_JOB_NODELIST=n88",
+        b"--env",
+        b"SLURM_JOB_NUM_NODES=1",
+        b"--env",
+        b"SLURM_JOB_NAME=pp-glm52-vllm-dsa",
+        b"",
+    ]
+    runtime_runs = [
+        line for line in run.splitlines()
+        if '"$CONTAINER" run' in line and '"$RUNTIME_IMAGE_ID"' in line
+    ]
+    assert len(runtime_runs) == 5
+    assert all('"${SLURM_CONTAINER_ENV[@]}"' in line or '"${container_env[@]}"' in line for line in runtime_runs)
+    assert 'container_env=(\n  "${SLURM_CONTAINER_ENV[@]}"' in run
+
+
+def test_shell_rejects_slurm_container_provenance_outside_allocation() -> None:
+    run = (ROOT / "scripts/cluster/run_glm52_vllm_diagnostic.sh").read_text(encoding="utf-8")
+    fail_source = next(line for line in run.splitlines() if line.startswith("fail()"))
+    function_start = run.index("configure_slurm_container_env() {")
+    function_end = run.index("\n}\n", function_start) + len("\n}\n")
+    snippet = "\n".join(("set -euo pipefail", fail_source, run[function_start:function_end], "configure_slurm_container_env"))
+    result = subprocess.run(["/bin/bash", "-c", snippet], env={}, capture_output=True, check=False)
+    assert result.returncode == 20
+    assert result.stderr == b"SLURM_ALLOCATION_REQUIRED\n"
 
 
 def test_shell_split_boolean_authorizes_only_literal_one() -> None:

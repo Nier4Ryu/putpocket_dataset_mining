@@ -227,7 +227,7 @@ def _run_wrapper(
     split = "1" if allow_source_split else "0"
     parts = (
         "set -euo pipefail", "umask 077",
-        "[[ ${SLURM_JOB_ID:-} =~ ^[0-9]+$ && ${SLURM_JOB_NUM_NODES:-0} == 1 && ${SLURM_GPUS_ON_NODE:-0} == 4 ]] || { echo E_H200_SLURM_ALLOCATION_REQUIRED >&2; exit 20; }",
+        "[[ ${SLURM_JOB_ID:-} =~ ^[0-9]+$ && ${SLURM_JOB_NUM_NODES:-0} == 1 && ${SLURM_GPUS_ON_NODE:-0} == 4 && -n ${SLURM_JOB_NODELIST:-} && ( -n ${SLURM_STEP_ID:-} || -n ${SLURM_JOB_NAME:-} ) ]] || { echo E_H200_SLURM_ALLOCATION_REQUIRED >&2; exit 20; }",
         f"[[ -x {shlex.quote(str(site.cpu.container_executable))} ]] && {shlex.quote(str(site.cpu.container_executable))} info >/dev/null 2>&1 || {{ echo E_H200_CONTAINER_RUNTIME_UNAVAILABLE >&2; exit 21; }}",
         f"[[ -d {shlex.quote(str(site.h200_storage_parent))} && -w {shlex.quote(str(site.h200_storage_parent))} ]] || {{ echo E_H200_LOCAL_STORAGE_PARENT_UNWRITABLE >&2; exit 21; }}",
         f"mkdir -p {shlex.quote(str(site.h200_work_root))} {shlex.quote(str(site.h200_artifact_root))}",

@@ -31,8 +31,32 @@ SAMPLER_PID=
 PHASE=allocation_inventory
 STATUS=FAIL
 FAILURE_CLASS=UNCLASSIFIED_FAILURE
+SLURM_CONTAINER_ENV=()
 
 fail() { FAILURE_CLASS=$1; printf '%s\n' "$1" >&2; exit "${2:-2}"; }
+configure_slurm_container_env() {
+  local variable nodelist_lower context_name=
+  for variable in SLURM_JOB_ID SLURM_JOB_NODELIST SLURM_JOB_NUM_NODES; do
+    [[ -v $variable ]] || fail SLURM_ALLOCATION_REQUIRED 20
+    [[ -n ${!variable} ]] || fail SLURM_ALLOCATION_REQUIRED 20
+  done
+  [[ $SLURM_JOB_ID =~ ^[0-9]+$ && $SLURM_JOB_NUM_NODES == 1 ]] || fail SLURM_ALLOCATION_REQUIRED 20
+  nodelist_lower=${SLURM_JOB_NODELIST,,}
+  [[ $nodelist_lower != none && $nodelist_lower != \(null\) && $nodelist_lower != unknown ]] || fail SLURM_ALLOCATION_REQUIRED 20
+  if [[ -v SLURM_STEP_ID ]]; then
+    [[ -n $SLURM_STEP_ID ]] && context_name=SLURM_STEP_ID
+  fi
+  if [[ -z $context_name && -v SLURM_JOB_NAME ]]; then
+    [[ -n $SLURM_JOB_NAME ]] && context_name=SLURM_JOB_NAME
+  fi
+  [[ -n $context_name ]] || fail SLURM_ALLOCATION_REQUIRED 20
+  SLURM_CONTAINER_ENV=(
+    --env "SLURM_JOB_ID=$SLURM_JOB_ID"
+    --env "SLURM_JOB_NODELIST=$SLURM_JOB_NODELIST"
+    --env "SLURM_JOB_NUM_NODES=$SLURM_JOB_NUM_NODES"
+    --env "$context_name=${!context_name}"
+  )
+}
 replay_file_to_stderr() {
   local label=$1 path=$2 exit_code=${3:-not_applicable}
   printf '%s_BEGIN path=%s exit_code=%s\n' "$label" "$path" "$exit_code" >&2
@@ -66,7 +90,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-[[ ${SLURM_JOB_ID:-} =~ ^[0-9]+$ && ${SLURM_JOB_NUM_NODES:-0} == 1 ]] || fail SLURM_ALLOCATION_REQUIRED 20
+configure_slurm_container_env
 [[ ${SLURM_GPUS_ON_NODE:-0} == 4 ]] || fail SLURM_GPU_COUNT_MISMATCH 20
 [[ $BUILD_SOURCE_COMMIT =~ ^[0-9a-f]{40}$ && $RUNTIME_SOURCE_COMMIT =~ ^[0-9a-f]{40}$ && $WRAPPER_SOURCE_COMMIT =~ ^[0-9a-f]{40}$ ]] || fail SOURCE_PROVENANCE_FULL_SHA_REQUIRED 21
 [[ $ALLOW_RUNTIME_SOURCE_SPLIT =~ ^[01]$ ]] || fail SOURCE_PROVENANCE_MODE_INVALID 21
@@ -130,7 +154,7 @@ grep -Fq "$RUNTIME_IMAGE_ID" "$RUN_ROOT/phase1/runtime_image_identity.txt" || fa
 COMPILED_IMPORT_PROBE_LOG="$RUN_ROOT/phase1/compiled_import_probe.log"
 printf 'PROBE_STEP_START=container_runtime\n' > "$COMPILED_IMPORT_PROBE_LOG"
 set +e
-"$CONTAINER" run --rm --gpus "$GPU_REQUEST" --entrypoint /bin/bash "$RUNTIME_IMAGE_ID" -lc 'set -euo pipefail
+"$CONTAINER" run --rm --gpus "$GPU_REQUEST" "${SLURM_CONTAINER_ENV[@]}" --entrypoint /bin/bash "$RUNTIME_IMAGE_ID" -lc 'set -euo pipefail
 printf "PROBE_STEP_START=runtime_nvcc\n"
 if nvcc --version; then
   printf "PROBE_STEP_PASS=runtime_nvcc\n"
@@ -345,6 +369,7 @@ printf 'PROBE_STEP_PASS=container_runtime\n' >> "$COMPILED_IMPORT_PROBE_LOG"
 grep -Fq 'release 13.0' "$COMPILED_IMPORT_PROBE_LOG" || fail RUNTIME_CUDA_13_0_MISMATCH 31
 
 container_env=(
+  "${SLURM_CONTAINER_ENV[@]}"
   --env PYTHONPATH=/project/src --env HOME=/storage/home --env HF_HOME=/storage/cache/huggingface
   --env TRANSFORMERS_CACHE=/storage/cache/transformers --env XDG_CACHE_HOME=/storage/cache/xdg
   --env TORCH_HOME=/storage/cache/torch

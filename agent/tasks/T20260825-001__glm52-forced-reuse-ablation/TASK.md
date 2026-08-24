@@ -32,9 +32,14 @@ completion criteria:
   - actual cache consumption is evidenced or an exact fail-closed blocker is recorded
   - task-local TO_GPT handoff exists
 validation:
-  - pending
+  - 82 focused/regression tests passed plus 5 subtests
+  - exact vLLM patch applied to pristine 4a3447d source and all postimage SHA256 values matched
+  - Docker/bundle package SHA256 and all internal SHA256SUMS verified
 artifacts:
   - agent/tasks/T20260825-001__glm52-forced-reuse-ablation/
+  - /home/dyryu/.cache/putpocket-runs/glm52-forced-reuse-login1/
 commits:
-  - pending
-final handoff link: pending
+  - f5be163293d9b01be82bf54a64ae0cab6a09f729
+  - 087cd94caed28f0cd353254d58fa6f5d8687ece5
+  - 9bf9b669c85ea88b05ba1cf855337bd3bb459749
+final handoff link: agent/tasks/T20260825-001__glm52-forced-reuse-ablation/handoffs/TO_GPT_20260824-193649.md

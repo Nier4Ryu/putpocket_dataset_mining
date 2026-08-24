@@ -40,6 +40,7 @@ PATCH_PATH = (
 LOCK_PATH = ROOT / "configs/cluster/glm52_forced_reuse_ablation.lock.json"
 RUNNER_PATH = ROOT / "scripts/cluster/run_glm52_forced_reuse_ablation.sh"
 SUBMIT_PATH = ROOT / "scripts/cluster/submit_glm52_forced_reuse_ablation.sh"
+PACKAGE_PATH = ROOT / "scripts/cluster/package_glm52_forced_reuse_ablation.sh"
 SPEC = importlib.util.spec_from_file_location("glm52_forced_edit_reuse_hook", HOOK_PATH)
 assert SPEC is not None and SPEC.loader is not None
 HOOK = importlib.util.module_from_spec(SPEC)
@@ -250,6 +251,18 @@ class HookContractTests(unittest.TestCase):
         self.assertIn('afterok:$SMOKE_JOB_ID', submit)
         self.assertIn("PUTPOCKET_SWEEP_PROFILE=full", submit)
         self.assertNotIn("--array", submit)
+
+    def test_gitless_vllm_archive_is_bound_by_commit_marker(self) -> None:
+        runner = RUNNER_PATH.read_text(encoding="utf-8")
+        packager = PACKAGE_PATH.read_text(encoding="utf-8")
+        exact = "4a3447d200e5aa428d68d1a00aa00f1a19a1a729"
+        self.assertIn('printf \'%s\\n\' ' + exact + ' > "$VLLM_STAGE/vllm/VLLM_COMMIT"', packager)
+        self.assertIn('[[ -f $VLLM_SOURCE/VLLM_COMMIT', runner)
+        self.assertIn('tr -d \'\\r\\n\' < "$VLLM_SOURCE/VLLM_COMMIT"', runner)
+        self.assertIn(f"== {exact}", runner)
+        self.assertIn("VLLM_ARCHIVE_COMMIT_MISMATCH", runner)
+        self.assertNotIn('git -C "$VLLM_SOURCE" rev-parse HEAD', runner)
+        self.assertIn('sha256sum -c artifacts/vllm-source.sha256', runner)
 
 
 class SelectorTests(unittest.TestCase):

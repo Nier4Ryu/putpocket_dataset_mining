@@ -10,13 +10,13 @@
     "vllm_repository": "https://github.com/vllm-project/vllm.git",
     "vllm_commit": "4a3447d200e5aa428d68d1a00aa00f1a19a1a729",
     "patch": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_forced_edit_reuse.patch",
-    "patch_sha256": "b920775dd2112b22472e27dc556f986bde4eacfed120626859497b7bc82bf849",
+    "patch_sha256": "7f65cf6d0e7c3ff575506ad2d8b1a61f5526145971d41ba0e5e1e4db3bf1433e",
     "instrumentation": "instrumentation/vllm/glm52_forced_edit_reuse.py",
-    "instrumentation_sha256": "c32972e32ddb069b65b00a99f7637f1540ce61ea9a6e1fc007fba5d0abe46e05",
+    "instrumentation_sha256": "c705486af61739a1ddf2530c12185700a177b7ec3994062ed468e4cf89e5b13a",
     "base_and_post_sha256": {
       "vllm/model_executor/layers/attention/mla_attention.py": [
         "968a75237e127fa2b26464d7918192cd7b2ffe9cc51ae9c5e568d08136814ffd",
-        "621e8d66ae121bdedd5021557b3ac5b175da5378535d9b855781b2e17250d3de"
+        "3bcb96956a91a882f98c29cbf36ff8c4694b034c16406b79813847780bfe6b0f"
       ],
       "vllm/model_executor/layers/sparse_attn_indexer.py": [
         "a6386326379dcf94439a0b020cd51a71ebfd0a36eaeb563417c821456b82a475",

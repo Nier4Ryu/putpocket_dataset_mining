@@ -194,6 +194,12 @@ def _current_control() -> _Control | None:
     return _load_control(Path(raw))
 
 
+def forced_reuse_mutation_armed() -> bool:
+    """True only when an explicit snapshot/transplant control is active."""
+    control = _current_control()
+    return control is not None and control.mode in {"SNAPSHOT", "TRANSPLANT"}
+
+
 def _layer_from_name(name: str) -> int:
     match = _LAYER_RE.search(name)
     _require(match is not None, "LAYER_COORDINATE_UNAVAILABLE")

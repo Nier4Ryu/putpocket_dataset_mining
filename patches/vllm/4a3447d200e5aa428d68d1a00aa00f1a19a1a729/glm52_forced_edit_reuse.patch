@@ -2,24 +2,27 @@ diff --git a/vllm/model_executor/layers/attention/mla_attention.py b/vllm/model_
 index 53b62da..8515bf4 100644
 --- a/vllm/model_executor/layers/attention/mla_attention.py
 +++ b/vllm/model_executor/layers/attention/mla_attention.py
-@@ -232,0 +233,3 @@ from vllm.model_executor.layers.attention.pcp import (
+@@ -232,0 +233,4 @@ from vllm.model_executor.layers.attention.pcp import (
 +from vllm.model_executor.layers.glm52_forced_edit_reuse import (
++    forced_reuse_mutation_armed,
 +    maybe_apply_main_cache,
 +)
-@@ -1168,0 +1172,13 @@ def unified_mla_kv_cache_update(
+@@ -1168,0 +1173,15 @@ def unified_mla_kv_cache_update(
 +        # Forced reuse runs after the native row write and before attention.
-+        if attn_metadata is None:
-+            raise RuntimeError("GLM52_FORCED_REUSE_METADATA_UNAVAILABLE")
-+        maybe_apply_main_cache(
-+            layer_name=str(layer_name),
-+            kv_cache=kv_cache,
-+            slot_mapping=layer_slot_mapping,
-+            num_prefills=attn_metadata.num_prefills,
-+            num_decodes=attn_metadata.num_decodes,
-+            num_prefill_tokens=(
-+                attn_metadata.num_actual_tokens - attn_metadata.num_decode_tokens
-+            ),
-+        )
++        if forced_reuse_mutation_armed():
++            if attn_metadata is None:
++                raise RuntimeError("GLM52_FORCED_REUSE_METADATA_UNAVAILABLE")
++            maybe_apply_main_cache(
++                layer_name=str(layer_name),
++                kv_cache=kv_cache,
++                slot_mapping=layer_slot_mapping,
++                num_prefills=attn_metadata.num_prefills,
++                num_decodes=attn_metadata.num_decodes,
++                num_prefill_tokens=(
++                    attn_metadata.num_actual_tokens
++                    - attn_metadata.num_decode_tokens
++                ),
++            )
 diff --git a/vllm/model_executor/layers/sparse_attn_indexer.py b/vllm/model_executor/layers/sparse_attn_indexer.py
 index 9a671be..a466ef7 100644
 --- a/vllm/model_executor/layers/sparse_attn_indexer.py

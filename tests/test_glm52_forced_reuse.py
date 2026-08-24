@@ -38,6 +38,8 @@ PATCH_PATH = (
     / "glm52_forced_edit_reuse.patch"
 )
 LOCK_PATH = ROOT / "configs/cluster/glm52_forced_reuse_ablation.lock.json"
+RUNNER_PATH = ROOT / "scripts/cluster/run_glm52_forced_reuse_ablation.sh"
+SUBMIT_PATH = ROOT / "scripts/cluster/submit_glm52_forced_reuse_ablation.sh"
 SPEC = importlib.util.spec_from_file_location("glm52_forced_edit_reuse_hook", HOOK_PATH)
 assert SPEC is not None and SPEC.loader is not None
 HOOK = importlib.util.module_from_spec(SPEC)
@@ -82,6 +84,7 @@ class HookContractTests(unittest.TestCase):
 
     def test_default_path_is_inert(self) -> None:
         self.assertIsNone(HOOK._current_control())
+        self.assertFalse(HOOK.forced_reuse_mutation_armed())
         cache = torch.zeros((33, 64, 576), dtype=torch.bfloat16)
         slots = torch.arange(HOOK.PROMPT_TOKENS)
         self.assertEqual(
@@ -223,10 +226,28 @@ class HookContractTests(unittest.TestCase):
     def test_patch_places_mutation_after_native_cache_writes(self) -> None:
         text = PATCH_PATH.read_text(encoding="utf-8")
         self.assertIn("after the native row write and before attention", text)
+        self.assertLess(
+            text.index("if forced_reuse_mutation_armed():"),
+            text.index('raise RuntimeError("GLM52_FORCED_REUSE_METADATA_UNAVAILABLE")'),
+        )
         self.assertIn("after the native packed-row write and before top-k", text)
         self.assertEqual(text.count("maybe_apply_main_cache("), 1)
         self.assertEqual(text.count("maybe_apply_indexer_cache("), 1)
         self.assertIn("os.getenv(FORCED_REUSE_CONTROL_ENV)", text)
+
+    def test_cluster_launcher_uses_immutable_docker_bundle_and_dependent_smoke(self) -> None:
+        runner = RUNNER_PATH.read_text(encoding="utf-8")
+        submit = SUBMIT_PATH.read_text(encoding="utf-8")
+        self.assertIn('"$CONTAINER" load --input "$BUNDLE/runtime-image.tar"', runner)
+        self.assertIn("--entrypoint vllm", runner)
+        self.assertIn("--attention-backend FLASHMLA_SPARSE", runner)
+        self.assertIn("--linear-backend marlin", runner)
+        self.assertIn("--cpu-offload-gb 0 --swap-space 0", runner)
+        self.assertNotIn("PUTPOCKET_RUNTIME_PYTHON", runner)
+        self.assertIn("PUTPOCKET_SWEEP_PROFILE=smoke", submit)
+        self.assertIn('afterok:$SMOKE_JOB_ID', submit)
+        self.assertIn("PUTPOCKET_SWEEP_PROFILE=full", submit)
+        self.assertNotIn("--array", submit)
 
 
 class SelectorTests(unittest.TestCase):

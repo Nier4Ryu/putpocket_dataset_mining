@@ -243,6 +243,8 @@ class HookContractTests(unittest.TestCase):
         self.assertIn("--attention-backend FLASHMLA_SPARSE", runner)
         self.assertIn("--linear-backend marlin", runner)
         self.assertIn("--cpu-offload-gb 0 --swap-space 0", runner)
+        self.assertIn("MODEL_STAGE_SPACE_BELOW_550G", runner)
+        self.assertNotIn("MODEL_STAGE_SPACE_BELOW_220G", runner)
         self.assertNotIn("PUTPOCKET_RUNTIME_PYTHON", runner)
         self.assertIn("PUTPOCKET_SWEEP_PROFILE=smoke", submit)
         self.assertIn('afterok:$SMOKE_JOB_ID', submit)

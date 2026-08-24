@@ -107,6 +107,7 @@
     "minimum_hbm_mib_per_device": 140000,
     "minimum_free_hbm_mib_per_device": 135000,
     "minimum_host_available_ram_gib": 32,
+    "minimum_model_stage_free_gib": 550,
     "sm": 90,
     "smoke_ratios": [0, 10],
     "full_ratios": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],

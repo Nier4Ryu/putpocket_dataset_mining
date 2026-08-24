@@ -87,7 +87,7 @@ grep -Fq "$RUNTIME_IMAGE_ID" "$RUN_ROOT/runtime-image.txt" || fail RUNTIME_IMAGE
 
 if [[ ! -f $MODEL/.putpocket_model_revision ]]; then
   available_bytes=$(df --output=avail -B1 "$STORAGE" | tail -1 | tr -d ' ')
-  (( available_bytes >= 220 * 1024 * 1024 * 1024 )) || fail MODEL_STAGE_SPACE_BELOW_220G
+  (( available_bytes >= 550 * 1024 * 1024 * 1024 )) || fail MODEL_STAGE_SPACE_BELOW_550G
   mkdir -p "$STORAGE/cache/models"
   "$CONTAINER" run --rm --volume "$STORAGE:/storage" --entrypoint python3 "$RUNTIME_IMAGE_ID" - "$MODEL_REVISION" > "$RUN_ROOT/logs/model-stage.log" 2>&1 <<'PY' || fail MODEL_STAGE_FAILED
 from huggingface_hub import snapshot_download

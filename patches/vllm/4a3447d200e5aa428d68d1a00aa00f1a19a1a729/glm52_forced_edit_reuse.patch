@@ -1,0 +1,82 @@
+diff --git a/vllm/model_executor/layers/attention/mla_attention.py b/vllm/model_executor/layers/attention/mla_attention.py
+index 53b62da..8515bf4 100644
+--- a/vllm/model_executor/layers/attention/mla_attention.py
++++ b/vllm/model_executor/layers/attention/mla_attention.py
+@@ -232,0 +233,3 @@ from vllm.model_executor.layers.attention.pcp import (
++from vllm.model_executor.layers.glm52_forced_edit_reuse import (
++    maybe_apply_main_cache,
++)
+@@ -1168,0 +1172,13 @@ def unified_mla_kv_cache_update(
++        # Forced reuse runs after the native row write and before attention.
++        if attn_metadata is None:
++            raise RuntimeError("GLM52_FORCED_REUSE_METADATA_UNAVAILABLE")
++        maybe_apply_main_cache(
++            layer_name=str(layer_name),
++            kv_cache=kv_cache,
++            slot_mapping=layer_slot_mapping,
++            num_prefills=attn_metadata.num_prefills,
++            num_decodes=attn_metadata.num_decodes,
++            num_prefill_tokens=(
++                attn_metadata.num_actual_tokens - attn_metadata.num_decode_tokens
++            ),
++        )
+diff --git a/vllm/model_executor/layers/sparse_attn_indexer.py b/vllm/model_executor/layers/sparse_attn_indexer.py
+index 9a671be..a466ef7 100644
+--- a/vllm/model_executor/layers/sparse_attn_indexer.py
++++ b/vllm/model_executor/layers/sparse_attn_indexer.py
+@@ -16,0 +17,3 @@ from vllm.model_executor.layers.attention.pcp import maybe_gather_indexer_k
++from vllm.model_executor.layers.glm52_forced_edit_reuse import (
++    maybe_apply_indexer_cache,
++)
+@@ -406,0 +410,12 @@ def sparse_attn_indexer(
++        # Forced reuse runs after the native packed-row write and before top-k.
++        maybe_apply_indexer_cache(
++            layer_name=str(k_cache_prefix),
++            kv_cache=kv_cache,
++            slot_mapping=slot_mapping_for_cache,
++            num_prefills=attn_metadata_narrowed.num_prefills,
++            num_decodes=attn_metadata_narrowed.num_decodes,
++            num_prefill_tokens=(
++                slot_mapping_for_cache.numel()
++                - attn_metadata_narrowed.num_decode_tokens
++            ),
++        )
+diff --git a/vllm/model_executor/models/glm4_moe_lite.py b/vllm/model_executor/models/glm4_moe_lite.py
+index 7f63130..5d01665 100644
+--- a/vllm/model_executor/models/glm4_moe_lite.py
++++ b/vllm/model_executor/models/glm4_moe_lite.py
+@@ -25,0 +26 @@
++import os
+@@ -48,0 +50,4 @@ from vllm.model_executor.layers.logits_processor import LogitsProcessor
++from vllm.model_executor.layers.glm52_forced_edit_reuse import (
++    CONTROL_ENV as FORCED_REUSE_CONTROL_ENV,
++    maybe_attest_prompt,
++)
+@@ -67,0 +73 @@ from vllm.sequence import IntermediateTensors
++from vllm.utils.torch_utils import direct_register_custom_op
+@@ -82,0 +89,20 @@ logger = init_logger(__name__)
++def glm52_forced_reuse_attest(
++    input_ids: torch.Tensor, positions: torch.Tensor
++) -> torch.Tensor:
++    maybe_attest_prompt(input_ids=input_ids, positions=positions)
++    return input_ids.clone()
++
++
++def glm52_forced_reuse_attest_fake(
++    input_ids: torch.Tensor, positions: torch.Tensor
++) -> torch.Tensor:
++    return torch.empty_like(input_ids)
++
++
++direct_register_custom_op(
++    op_name="glm52_forced_reuse_attest",
++    op_func=glm52_forced_reuse_attest,
++    fake_impl=glm52_forced_reuse_attest_fake,
++)
++
++
+@@ -274,0 +301,4 @@ class Glm4MoeLiteModel(nn.Module):
++        if input_ids is not None and os.getenv(FORCED_REUSE_CONTROL_ENV):
++            input_ids = torch.ops.vllm.glm52_forced_reuse_attest(
++                input_ids, positions
++            )

@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "experiment_id": "glm52_sr_cc_1_forced_edit_reuse_ratio_ablation_20260825",
+  "status": "unsafe_cross_environment_research_ablation_default_off",
+  "production_default_enabled": false,
+  "unsafe_acknowledgement": "I_UNDERSTAND_ZERO_SAFE_PAGES",
+  "source": {
+    "project_wrapper_predecessor": "49ebc96cfb04a8d65309989423add7e980dedd7d",
+    "immutable_build_source": "173d5125b6c8e95bd2cc4e66d5240482064a78f3",
+    "vllm_repository": "https://github.com/vllm-project/vllm.git",
+    "vllm_commit": "4a3447d200e5aa428d68d1a00aa00f1a19a1a729",
+    "patch": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_forced_edit_reuse.patch",
+    "patch_sha256": "b920775dd2112b22472e27dc556f986bde4eacfed120626859497b7bc82bf849",
+    "instrumentation": "instrumentation/vllm/glm52_forced_edit_reuse.py",
+    "instrumentation_sha256": "c32972e32ddb069b65b00a99f7637f1540ce61ea9a6e1fc007fba5d0abe46e05",
+    "base_and_post_sha256": {
+      "vllm/model_executor/layers/attention/mla_attention.py": [
+        "968a75237e127fa2b26464d7918192cd7b2ffe9cc51ae9c5e568d08136814ffd",
+        "621e8d66ae121bdedd5021557b3ac5b175da5378535d9b855781b2e17250d3de"
+      ],
+      "vllm/model_executor/layers/sparse_attn_indexer.py": [
+        "a6386326379dcf94439a0b020cd51a71ebfd0a36eaeb563417c821456b82a475",
+        "ad15b2178de74e6bf38eb19f0311d2bf28c22ee8356e9d561e471bb3ffecc4c5"
+      ],
+      "vllm/model_executor/models/glm4_moe_lite.py": [
+        "b5997427783c1e775df18caab5a79f5412243673b63b12049be83ef0a8686ece",
+        "cadbd3416a18870687e560ac9b5958500aed16351f7a48c4814408e5b38da1ee"
+      ]
+    }
+  },
+  "model": {
+    "id": "nvidia/GLM-5.2-NVFP4",
+    "revision": "aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa",
+    "architecture": "GlmMoeDsaForCausalLM",
+    "model_type": "glm_moe_dsa",
+    "quantization": "modelopt_fp4",
+    "hopper_linear_backend": "marlin_w4a16_not_native_blackwell_fp4",
+    "attention_backend": "FLASHMLA_SPARSE",
+    "kv_cache_dtype": "bfloat16",
+    "tensor_parallel": 4,
+    "pipeline_parallel": 1,
+    "max_model_len": 4096,
+    "max_num_seqs": 1,
+    "cpu_offload_gb": 0,
+    "nvme_offload": false,
+    "prefix_cache": false,
+    "tokenizer_sha256": {
+      "tokenizer.json": "19e773648cb4e65de8660ea6365e10acca112d42a854923df93db4a6f333a82d",
+      "tokenizer_config.json": "77af7d4769cd62c107b90495cac9b0ba81573c86486821bfba2980c04285ec7a",
+      "chat_template.jinja": "172dc74a35e1752df75ecfb2b2cf9326d2852bb1379868ebeec9571654489679"
+    }
+  },
+  "scenario": {
+    "instance_id": "instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+    "prompt_token_count": 2071,
+    "edit_position": 114,
+    "old_token_id": 17526,
+    "new_token_id": 11660,
+    "downstream_range": [115, 2071],
+    "downstream_denominator": 1956,
+    "same_length": true,
+    "absolute_rope_positions_unchanged": true,
+    "insertion_deletion_supported": false,
+    "completion": {
+      "temperature": 0,
+      "top_p": 1,
+      "seed": 0,
+      "max_tokens": 512,
+      "return_token_ids": true
+    }
+  },
+  "transplanted_state": {
+    "real_block_size": 64,
+    "main_mla_layers": 78,
+    "main_row_layout": "bfloat16[576]=latent512+rope_k64",
+    "indexer_layers": [0, 1, 2, 6, 10, 14, 18, 22, 26, 30, 34, 38, 42, 46, 50, 54, 58, 62, 66, 70, 74],
+    "indexer_row_layout": "uint8_packed_128_values_plus_4_scale_bytes_in_per_page_scale_plane",
+    "destination_allocator_owned": true,
+    "destination_block_tables_preserved": true,
+    "destination_sequence_metadata_preserved": true,
+    "donor_snapshots_private_clones": true,
+    "source_layer_product_count_per_tp_rank": 99
+  },
+  "selector": {
+    "status_required": "attested_before_benchmark_outcomes",
+    "ratios_percent": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+    "ratio_counts": [0, 195, 391, 586, 782, 978, 1173, 1369, 1564, 1760, 1956],
+    "algorithm": "lexicographic_worst_case_layer_query_stability_v1",
+    "global_raw_score_threshold": false,
+    "requires_all_21_layers_all_5_capture_points_all_tp_ranks": true,
+    "fail_closed_nonfinite_missing_or_tp_raw_disagreement": true
+  },
+  "predeclared_analysis": {
+    "actual_reuse_required_for_ratio_gt_zero": true,
+    "minimum_runtime_layer_products_per_tp_rank": 99,
+    "exact_output_equality_reported_not_required_due_observed_full_recompute_nondeterminism": true,
+    "benchmark_primary_metric": "official_SWE-bench_Pro_instance_resolved_boolean_and_pass_rate",
+    "logit_secondary_thresholds_if_comparable_full_vocabulary_logits_are_available": {
+      "kl_max": 0.000001,
+      "max_raw_logit_error": 0.0001
+    },
+    "no_speedup_claim_from_single_sweep": true
+  },
+  "submission": {
+    "accelerator": "H200",
+    "gpu_count": 4,
+    "minimum_hbm_mib_per_device": 140000,
+    "minimum_free_hbm_mib_per_device": 135000,
+    "minimum_host_available_ram_gib": 32,
+    "sm": 90,
+    "smoke_ratios": [0, 10],
+    "full_ratios": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+    "full_dependency": "afterok:smoke_job_id",
+    "login_node_heavy_work": false
+  }
+}

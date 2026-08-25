@@ -3,7 +3,8 @@
 task identity: T20260825-001__glm52-forced-reuse-ablation
 objective: >
   Implement and execute a default-OFF, unsafe forced-ratio GLM-5.2 edit-aware
-  MLA/indexer cache transplant ablation for the pinned SR-CC-1 prompt.
+  MLA/indexer cache transplant ablation for the pinned SR-CC-1 prompt, and add
+  a canonical fail-closed offset-shift fixture for the next reuse study.
 status: in_progress
 base tip: 6e8f8920ff5074ffeb7073223fa88fc3ea65ee0d
 branch: agent/T20260825-001__glm52-forced-reuse-ablation
@@ -27,17 +28,22 @@ plan:
   - test prompt attestation, layer/product completeness, slot/page maps, and 0/100 endpoints
   - package a login-node-safe Slurm smoke gate and dependent full ratio sweep
   - submit only if Login-1 H200x4 assets, account, and allocation policy pass
+  - inventory attempt_5a8d1db9b812 and select a non-control insertion/deletion fixture
+  - materialize exact GLM token/alignment/RoPE/page evidence without gold prompt data
+  - keep shifted raw reuse rejected until a validated correction/mapping path exists
 completion criteria:
   - CPU/static/focused tests pass
   - actual cache consumption is evidenced or an exact fail-closed blocker is recorded
   - task-local TO_GPT handoff exists
 validation:
   - 82 focused/regression tests passed plus 5 subtests
+  - 88 focused/regression tests passed plus 5 subtests after offset-fixture support
   - exact vLLM patch applied to pristine 4a3447d source and all postimage SHA256 values matched
   - Docker/bundle package SHA256 and all internal SHA256SUMS verified
 artifacts:
   - agent/tasks/T20260825-001__glm52-forced-reuse-ablation/
   - /home/dyryu/.cache/putpocket-runs/glm52-forced-reuse-login1/
+  - /home/dyryu/.cache/putpocket-runs/glm52-offset-shift-fixture/20260825T022538Z/
 commits:
   - f5be163293d9b01be82bf54a64ae0cab6a09f729
   - 087cd94caed28f0cd353254d58fa6f5d8687ece5

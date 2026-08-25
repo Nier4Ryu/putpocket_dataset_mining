@@ -26,6 +26,8 @@ from .glm52_forced_reuse import (
 MAIN_LAYERS = tuple(range(78))
 INDEXER_LAYERS = FULL_LAYERS
 UNSAFE_ACK = "I_UNDERSTAND_ZERO_SAFE_PAGES"
+OFFSET_FIXTURE_SCENARIO_ID = "mbpp_730_duplicate_user_turn_delete_v1"
+REUSE_SEMANTICS = ("raw_donor", "rope_corrected", "forced_unsafe_raw")
 
 
 class SweepError(RuntimeError):
@@ -60,6 +62,39 @@ def _load_prompt(path: Path) -> list[int]:
     _require(isinstance(values, list) and len(values) == PROMPT_TOKENS, "PROMPT_TOKEN_COUNT_INVALID")
     _require(all(isinstance(value, int) for value in values), "PROMPT_TOKEN_TYPE_INVALID")
     return values
+
+
+def _validate_offset_fixture_selection(path: Path, reuse_semantics: str) -> dict[str, Any]:
+    """Attest an explicit offset fixture, then fail closed on unsupported mutation.
+
+    The installed runtime hook is deliberately limited to the original
+    same-length control.  Parsing the offset fixture here prevents an operator
+    from accidentally sending its different-length prompts to that hook while
+    still giving the runner an explicit, testable selection surface.
+    """
+    _require(path.is_absolute() and path.is_file(), "FIXTURE_CONTRACT_PATH_INVALID")
+    _require(reuse_semantics in REUSE_SEMANTICS, "FIXTURE_REUSE_SEMANTICS_INVALID")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    _require(payload.get("schema_version") == 1, "FIXTURE_CONTRACT_SCHEMA_INVALID")
+    _require(payload.get("scenario_id") == OFFSET_FIXTURE_SCENARIO_ID, "FIXTURE_SCENARIO_ID_INVALID")
+    _require(payload.get("production_default_enabled") is False, "FIXTURE_PRODUCTION_DEFAULT_MUST_BE_OFF")
+    edit = payload.get("edit", {})
+    _require(edit.get("type") in {"insertion", "deletion"}, "FIXTURE_EDIT_TYPE_INVALID")
+    _require(edit.get("same_length") is False, "FIXTURE_MUST_SHIFT_OFFSETS")
+    _require(isinstance(edit.get("downstream_position_delta"), int) and edit["downstream_position_delta"] != 0, "FIXTURE_POSITION_DELTA_INVALID")
+    _require(edit.get("unchanged_suffix_token_identity_exact") is True, "FIXTURE_SUFFIX_ALIGNMENT_INVALID")
+    support = payload.get("runtime_support", {})
+    _require(support.get("raw_shifted_reuse_safe") is False, "FIXTURE_RAW_SHIFTED_REUSE_MISLABELLED")
+    _require(support.get("rope_correction_implemented") is False, "FIXTURE_ROPE_SUPPORT_ATTESTATION_UNEXPECTED")
+    attestation = payload.get("request_attestation", {})
+    for key in ("baseline_prompt_token_ids_sha256", "edited_prompt_token_ids_sha256"):
+        value = attestation.get(key)
+        _require(isinstance(value, str) and len(value) == 64, f"FIXTURE_{key.upper()}_INVALID")
+    if reuse_semantics == "raw_donor":
+        raise SweepError("SHIFTED_RAW_KV_REUSE_UNSAFE_AND_UNSUPPORTED")
+    if reuse_semantics == "rope_corrected":
+        raise SweepError("ROPE_CORRECTION_RUNTIME_NOT_IMPLEMENTED")
+    raise SweepError("SHIFTED_RUNTIME_POSITION_MAP_NOT_IMPLEMENTED")
 
 
 def _token_digest(values: list[int]) -> str:
@@ -188,6 +223,11 @@ def _verify_runtime(evidence_dir: Path, action: str, ratio: int, expected_ranks:
 
 
 def run_sweep(arguments: argparse.Namespace) -> dict[str, Any]:
+    fixture_contract = getattr(arguments, "fixture_contract", None)
+    if fixture_contract is not None:
+        _validate_offset_fixture_selection(
+            fixture_contract.resolve(), getattr(arguments, "reuse_semantics", "raw_donor")
+        )
     donor = _load_prompt(arguments.donor_prompt.resolve())
     edited = _load_prompt(arguments.edited_prompt.resolve())
     differences = [index for index, pair in enumerate(zip(donor, edited, strict=True)) if pair[0] != pair[1]]
@@ -287,6 +327,17 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--edited-prompt", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--experiment-id", required=True)
+    parser.add_argument(
+        "--fixture-contract",
+        type=Path,
+        help="Explicit offset-shift fixture contract. It is attested and fails closed until shifted runtime support exists.",
+    )
+    parser.add_argument(
+        "--reuse-semantics",
+        choices=REUSE_SEMANTICS,
+        default="raw_donor",
+        help="Requested shifted-state semantics when --fixture-contract is supplied.",
+    )
     parser.add_argument("--ratios", default="0,10,20,30,40,50,60,70,80,90,100")
     parser.add_argument("--tp-size", type=int, default=4)
     parser.add_argument("--max-tokens", type=int, default=512)

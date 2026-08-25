@@ -2,10 +2,11 @@
 """Default-OFF GLM-5.2 forced edit-reuse transplant experiment.
 
 This module is deliberately unsafe for quality and deliberately narrow for
-runtime safety.  It supports only the pinned 2,071-token, same-length SR-CC-1
-system edit and only a single full-prefill request.  Donor cache rows are
-cloned into private storage; destination requests retain their own allocator
-slots, block tables, and sequence metadata.
+runtime safety.  It supports a frozen, stateful SR-CC-1 history produced under
+SYS_old and target continuations whose history prefix differs only at the
+equal-token system edit. Donor cache rows are cloned into private storage; destination
+requests retain their own allocator slots, block tables, sequence metadata,
+and all extension-token KV rows.
 
 The hook is inert unless ``PUTPOCKET_GLM52_FORCED_REUSE_CONTROL`` points to an
 explicit control file.  A transplant control additionally requires the exact
@@ -33,7 +34,6 @@ EDIT_POSITION = 114
 OLD_TOKEN_ID = 17526
 NEW_TOKEN_ID = 11660
 DOWNSTREAM_START = 115
-DOWNSTREAM_END = 2071
 BLOCK_SIZE = 64
 MAIN_LAYERS = tuple(range(78))
 INDEXER_LAYERS = (0, 1, 2, 6, 10, 14, 18, 22, 26, 30, 34, 38, 42, 46, 50, 54, 58, 62, 66, 70, 74)
@@ -69,9 +69,9 @@ def token_ids_sha256(token_ids: list[int]) -> str:
     return _sha256(encoded)
 
 
-def ratio_count(ratio: int) -> int:
+def ratio_count(ratio: int, denominator: int) -> int:
     _require(ratio in RATIOS, "REQUESTED_RATIO_UNSUPPORTED")
-    return (DOWNSTREAM_END - DOWNSTREAM_START) * ratio // 100
+    return denominator * ratio // 100
 
 
 @dataclass(frozen=True)
@@ -81,6 +81,9 @@ class _Selector:
     positions_by_ratio: dict[int, tuple[int, ...]]
     source_baseline_digest: str
     source_edited_digest: str
+    history_token_count: int
+    eligible_start: int
+    eligible_end: int
 
     def selected(self, ratio: int) -> tuple[int, ...]:
         _require(ratio in self.positions_by_ratio, "SELECTOR_RATIO_MISSING")
@@ -98,6 +101,9 @@ class _Control:
     selector: _Selector
     requested_ratio: int
     evidence_dir: Path
+    history_token_count: int
+    eligible_start: int
+    eligible_end: int
 
     @property
     def expected_prompt_digest(self) -> str:
@@ -114,49 +120,56 @@ class _LayerSnapshot:
     ready: torch.cuda.Event | None
 
 
-def _load_selector(path: Path, expected_sha256: str) -> _Selector:
+def _load_selector(path: Path, expected_sha256: str, history_token_count: int, eligible_start: int, eligible_end: int) -> _Selector:
     _require(path.is_absolute(), "SELECTOR_PATH_NOT_ABSOLUTE")
     actual = _file_sha256(path)
     _require(actual == expected_sha256, "SELECTOR_DIGEST_MISMATCH")
     payload = json.loads(path.read_text(encoding="utf-8"))
-    _require(payload.get("schema_version") == 1, "SELECTOR_SCHEMA_INVALID")
+    _require(payload.get("schema_version") == 2, "SELECTOR_SCHEMA_INVALID")
     _require(payload.get("status") == "attested_before_benchmark_outcomes", "SELECTOR_NOT_PREATTESTED")
     scenario = payload.get("scenario", {})
-    _require(scenario.get("prompt_token_count") == PROMPT_TOKENS, "SELECTOR_PROMPT_LENGTH_INVALID")
+    _require(scenario.get("base_prompt_token_count") == PROMPT_TOKENS, "SELECTOR_BASE_PROMPT_LENGTH_INVALID")
+    _require(scenario.get("history_token_count") == history_token_count, "SELECTOR_HISTORY_LENGTH_INVALID")
     _require(scenario.get("edit_position") == EDIT_POSITION, "SELECTOR_EDIT_POSITION_INVALID")
     _require(scenario.get("old_token_id") == OLD_TOKEN_ID, "SELECTOR_OLD_TOKEN_INVALID")
     _require(scenario.get("new_token_id") == NEW_TOKEN_ID, "SELECTOR_NEW_TOKEN_INVALID")
-    _require(scenario.get("downstream_range") == [DOWNSTREAM_START, DOWNSTREAM_END], "SELECTOR_RANGE_INVALID")
+    _require(scenario.get("eligible_history_range") == [eligible_start, eligible_end], "SELECTOR_RANGE_INVALID")
+    _require(scenario.get("q2_and_post_edit_extensions_recomputed") is True, "SELECTOR_EXTENSION_SEMANTICS_INVALID")
     _require(scenario.get("same_length") is True and scenario.get("rope_positions_unchanged") is True, "SELECTOR_POSITION_SEMANTICS_INVALID")
     ranking = tuple(payload.get("ranking", []))
-    expected_positions = set(range(DOWNSTREAM_START, DOWNSTREAM_END))
+    expected_positions = set(range(eligible_start, eligible_end))
     _require(len(ranking) == len(expected_positions) and set(ranking) == expected_positions, "SELECTOR_RANKING_NOT_PERMUTATION")
     raw_by_ratio = payload.get("positions_by_ratio", {})
     positions_by_ratio: dict[int, tuple[int, ...]] = {}
     for ratio in RATIOS:
         values = tuple(raw_by_ratio.get(str(ratio), []))
-        _require(len(values) == ratio_count(ratio), f"SELECTOR_RATIO_{ratio}_COUNT_INVALID")
-        _require(values == tuple(sorted(ranking[: ratio_count(ratio)])), f"SELECTOR_RATIO_{ratio}_PREFIX_INVALID")
+        _require(len(values) == ratio_count(ratio, len(expected_positions)), f"SELECTOR_RATIO_{ratio}_COUNT_INVALID")
+        _require(values == tuple(sorted(ranking[: ratio_count(ratio, len(expected_positions))])), f"SELECTOR_RATIO_{ratio}_PREFIX_INVALID")
         positions_by_ratio[ratio] = values
     _require(not positions_by_ratio[0], "SELECTOR_ZERO_ENDPOINT_INVALID")
     _require(set(positions_by_ratio[100]) == expected_positions, "SELECTOR_HUNDRED_ENDPOINT_INVALID")
     sources = payload.get("source_evidence", {})
-    baseline = sources.get("baseline_prompt_token_ids_sha256")
-    edited = sources.get("edited_prompt_token_ids_sha256")
+    baseline = sources.get("donor_history_token_ids_sha256")
+    edited = sources.get("edited_history_token_ids_sha256")
     _require(isinstance(baseline, str) and re.fullmatch(r"[0-9a-f]{64}", baseline) is not None, "SELECTOR_BASELINE_DIGEST_INVALID")
     _require(isinstance(edited, str) and re.fullmatch(r"[0-9a-f]{64}", edited) is not None, "SELECTOR_EDITED_DIGEST_INVALID")
-    return _Selector(actual, ranking, positions_by_ratio, baseline, edited)
+    return _Selector(actual, ranking, positions_by_ratio, baseline, edited, history_token_count, eligible_start, eligible_end)
 
 
 def _load_control(path: Path) -> _Control:
     _require(path.is_absolute(), "CONTROL_PATH_NOT_ABSOLUTE")
     payload = json.loads(path.read_text(encoding="utf-8"))
-    _require(payload.get("schema_version") == 1, "CONTROL_SCHEMA_INVALID")
+    _require(payload.get("schema_version") == 2, "CONTROL_SCHEMA_INVALID")
     mode = payload.get("mode")
     _require(mode in _VALID_MODES, "CONTROL_MODE_INVALID")
     _require(payload.get("unsafe_forced_reuse_ack") == UNSAFE_ACK, "UNSAFE_ACK_MISSING")
     _require(payload.get("production_default_enabled") is False, "PRODUCTION_DEFAULT_MUST_BE_DISABLED")
-    _require(payload.get("prompt_token_count") == PROMPT_TOKENS, "CONTROL_PROMPT_LENGTH_INVALID")
+    _require(payload.get("base_prompt_token_count") == PROMPT_TOKENS, "CONTROL_BASE_PROMPT_LENGTH_INVALID")
+    history_token_count = payload.get("history_token_count")
+    eligible_start = payload.get("eligible_start")
+    eligible_end = payload.get("eligible_end")
+    _require(isinstance(history_token_count, int) and history_token_count > PROMPT_TOKENS, "CONTROL_HISTORY_LENGTH_INVALID")
+    _require(eligible_start == DOWNSTREAM_START and eligible_end == history_token_count, "CONTROL_ELIGIBLE_RANGE_INVALID")
     _require(payload.get("edit_position") == EDIT_POSITION, "CONTROL_EDIT_POSITION_INVALID")
     _require(payload.get("real_block_size") == BLOCK_SIZE, "CONTROL_BLOCK_SIZE_INVALID")
     _require(payload.get("main_layers") == list(MAIN_LAYERS), "CONTROL_MAIN_LAYER_SET_INVALID")
@@ -167,12 +180,10 @@ def _load_control(path: Path) -> _Control:
     _require(isinstance(experiment, str) and re.fullmatch(r"[A-Za-z0-9_.-]+", experiment), "EXPERIMENT_ID_INVALID")
     _require(isinstance(phase, str) and re.fullmatch(r"[A-Za-z0-9_.-]+", phase), "PHASE_ID_INVALID")
     _require(side in {"donor", "edited"}, "PROMPT_SIDE_INVALID")
-    donor_digest = payload.get("donor_prompt_token_ids_sha256")
-    edited_digest = payload.get("edited_prompt_token_ids_sha256")
-    _require(donor_digest == payload.get("selector_source_baseline_digest"), "CONTROL_DONOR_SELECTOR_DIGEST_MISMATCH")
-    _require(edited_digest == payload.get("selector_source_edited_digest"), "CONTROL_EDIT_SELECTOR_DIGEST_MISMATCH")
+    donor_digest = payload.get("donor_history_token_ids_sha256")
+    edited_digest = payload.get("edited_history_token_ids_sha256")
     selector_path = Path(payload.get("selector_path", ""))
-    selector = _load_selector(selector_path, payload.get("selector_sha256", ""))
+    selector = _load_selector(selector_path, payload.get("selector_sha256", ""), history_token_count, eligible_start, eligible_end)
     _require(selector.source_baseline_digest == donor_digest, "SELECTOR_DONOR_DIGEST_MISMATCH")
     _require(selector.source_edited_digest == edited_digest, "SELECTOR_EDIT_DIGEST_MISMATCH")
     ratio = payload.get("requested_ratio_percent")
@@ -184,7 +195,7 @@ def _load_control(path: Path) -> _Control:
     evidence = Path(payload.get("evidence_dir", ""))
     _require(evidence.is_absolute(), "EVIDENCE_DIR_NOT_ABSOLUTE")
     evidence.mkdir(parents=True, exist_ok=True)
-    return _Control(mode, experiment, phase, side, donor_digest, edited_digest, selector, ratio, evidence)
+    return _Control(mode, experiment, phase, side, donor_digest, edited_digest, selector, ratio, evidence, history_token_count, eligible_start, eligible_end)
 
 
 def _current_control() -> _Control | None:
@@ -227,7 +238,7 @@ def _wait(snapshot: _LayerSnapshot, destination: torch.Tensor) -> None:
 
 
 def _position_slots(slot_mapping: torch.Tensor, positions: tuple[int, ...], block_size: int) -> tuple[tuple[int, int, int], ...]:
-    _require(slot_mapping.ndim == 1 and slot_mapping.numel() == PROMPT_TOKENS, "FULL_PROMPT_SLOT_MAPPING_REQUIRED")
+    _require(slot_mapping.ndim == 1 and slot_mapping.numel() >= PROMPT_TOKENS, "BASE_HISTORY_SLOT_MAPPING_REQUIRED")
     slots = slot_mapping.detach().to(device="cpu", dtype=torch.int64).tolist()
     _require(all(slot >= 0 for slot in slots), "PROMPT_SLOT_MAPPING_HAS_INVALID_SLOT")
     _require(len(set(slots)) == len(slots), "PROMPT_SLOT_MAPPING_NOT_UNIQUE")
@@ -300,10 +311,10 @@ def _copy_indexer(snapshot: _LayerSnapshot, kv_cache: torch.Tensor, positions: t
 
 
 def _page_accounting(
-    selected_positions: tuple[int, ...], slot_mapping: torch.Tensor
+    selected_positions: tuple[int, ...], slot_mapping: torch.Tensor, eligible_start: int, eligible_end: int
 ) -> dict[str, int | float]:
     all_mapping = _position_slots(
-        slot_mapping, tuple(range(DOWNSTREAM_START, DOWNSTREAM_END)), BLOCK_SIZE
+        slot_mapping, tuple(range(eligible_start, eligible_end)), BLOCK_SIZE
     )
     selected_set = set(selected_positions)
     total_by_page: dict[int, int] = {}
@@ -339,6 +350,9 @@ class _RuntimeState:
         self.snapshot_selector: str | None = None
         self.attested_phase: tuple[str, str, str, str] | None = None
         self.preflight_key: tuple[str, int] | None = None
+        self.prefill_counts: dict[tuple[str, str, str], int] = {}
+        self.current_prefill_ordinal: int | None = None
+        self.current_prefill_token_count: int | None = None
 
     def reset(self) -> None:
         with self.lock:
@@ -347,6 +361,9 @@ class _RuntimeState:
             self.snapshot_selector = None
             self.attested_phase = None
             self.preflight_key = None
+            self.prefill_counts.clear()
+            self.current_prefill_ordinal = None
+            self.current_prefill_token_count = None
 
     def record(self, control: _Control, payload: dict[str, Any]) -> None:
         record = {"schema_version": 1, "rank": _rank(), "experiment_id": control.experiment_id, "phase_id": control.phase_id, "mode": control.mode, **payload}
@@ -359,25 +376,40 @@ class _RuntimeState:
             os.close(descriptor)
 
     def attest_prompt(self, control: _Control, input_ids: torch.Tensor | None, positions: torch.Tensor) -> None:
-        # The model hook is also reached for every decode token.  Decode must
-        # leave the already-attested phase untouched; every other non-exact
-        # shape is rejected so chunked/mixed prefills cannot be mistaken for
-        # the pinned request.
+        # The model hook is also reached for every decode token.  Decode leaves
+        # the already-attested prefill untouched.  Every prefill must contain
+        # the entire pinned base history in one forward pass; extension tokens
+        # are attested but never transplanted.
         if positions.ndim == 1 and positions.numel() == 1:
             decode_position = int(positions.detach().to(device="cpu", dtype=torch.int64).item())
-            if decode_position >= PROMPT_TOKENS:
+            if decode_position >= control.history_token_count:
                 return
-        _require(input_ids is not None and input_ids.ndim == 1, "FULL_PROMPT_INPUT_IDS_REQUIRED")
-        _require(input_ids.numel() == PROMPT_TOKENS and positions.ndim == 1 and positions.numel() == PROMPT_TOKENS, "FULL_PROMPT_SINGLE_PREFILL_REQUIRED")
+        _require(input_ids is not None and input_ids.ndim == 1, "FROZEN_HISTORY_INPUT_IDS_REQUIRED")
+        _require(
+            input_ids.numel() >= control.history_token_count
+            and positions.ndim == 1
+            and positions.numel() == input_ids.numel(),
+            "FROZEN_HISTORY_SINGLE_PREFILL_REQUIRED",
+        )
         positions_cpu = positions.detach().to(device="cpu", dtype=torch.int64).tolist()
-        _require(positions_cpu == list(range(PROMPT_TOKENS)), "ABSOLUTE_POSITION_ALIGNMENT_INVALID")
+        _require(positions_cpu == list(range(input_ids.numel())), "ABSOLUTE_POSITION_ALIGNMENT_INVALID")
         ids = input_ids.detach().to(device="cpu", dtype=torch.int64).tolist()
-        digest = token_ids_sha256(ids)
+        if control.mode == "SNAPSHOT":
+            _require(len(ids) == control.history_token_count, "DONOR_MUST_BE_EXACT_FROZEN_HISTORY")
+        else:
+            _require(len(ids) > control.history_token_count, "TARGET_MUST_INCLUDE_POST_EDIT_Q2")
+        history_ids = ids[:control.history_token_count]
+        digest = token_ids_sha256(history_ids)
         _require(digest == control.expected_prompt_digest, "PROMPT_DIGEST_MISMATCH")
         expected_edit = OLD_TOKEN_ID if control.prompt_side == "donor" else NEW_TOKEN_ID
-        _require(ids[EDIT_POSITION] == expected_edit, "EDIT_TOKEN_ID_MISMATCH")
+        _require(history_ids[EDIT_POSITION] == expected_edit, "EDIT_TOKEN_ID_MISMATCH")
         self.attested_phase = (control.experiment_id, control.phase_id, control.prompt_side, digest)
-        self.record(control, {"action": "prompt_attested", "prompt_token_count": len(ids), "prompt_token_ids_sha256": digest, "edit_position": EDIT_POSITION, "edit_token_id": expected_edit, "rope_positions_unchanged": True})
+        phase_key = (control.experiment_id, control.phase_id, control.prompt_side)
+        ordinal = self.prefill_counts.get(phase_key, 0)
+        self.prefill_counts[phase_key] = ordinal + 1
+        self.current_prefill_ordinal = ordinal
+        self.current_prefill_token_count = len(ids)
+        self.record(control, {"action": "prompt_attested", "prefill_ordinal": ordinal, "frozen_history_token_count": control.history_token_count, "full_prefill_token_count": len(ids), "extension_token_count": len(ids) - control.history_token_count, "frozen_history_token_ids_sha256": digest, "edit_position": EDIT_POSITION, "edit_token_id": expected_edit, "rope_positions_unchanged": True})
 
     def require_attested(self, control: _Control) -> None:
         expected = (control.experiment_id, control.phase_id, control.prompt_side, control.expected_prompt_digest)
@@ -398,6 +430,8 @@ class _RuntimeState:
 
     def apply(self, control: _Control, product: str, layer: int, kv_cache: torch.Tensor, slot_mapping: torch.Tensor) -> int:
         self.require_attested(control)
+        _require(self.current_prefill_ordinal is not None, "PREFILL_ORDINAL_UNAVAILABLE")
+        _require(self.current_prefill_token_count == slot_mapping.numel(), "PREFILL_SLOT_COUNT_MISMATCH")
         full_positions = tuple(sorted(control.selector.ranking))
         key = (product, layer)
         with self.lock:
@@ -417,8 +451,9 @@ class _RuntimeState:
             selected = control.selector.selected(control.requested_ratio)
             snapshot = self.snapshots[key]
             destination_slots = _copy_main(snapshot, kv_cache, selected, slot_mapping) if product == "mla_kv" else _copy_indexer(snapshot, kv_cache, selected, slot_mapping)
-            page_accounting = _page_accounting(selected, slot_mapping)
-            self.record(control, {"action": "destination_transplant", "product": product, "layer": layer, "requested_ratio_percent": control.requested_ratio, "requested_ratio_denominator": DOWNSTREAM_END - DOWNSTREAM_START, "actual_row_count": len(selected), "recomputed_downstream_row_count": (DOWNSTREAM_END - DOWNSTREAM_START) - len(selected), "effective_downstream_ratio": len(selected) / (DOWNSTREAM_END - DOWNSTREAM_START), "positions_sha256": _sha256(json.dumps(selected, separators=(",", ":")).encode()), "destination_slots_sha256": _sha256(json.dumps(destination_slots, separators=(",", ":")).encode()), "edited_token_excluded": EDIT_POSITION not in selected, "same_length_rope_positions_unchanged": True, "destination_allocator_and_block_table_preserved": True, "consumed_by_native_attention": True, **page_accounting})
+            denominator = control.eligible_end - control.eligible_start
+            page_accounting = _page_accounting(selected, slot_mapping, control.eligible_start, control.eligible_end)
+            self.record(control, {"action": "destination_transplant", "prefill_ordinal": self.current_prefill_ordinal, "full_prefill_token_count": self.current_prefill_token_count, "extension_rows_recomputed": self.current_prefill_token_count - control.history_token_count, "product": product, "layer": layer, "requested_ratio_percent": control.requested_ratio, "requested_ratio_denominator": denominator, "actual_row_count": len(selected), "recomputed_history_row_count": denominator - len(selected), "effective_history_ratio": len(selected) / denominator, "positions_sha256": _sha256(json.dumps(selected, separators=(",", ":")).encode()), "destination_slots_sha256": _sha256(json.dumps(destination_slots, separators=(",", ":")).encode()), "edited_token_excluded": EDIT_POSITION not in selected, "same_length_rope_positions_unchanged": True, "destination_allocator_and_block_table_preserved": True, "consumed_by_native_attention": True, **page_accounting})
             return len(selected)
 
 
@@ -432,11 +467,11 @@ def maybe_attest_prompt(*, input_ids: torch.Tensor | None, positions: torch.Tens
     _STATE.attest_prompt(control, input_ids, positions)
 
 
-def _full_prefill_or_decode_noop(control: _Control, slot_mapping: torch.Tensor, num_prefills: int, num_decodes: int, num_prefill_tokens: int) -> bool:
+def _base_history_prefill_or_decode_noop(control: _Control, slot_mapping: torch.Tensor, num_prefills: int, num_decodes: int, num_prefill_tokens: int) -> bool:
     if num_prefills == 0 and num_decodes > 0:
         return False
-    _require(num_prefills == 1 and num_decodes == 0 and num_prefill_tokens == PROMPT_TOKENS, "FULL_PROMPT_PREFILL_METADATA_REQUIRED")
-    _require(slot_mapping.numel() == PROMPT_TOKENS, "FULL_PROMPT_SLOT_COUNT_REQUIRED")
+    _require(num_prefills == 1 and num_decodes == 0 and num_prefill_tokens >= control.history_token_count, "FROZEN_HISTORY_PREFILL_METADATA_REQUIRED")
+    _require(slot_mapping.numel() == num_prefill_tokens, "BASE_HISTORY_PREFILL_SLOT_COUNT_REQUIRED")
     return True
 
 
@@ -444,7 +479,7 @@ def maybe_apply_main_cache(*, layer_name: str, kv_cache: torch.Tensor, slot_mapp
     control = _current_control()
     if control is None or control.mode == "OFF":
         return 0
-    if not _full_prefill_or_decode_noop(control, slot_mapping, num_prefills, num_decodes, num_prefill_tokens):
+    if not _base_history_prefill_or_decode_noop(control, slot_mapping, num_prefills, num_decodes, num_prefill_tokens):
         return 0
     layer = _layer_from_name(layer_name)
     _require(layer in MAIN_LAYERS, "MAIN_LAYER_OUT_OF_RANGE")
@@ -455,7 +490,7 @@ def maybe_apply_indexer_cache(*, layer_name: str, kv_cache: torch.Tensor, slot_m
     control = _current_control()
     if control is None or control.mode == "OFF":
         return 0
-    if not _full_prefill_or_decode_noop(control, slot_mapping, num_prefills, num_decodes, num_prefill_tokens):
+    if not _base_history_prefill_or_decode_noop(control, slot_mapping, num_prefills, num_decodes, num_prefill_tokens):
         return 0
     layer = _layer_from_name(layer_name)
     _require(layer in INDEXER_LAYERS, "INDEXER_LAYER_SET_INVALID")

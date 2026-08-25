@@ -26,7 +26,7 @@ DOWNSTREAM_START = 115
 DOWNSTREAM_END = 2071
 RATIOS = tuple(range(0, 101, 10))
 FULL_LAYERS = (0, 1, 2, 6, 10, 14, 18, 22, 26, 30, 34, 38, 42, 46, 50, 54, 58, 62, 66, 70, 74)
-SAMPLE_POINTS = ("prefill_last_query", "decode_0", "decode_1", "decode_8", "decode_32")
+SAMPLE_POINTS = ("prefill_last_query",)
 
 
 class SelectorError(RuntimeError):
@@ -117,6 +117,8 @@ def _load_records(root: Path) -> tuple[dict[tuple[int, int, str], dict[str, Any]
                 encoded = (json.dumps(record, separators=(",", ":"), sort_keys=True) + "\n").encode()
                 _require(recorded == hashlib.sha256(encoded).hexdigest(), f"CAPTURE_RECORD_DIGEST_INVALID:{path.name}:{line_number}")
                 key = _record_key(record)
+                if key[2] not in SAMPLE_POINTS:
+                    continue
                 _require(key not in records, "CAPTURE_DUPLICATE_CELL")
                 _require(key[1] in FULL_LAYERS and key[2] in SAMPLE_POINTS, "CAPTURE_CELL_UNEXPECTED")
                 raw = record.get("raw_scores")
@@ -272,8 +274,9 @@ def build_selector(
         },
         "selection_definition": {
             "requested_ratio_denominator": DOWNSTREAM_END - DOWNSTREAM_START,
-            "algorithm": "lexicographic_worst_case_layer_query_stability_v1",
+            "algorithm": "lexicographic_prefill_only_layer_stability_v2",
             "uses_global_raw_score_threshold": False,
+            "sample_points_used": list(SAMPLE_POINTS),
             "fields_in_order": [
                 "membership_stable_count_desc", "membership_both_count_desc",
                 "max_iqr_normalized_delta_asc", "p95_iqr_normalized_delta_asc",

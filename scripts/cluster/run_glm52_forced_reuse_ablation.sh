@@ -7,6 +7,7 @@ cleanup() {
   rc=$?
   trap - EXIT INT TERM
   if [[ -n ${SAMPLER_PID:-} ]]; then kill "$SAMPLER_PID" 2>/dev/null || true; wait "$SAMPLER_PID" 2>/dev/null || true; fi
+  if [[ -n ${PROXY_PID:-} ]]; then kill "$PROXY_PID" 2>/dev/null || true; wait "$PROXY_PID" 2>/dev/null || true; fi
   if [[ -n ${SERVER_NAME:-} && -n ${CONTAINER:-} ]]; then "$CONTAINER" rm -f "$SERVER_NAME" >/dev/null 2>&1 || true; fi
   exit "$rc"
 }
@@ -18,10 +19,11 @@ trap cleanup EXIT INT TERM
 [[ -n ${SLURM_JOB_NODELIST:-} && -n ${CUDA_VISIBLE_DEVICES:-} ]] || fail SLURM_GPU_VISIBILITY_MISSING
 [[ ${PUTPOCKET_UNSAFE_FORCED_REUSE_ACK:-} == I_UNDERSTAND_ZERO_SAFE_PAGES ]] || fail UNSAFE_ACK_MISSING
 
-for name in PUTPOCKET_PACKAGE_ROOT PUTPOCKET_CONTAINER_EXECUTABLE PUTPOCKET_SHARED_BUILD_ROOT PUTPOCKET_EXPECTED_BUNDLE_KEY PUTPOCKET_H200_STORAGE_PARENT PUTPOCKET_H200_WORK_ROOT PUTPOCKET_RUN_ARTIFACT_ROOT PUTPOCKET_BASELINE_CAPTURE_ROOT PUTPOCKET_EDITED_CAPTURE_ROOT PUTPOCKET_DONOR_PROMPT_TOKENS PUTPOCKET_EDITED_PROMPT_TOKENS PUTPOCKET_SWEEP_PROFILE; do
+for name in PUTPOCKET_PACKAGE_ROOT PUTPOCKET_CONTAINER_EXECUTABLE PUTPOCKET_SHARED_BUILD_ROOT PUTPOCKET_EXPECTED_BUNDLE_KEY PUTPOCKET_H200_STORAGE_PARENT PUTPOCKET_H200_WORK_ROOT PUTPOCKET_RUN_ARTIFACT_ROOT PUTPOCKET_CAPTURE_INPUT_ROOT PUTPOCKET_EPISODE_ROOT PUTPOCKET_DURABLE_OUTPUT_ROOT PUTPOCKET_SWEEP_PROFILE; do
   [[ -n ${!name:-} ]] || fail "ENV_${name}_MISSING"
 done
 case "$PUTPOCKET_SWEEP_PROFILE" in
+  episode) PUTPOCKET_RATIOS=episode ;;
   smoke) PUTPOCKET_RATIOS=0,10 ;;
   full) PUTPOCKET_RATIOS=0,10,20,30,40,50,60,70,80,90,100 ;;
   *) fail SWEEP_PROFILE_INVALID ;;
@@ -33,16 +35,29 @@ BUNDLE=$(realpath "$PUTPOCKET_SHARED_BUILD_ROOT/$PUTPOCKET_EXPECTED_BUNDLE_KEY")
 STORAGE_PARENT=$(realpath "$PUTPOCKET_H200_STORAGE_PARENT")
 STORAGE=$(realpath "$PUTPOCKET_H200_WORK_ROOT")
 ARTIFACT_PARENT=$(realpath "$PUTPOCKET_RUN_ARTIFACT_ROOT")
-BASELINE_CAPTURE=$(realpath "$PUTPOCKET_BASELINE_CAPTURE_ROOT")
-EDITED_CAPTURE=$(realpath "$PUTPOCKET_EDITED_CAPTURE_ROOT")
-DONOR_PROMPT=$(realpath "$PUTPOCKET_DONOR_PROMPT_TOKENS")
-EDITED_PROMPT=$(realpath "$PUTPOCKET_EDITED_PROMPT_TOKENS")
+INPUTS=$(realpath "$PUTPOCKET_CAPTURE_INPUT_ROOT")
+EPISODE_REQUESTED=$PUTPOCKET_EPISODE_ROOT
+DURABLE_PARENT=$(realpath "$PUTPOCKET_DURABLE_OUTPUT_ROOT")
+BASELINE_CAPTURE="$INPUTS/baseline"
+EDITED_CAPTURE="$INPUTS/edited"
+DONOR_PROMPT="$INPUTS/donor-prompt-token-ids.json"
+EDITED_PROMPT="$INPUTS/edited-prompt-token-ids.json"
+SELECTOR="$INPUTS/selector/selector.json"
 VLLM_ARCHIVE="$PACKAGE/artifacts/vllm-4a3447d200e5aa428d68d1a00aa00f1a19a1a729.tar.gz"
 MODEL_REVISION=aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa
 MODEL="$STORAGE/cache/models/$MODEL_REVISION"
 
-[[ -d $PACKAGE && -x $CONTAINER && -d $BUNDLE && -d $STORAGE_PARENT && -d $STORAGE && -d $ARTIFACT_PARENT ]] || fail PINNED_SITE_PATH_INVALID
-[[ -d $BASELINE_CAPTURE && -d $EDITED_CAPTURE && -f $DONOR_PROMPT && -f $EDITED_PROMPT ]] || fail TRACK_B_OR_PROMPT_ARTIFACT_MISSING
+[[ -d $PACKAGE && -x $CONTAINER && -d $BUNDLE && -d $STORAGE_PARENT && -d $STORAGE && -d $ARTIFACT_PARENT && -d $DURABLE_PARENT ]] || fail PINNED_SITE_PATH_INVALID
+[[ -d $BASELINE_CAPTURE && -d $EDITED_CAPTURE && -f $DONOR_PROMPT && -f $EDITED_PROMPT && -f $SELECTOR && -f $INPUTS/SHA256SUMS ]] || fail TRACK_B_OR_PROMPT_ARTIFACT_MISSING
+(cd "$INPUTS" && sha256sum --check SHA256SUMS >/dev/null) || fail TRACK_B_INPUT_DIGEST_MISMATCH
+if [[ $PUTPOCKET_SWEEP_PROFILE == episode ]]; then
+  EPISODE_PARENT=$(realpath "$(dirname "$EPISODE_REQUESTED")")
+  [[ ! -e $EPISODE_REQUESTED ]] || fail EPISODE_ROOT_ALREADY_EXISTS
+else
+  EPISODE=$(realpath "$EPISODE_REQUESTED")
+  [[ -d $EPISODE && -f $EPISODE/episode.json && -f $EPISODE/donor-history-token-ids.json && -f $EPISODE/edited-history-token-ids.json && -f $EPISODE/selector/selector.json && -f $EPISODE/SHA256SUMS ]] || fail FROZEN_EPISODE_INCOMPLETE
+  (cd "$EPISODE" && sha256sum --check SHA256SUMS >/dev/null) || fail FROZEN_EPISODE_DIGEST_MISMATCH
+fi
 [[ -f $VLLM_ARCHIVE && -f $PACKAGE/artifacts/vllm-source.sha256 ]] || fail PINNED_VLLM_SOURCE_ARCHIVE_MISSING
 (cd "$PACKAGE" && sha256sum -c artifacts/vllm-source.sha256) || fail PINNED_VLLM_SOURCE_ARCHIVE_DIGEST_MISMATCH
 [[ -f $BUNDLE/build_manifest.json && -f $BUNDLE/runtime-image.tar ]] || fail IMMUTABLE_RUNTIME_BUNDLE_INCOMPLETE
@@ -74,7 +89,7 @@ available_kib=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)
 
 RUN_ROOT="$ARTIFACT_PARENT/${SLURM_JOB_ID}-${PUTPOCKET_RATIOS//,/-}"
 [[ ! -e $RUN_ROOT ]] || fail RUN_ROOT_ALREADY_EXISTS
-mkdir -p "$RUN_ROOT"/{logs,source,overlay,selector,runtime,jit/{deepgemm,flashinfer,triton,torchinductor,cuda,vllm,tmp}}
+mkdir -p "$RUN_ROOT"/{logs,source,overlay,runtime,results,prepared,config,jit/{deepgemm,flashinfer,triton,torchinductor,cuda,vllm,tmp}}
 scontrol show job "$SLURM_JOB_ID" -o > "$RUN_ROOT/slurm-job.txt"
 /usr/bin/nvidia-smi -L > "$RUN_ROOT/gpu-list.txt"
 /usr/bin/nvidia-smi topo -m > "$RUN_ROOT/gpu-topology.txt"
@@ -116,13 +131,14 @@ for relative in model_executor/layers/attention/mla_attention.py model_executor/
   install -m 0644 "$VLLM_SOURCE/vllm/$relative" "$RUN_ROOT/overlay/vllm/$relative"
 done
 
-GPU_REQUEST="device=$CUDA_VISIBLE_DEVICES"
+GPU_REQUEST="\"device=$CUDA_VISIBLE_DEVICES\""
 common_mounts=(
   --volume "$PACKAGE:/project:ro" --volume "$STORAGE:/storage"
   --volume "$RUN_ROOT/overlay:/overlay:ro" --volume "$BASELINE_CAPTURE:/baseline:ro"
   --volume "$EDITED_CAPTURE:/edited:ro" --volume "$DONOR_PROMPT:/inputs/donor.json:ro"
-  --volume "$EDITED_PROMPT:/inputs/edited.json:ro"
+  --volume "$EDITED_PROMPT:/inputs/edited.json:ro" --volume "$INPUTS/selector:/inputs/selector:ro"
 )
+if [[ $PUTPOCKET_SWEEP_PROFILE != episode ]]; then common_mounts+=(--volume "$EPISODE:/episode:ro"); fi
 common_env=(
   --env PYTHONPATH=/overlay:/project/src --env HOME=/storage/home
   --env HF_HOME=/storage/cache/huggingface --env VLLM_ATTENTION_BACKEND=FLASHMLA_SPARSE
@@ -148,24 +164,7 @@ for path in ('/overlay/vllm/model_executor/layers/attention/mla_attention.py','/
 print('torch',torch.__version__,'cuda',torch.version.cuda,'vllm',vllm.__version__)
 PY
 
-"$CONTAINER" run --rm "${common_mounts[@]}" "${common_env[@]}" --entrypoint python3 "$RUNTIME_IMAGE_ID" -m putpocket_dataset_mining.glm52_forced_reuse \
-  --baseline-root /baseline --edited-root /edited \
-  --baseline-prompt-token-ids /inputs/donor.json --edited-prompt-token-ids /inputs/edited.json \
-  --output "/storage/artifacts/${SLURM_JOB_ID}-${PUTPOCKET_RATIOS//,/-}/selector/selector.json" > "$RUN_ROOT/logs/selector.log" 2>&1 || fail SELECTOR_BUILD_FAILED
-sha256sum "$RUN_ROOT/selector/selector.json" > "$RUN_ROOT/selector/selector.json.sha256"
-
 CONTROL_CONTAINER="/storage/artifacts/${SLURM_JOB_ID}-${PUTPOCKET_RATIOS//,/-}/control.json"
-SELECTOR_CONTAINER="/storage/artifacts/${SLURM_JOB_ID}-${PUTPOCKET_RATIOS//,/-}/selector/selector.json"
-"$CONTAINER" run --rm "${common_mounts[@]}" "${common_env[@]}" --entrypoint python3 "$RUNTIME_IMAGE_ID" - "$CONTROL_CONTAINER" "$SELECTOR_CONTAINER" <<'PY'
-import hashlib,json,pathlib,sys
-def ids(path):
- x=json.load(open(path)); return x.get('prompt',x.get('prompt_token_ids',x.get('token_ids',x))) if isinstance(x,dict) else x
-donor=ids('/inputs/donor.json'); edited=ids('/inputs/edited.json')
-digest=lambda x:hashlib.sha256(json.dumps(x,separators=(',',':')).encode()).hexdigest()
-selector_sha=hashlib.sha256(open(sys.argv[2],'rb').read()).hexdigest()
-p={"schema_version":1,"mode":"OFF","experiment_id":"glm52-forced-reuse","phase_id":"startup","prompt_side":"edited","unsafe_forced_reuse_ack":"I_UNDERSTAND_ZERO_SAFE_PAGES","production_default_enabled":False,"prompt_token_count":2071,"edit_position":114,"real_block_size":64,"main_layers":list(range(78)),"indexer_layers":[0,1,2,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,66,70,74],"donor_prompt_token_ids_sha256":digest(donor),"edited_prompt_token_ids_sha256":digest(edited),"selector_source_baseline_digest":digest(donor),"selector_source_edited_digest":digest(edited),"selector_path":sys.argv[2],"selector_sha256":selector_sha,"requested_ratio_percent":0,"evidence_dir":str(pathlib.Path(sys.argv[1]).parent/'runtime/off')}
-pathlib.Path(sys.argv[1]).write_text(json.dumps(p,separators=(',',':'),sort_keys=True)+'\n')
-PY
 
 PORT=$((20000 + SLURM_JOB_ID % 20000))
 SERVER_NAME="pp-glm52-forced-${SLURM_JOB_ID}"
@@ -174,14 +173,16 @@ server_args=(
   serve /model --served-model-name nvidia/GLM-5.2-NVFP4 --revision "$MODEL_REVISION"
   --tensor-parallel-size 4 --pipeline-parallel-size 1 --quantization modelopt_fp4
   --linear-backend marlin --attention-backend FLASHMLA_SPARSE --kv-cache-dtype bfloat16
-  --max-model-len 4096 --max-num-seqs 1 --cpu-offload-gb 0 --swap-space 0
-  --no-enable-prefix-caching --enforce-eager --jit-monitor-mode warn --jit-monitor-verbose
+  --max-model-len 65536 --max-num-seqs 1 --max-num-batched-tokens 65536
+  --cpu-offload-gb 0 --swap-space 0 --no-enable-prefix-caching --no-enable-chunked-prefill
+  --enforce-eager --jit-monitor-mode warn --jit-monitor-verbose
   --host 127.0.0.1 --port "$PORT"
 )
 printf '%q ' vllm "${server_args[@]}" > "$RUN_ROOT/exact-server-command.txt"; printf '\n' >> "$RUN_ROOT/exact-server-command.txt"
+server_env=()
+if [[ $PUTPOCKET_SWEEP_PROFILE != episode ]]; then server_env+=(--env PUTPOCKET_GLM52_FORCED_REUSE_CONTROL="$CONTROL_CONTAINER"); fi
 "$CONTAINER" run --rm --name "$SERVER_NAME" --gpus "$GPU_REQUEST" --ipc=host --network=host \
-  "${common_mounts[@]}" "${common_env[@]}" --volume "$MODEL:/model:ro" \
-  --env PUTPOCKET_GLM52_FORCED_REUSE_CONTROL="$CONTROL_CONTAINER" \
+  "${common_mounts[@]}" "${common_env[@]}" "${server_env[@]}" --volume "$MODEL:/model:ro" \
   --env PUTPOCKET_SERVED_MODEL_NAME=nvidia/GLM-5.2-NVFP4 \
   --entrypoint vllm "$RUNTIME_IMAGE_ID" "${server_args[@]}" > "$SERVER_LOG" 2>&1 &
 
@@ -196,14 +197,163 @@ done
 sample_hbm() { while true; do date -u +%Y-%m-%dT%H:%M:%SZ; /usr/bin/nvidia-smi --id="$CUDA_VISIBLE_DEVICES" --query-gpu=uuid,memory.total,memory.used,memory.free --format=csv,noheader,nounits; sleep 5; done; }
 sample_hbm > "$RUN_ROOT/hbm.csv" & SAMPLER_PID=$!
 
-"$CONTAINER" run --rm --network=host "${common_mounts[@]}" "${common_env[@]}" --entrypoint python3 "$RUNTIME_IMAGE_ID" -m putpocket_dataset_mining.glm52_forced_reuse_sweep \
-  --endpoint "http://127.0.0.1:$PORT" --control "$CONTROL_CONTAINER" --selector "$SELECTOR_CONTAINER" \
-  --donor-prompt /inputs/donor.json --edited-prompt /inputs/edited.json \
-  --output-root "/storage/artifacts/${SLURM_JOB_ID}-${PUTPOCKET_RATIOS//,/-}/results" \
-  --experiment-id "glm52-forced-reuse-${SLURM_JOB_ID}" --ratios "$PUTPOCKET_RATIOS" \
-  --tp-size 4 --max-tokens 512 > "$RUN_ROOT/logs/sweep.log" 2>&1 || fail SWEEP_FAILED
+HARNESS_COMMIT=ca10a60a5fcae51e6948ffe1485d4153d421e6c5
+HARNESS="$STORAGE/cache/harness/$HARNESS_COMMIT"
+AGENT_ENV="$STORAGE/cache/agent-env/$HARNESS_COMMIT"
+if [[ ! -d $HARNESS/.git ]]; then
+  mkdir -p "$HARNESS"
+  git -C "$HARNESS" init
+  git -C "$HARNESS" fetch --depth=1 https://github.com/scaleapi/SWE-bench_Pro-os.git "$HARNESS_COMMIT"
+  git -C "$HARNESS" checkout --detach FETCH_HEAD
+  git -C "$HARNESS" submodule update --init --recursive
+fi
+[[ $(git -C "$HARNESS" rev-parse HEAD) == "$HARNESS_COMMIT" ]] || fail HARNESS_COMMIT_MISMATCH
+if [[ ! -f $AGENT_ENV/READY ]]; then
+  python3 -m venv "$AGENT_ENV"
+  "$AGENT_ENV/bin/pip" install --disable-pip-version-check --no-input -r "$HARNESS/requirements.txt" > "$RUN_ROOT/logs/agent-env.log" 2>&1 || fail AGENT_ENV_REQUIREMENTS_FAILED
+  "$AGENT_ENV/bin/pip" install --disable-pip-version-check --no-input -e "$HARNESS/mini-swe-agent" >> "$RUN_ROOT/logs/agent-env.log" 2>&1 || fail MINI_SWE_AGENT_INSTALL_FAILED
+  printf 'harness=%s\n' "$HARNESS_COMMIT" > "$AGENT_ENV/READY"
+fi
+AGENT_PY="$AGENT_ENV/bin/python"
+AGENT_BIN="$AGENT_ENV/bin/mini-extra"
+[[ -x $AGENT_PY && -x $AGENT_BIN ]] || fail AGENT_ENV_INCOMPLETE
+export PYTHONPATH="$PACKAGE/src"
+"$AGENT_PY" -m putpocket_dataset_mining.swebench_pro_cli prepare --selection smoke --harness-root "$HARNESS" --output-root "$RUN_ROOT/prepared" > "$RUN_ROOT/logs/prepare-agent-case.log" 2>&1 || fail AGENT_CASE_PREPARE_FAILED
+"$AGENT_PY" -m putpocket_dataset_mining.swebench_pro_cli agent-config --harness-root "$HARNESS" --runtime docker --output "$RUN_ROOT/config/base-agent.yaml" > "$RUN_ROOT/logs/agent-config.log" 2>&1 || fail BASE_AGENT_CONFIG_FAILED
+
+PROXY_PORT=$((40000 + SLURM_JOB_ID % 15000))
+PHASE_FILE="$RUN_ROOT/proxy-phase.json"
+PROXY_LOG="$RUN_ROOT/proxy-usage.jsonl"
+step_limit=0
+[[ $PUTPOCKET_SWEEP_PROFILE == episode ]] && step_limit=1
+"$AGENT_PY" -m putpocket_dataset_mining.glm52_stateful_cli configure-agent \
+  --input "$RUN_ROOT/config/base-agent.yaml" --output "$RUN_ROOT/config/donor-agent.yaml" \
+  --api-base "http://127.0.0.1:$PROXY_PORT/v1" --step-limit "$step_limit" || fail DONOR_AGENT_CONFIG_FAILED
+
+if [[ $PUTPOCKET_SWEEP_PROFILE == episode ]]; then
+  printf '{"phase_id":"episode-capture","ratio_percent":null,"mode":"capture_old_turn1"}\n' > "$PHASE_FILE"
+  "$AGENT_PY" -m putpocket_dataset_mining.glm52_stateful_proxy \
+    --listen-port "$PROXY_PORT" --backend-port "$PORT" --phase-file "$PHASE_FILE" \
+    --log "$PROXY_LOG" --capture "$RUN_ROOT/episode-capture.json" > "$RUN_ROOT/logs/proxy.log" 2>&1 &
+  PROXY_PID=$!
+  for _ in $(seq 1 60); do curl --fail --silent "http://127.0.0.1:$PROXY_PORT/health" >/dev/null 2>&1 && break; kill -0 "$PROXY_PID" >/dev/null 2>&1 || fail STATEFUL_PROXY_EXITED; sleep 1; done
+  curl --fail --silent "http://127.0.0.1:$PROXY_PORT/health" >/dev/null 2>&1 || fail STATEFUL_PROXY_HEALTH_FAILED
+  OPENAI_API_KEY=local-vllm-no-auth "$AGENT_BIN" swebench \
+    --subset "$RUN_ROOT/prepared/mini_dataset" --split test --workers 1 \
+    --model openai/nvidia/GLM-5.2-NVFP4 --config "$RUN_ROOT/config/donor-agent.yaml" \
+    --environment-class docker --output "$RUN_ROOT/episode-inference" > "$RUN_ROOT/logs/episode-agent.log" 2>&1 || fail EPISODE_AGENT_FAILED
+  INSTANCE_ID=instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5
+  TRAJECTORY="$RUN_ROOT/episode-inference/$INSTANCE_ID/$INSTANCE_ID.traj.json"
+  [[ -f $TRAJECTORY && -f $RUN_ROOT/episode-capture.json ]] || fail EPISODE_ARTIFACT_MISSING
+  "$CONTAINER" run --rm "${common_mounts[@]}" "${common_env[@]}" \
+    --volume "$MODEL:/model:ro" --volume "$RUN_ROOT:/run" --entrypoint python3 "$RUNTIME_IMAGE_ID" \
+    -m putpocket_dataset_mining.glm52_stateful_cli build-episode \
+    --capture /run/episode-capture.json --trajectory "/run/episode-inference/$INSTANCE_ID/$INSTANCE_ID.traj.json" \
+    --base-donor-prompt /inputs/donor.json --base-edited-prompt /inputs/edited.json \
+    --base-selector /inputs/selector/selector.json --model-root /model --output-root /run/episode-export \
+    > "$RUN_ROOT/logs/build-episode.log" 2>&1 || fail STATEFUL_EPISODE_BUILD_FAILED
+  (cd "$RUN_ROOT/episode-export" && find . -type f -not -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+  EPISODE_STAGE="$EPISODE_REQUESTED.partial"
+  [[ ! -e $EPISODE_STAGE && ! -e $EPISODE_REQUESTED ]] || fail EPISODE_EXPORT_COLLISION
+  cp -a "$RUN_ROOT/episode-export" "$EPISODE_STAGE"
+  chmod -R a-w "$EPISODE_STAGE"
+  mv "$EPISODE_STAGE" "$EPISODE_REQUESTED"
+  printf 'FROZEN_STATEFUL_EPISODE=%s\n' "$EPISODE_REQUESTED"
+else
+EXPERIMENT_ID="glm52-stateful-mid-edit-${SLURM_JOB_ID}"
+write_control() {
+  local mode=$1 phase=$2 side=$3 ratio=$4 evidence=$5
+  "$CONTAINER" run --rm "${common_mounts[@]}" "${common_env[@]}" --entrypoint python3 "$RUNTIME_IMAGE_ID" \
+    -m putpocket_dataset_mining.glm52_stateful_cli control \
+    --mode "$mode" --experiment-id "$EXPERIMENT_ID" --phase-id "$phase" --prompt-side "$side" --ratio "$ratio" \
+    --selector /episode/selector/selector.json --donor-history /episode/donor-history-token-ids.json --edited-history /episode/edited-history-token-ids.json \
+    --evidence-dir "$evidence" --output "$CONTROL_CONTAINER"
+}
+
+write_control SNAPSHOT donor donor 100 "/storage/artifacts/${SLURM_JOB_ID}-${PUTPOCKET_RATIOS//,/-}/runtime/donor"
+python3 - "$EPISODE/donor-history-token-ids.json" "$RUN_ROOT/donor-request.json" <<'PY'
+import json,pathlib,sys
+tokens=json.load(open(sys.argv[1]))['prompt']
+pathlib.Path(sys.argv[2]).write_text(json.dumps({'model':'nvidia/GLM-5.2-NVFP4','prompt':tokens,'temperature':0,'top_p':1,'max_tokens':1,'n':1,'seed':0,'stream':False,'return_token_ids':True},separators=(',',':'))+'\n')
+PY
+curl --fail --silent --show-error -H 'Content-Type: application/json' --data-binary @"$RUN_ROOT/donor-request.json" "http://127.0.0.1:$PORT/v1/completions" > "$RUN_ROOT/donor-response.json" || fail DONOR_SNAPSHOT_REQUEST_FAILED
+"$AGENT_PY" - "$RUN_ROOT/runtime/donor" "$EPISODE/episode.json" <<'PY' || fail DONOR_RUNTIME_COVERAGE_INVALID
+import json,pathlib,sys
+root=pathlib.Path(sys.argv[1]); episode=json.load(open(sys.argv[2])); expected=episode['eligible_end']-episode['eligible_start']
+records=[]
+for path in sorted(root.glob('runtime.rank-*.jsonl')):
+ records.extend(json.loads(line) for line in path.read_text().splitlines() if line.strip())
+ranks=sorted({int(record['rank']) for record in records})
+assert ranks == [0,1,2,3], ranks
+products={("mla_kv",layer) for layer in range(78)} | {("indexer_k",layer) for layer in (0,1,2,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,66,70,74)}
+for rank in ranks:
+ rows=[record for record in records if int(record['rank'])==rank and record.get('action')=='source_snapshot']
+ assert {(record['product'],int(record['layer'])) for record in rows} == products
+ assert all(int(record['row_count'])==expected for record in rows)
+PY
+
+printf '{"phase_id":"startup","ratio_percent":0,"mode":"replay_then_edit"}\n' > "$PHASE_FILE"
+"$AGENT_PY" -m putpocket_dataset_mining.glm52_stateful_proxy --listen-port "$PROXY_PORT" --backend-port "$PORT" --phase-file "$PHASE_FILE" --log "$PROXY_LOG" --capture "$RUN_ROOT/unused-capture.json" --episode "$EPISODE/episode.json" > "$RUN_ROOT/logs/proxy.log" 2>&1 &
+PROXY_PID=$!
+for _ in $(seq 1 60); do curl --fail --silent "http://127.0.0.1:$PROXY_PORT/health" >/dev/null 2>&1 && break; kill -0 "$PROXY_PID" >/dev/null 2>&1 || fail ACCURACY_PROXY_EXITED; sleep 1; done
+curl --fail --silent "http://127.0.0.1:$PROXY_PORT/health" >/dev/null 2>&1 || fail ACCURACY_PROXY_HEALTH_FAILED
+
+IFS=',' read -r -a RATIOS <<< "$PUTPOCKET_RATIOS"
+RATIO_RESULTS=()
+for ratio in "${RATIOS[@]}"; do
+  printf -v phase 'ratio-%03d' "$ratio"
+  ratio_root="$RUN_ROOT/results/$phase"
+  evidence_container="/storage/artifacts/${SLURM_JOB_ID}-${PUTPOCKET_RATIOS//,/-}/runtime/$phase"
+  mkdir -p "$ratio_root" "$RUN_ROOT/runtime/$phase"
+  if (( ratio == 0 )); then write_control OFF "$phase" edited 0 "$evidence_container"; else write_control TRANSPLANT "$phase" edited "$ratio" "$evidence_container"; fi
+  python3 - "$PHASE_FILE" "$phase" "$ratio" <<'PY'
+import json,pathlib,sys
+p=pathlib.Path(sys.argv[1]); q=p.with_name(p.name+'.partial'); q.write_text(json.dumps({'phase_id':sys.argv[2],'ratio_percent':int(sys.argv[3]),'mode':'replay_then_edit'},separators=(',',':'))+'\n'); q.replace(p)
+PY
+  OPENAI_API_KEY=local-vllm-no-auth "$AGENT_BIN" swebench \
+    --subset "$RUN_ROOT/prepared/mini_dataset" --split test --workers 1 \
+    --model openai/nvidia/GLM-5.2-NVFP4 --config "$RUN_ROOT/config/donor-agent.yaml" \
+    --environment-class docker --output "$ratio_root/inference" > "$ratio_root/agent.log" 2>&1 || fail "AGENT_INFERENCE_FAILED_${ratio}"
+  "$AGENT_PY" -m putpocket_dataset_mining.swebench_pro_cli gather \
+    --harness-root "$HARNESS" --inference-root "$ratio_root/inference" \
+    --prefix "glm52-reuse-${phase}" --output "$ratio_root/patches.json" > "$ratio_root/gather.log" 2>&1 || fail "PATCH_GATHER_FAILED_${ratio}"
+  mkdir -p "$ratio_root/evaluation"
+  (cd "$HARNESS" && "$AGENT_PY" "$HARNESS/swe_bench_pro_eval.py" \
+    --raw_sample_path "$RUN_ROOT/prepared/raw_samples.jsonl" --patch_path "$ratio_root/patches.json" \
+    --output_dir "$ratio_root/evaluation" --scripts_dir "$HARNESS/run_scripts" \
+    --num_workers 1 --dockerhub_username jefzda --use_local_docker) > "$ratio_root/evaluator.log" 2>&1 || fail "OFFICIAL_EVALUATOR_FAILED_${ratio}"
+  "$AGENT_PY" -m putpocket_dataset_mining.glm52_stateful_cli finalize-ratio \
+    --ratio "$ratio" --phase-id "$phase" --episode "$EPISODE/episode.json" --proxy-log "$PROXY_LOG" --evidence-dir "$RUN_ROOT/runtime/$phase" \
+    --patches "$ratio_root/patches.json" --eval-results "$ratio_root/evaluation/eval_results.json" \
+    --output "$ratio_root/ratio-result.json" || fail "RATIO_FINALIZATION_FAILED_${ratio}"
+  RATIO_RESULTS+=("$ratio_root/ratio-result.json")
+done
+"$AGENT_PY" -m putpocket_dataset_mining.glm52_stateful_cli finalize-sweep --ratio-results "${RATIO_RESULTS[@]}" --expected-ratios "$PUTPOCKET_RATIOS" --output "$RUN_ROOT/results/sweep-report.json" || fail SWEEP_FINALIZATION_FAILED
+if [[ $PUTPOCKET_SWEEP_PROFILE == smoke ]]; then
+  "$AGENT_PY" - "$RUN_ROOT/results/ratio-000/ratio-result.json" <<'PY' || fail BASELINE_SCENARIO_NOT_SOLVED
+import json,sys
+raise SystemExit(0 if json.load(open(sys.argv[1]))['official_evaluator_resolved'] is True else 1)
+PY
+fi
+kill "$PROXY_PID" >/dev/null 2>&1 || true
+wait "$PROXY_PID" >/dev/null 2>&1 || true
+PROXY_PID=
+fi
 
 curl --fail --silent "http://127.0.0.1:$PORT/health" > "$RUN_ROOT/server-health-after.txt"
 /usr/bin/nvidia-smi -q > "$RUN_ROOT/nvidia-smi-after.txt"
 find "$RUN_ROOT" -type f -not -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > "$RUN_ROOT/SHA256SUMS"
+DURABLE_STAGE="$DURABLE_PARENT/${SLURM_JOB_ID}-${PUTPOCKET_SWEEP_PROFILE}.partial"
+DURABLE_ROOT="$DURABLE_PARENT/${SLURM_JOB_ID}-${PUTPOCKET_SWEEP_PROFILE}"
+[[ ! -e $DURABLE_STAGE && ! -e $DURABLE_ROOT ]] || fail DURABLE_OUTPUT_ALREADY_EXISTS
+mkdir -p "$DURABLE_STAGE"
+cp -a "$RUN_ROOT/results" "$RUN_ROOT/runtime" "$RUN_ROOT/config" "$RUN_ROOT/prepared" "$DURABLE_STAGE/"
+cp "$RUN_ROOT/exact-server-command.txt" "$RUN_ROOT/SHA256SUMS" "$DURABLE_STAGE/"
+[[ -f $RUN_ROOT/proxy-usage.jsonl ]] && cp "$RUN_ROOT/proxy-usage.jsonl" "$DURABLE_STAGE/"
+[[ -f $RUN_ROOT/donor-response.json ]] && cp "$RUN_ROOT/donor-response.json" "$DURABLE_STAGE/"
+cp "$RUN_ROOT/logs/server.log" "$RUN_ROOT/logs/proxy.log" "$DURABLE_STAGE/"
+(cd "$DURABLE_STAGE" && find . -type f -not -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+chmod -R a-w "$DURABLE_STAGE"
+mv "$DURABLE_STAGE" "$DURABLE_ROOT"
+printf 'DURABLE_ACCURACY_OUTPUT=%s\n' "$DURABLE_ROOT"
 printf 'COMPLETED_CROSS_ENVIRONMENT_UNSAFE_ABLATION=%s\n' "$RUN_ROOT"

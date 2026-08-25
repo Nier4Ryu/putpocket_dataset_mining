@@ -3,18 +3,23 @@ set -euo pipefail
 umask 077
 
 fail() { printf 'BLOCKED_%s\n' "$1" >&2; exit "${2:-20}"; }
-for name in PUTPOCKET_PACKAGE_ROOT PUTPOCKET_BASELINE_CAPTURE_ROOT PUTPOCKET_EDITED_CAPTURE_ROOT PUTPOCKET_DONOR_PROMPT_TOKENS PUTPOCKET_EDITED_PROMPT_TOKENS; do
+for name in PUTPOCKET_PACKAGE_ROOT PUTPOCKET_CAPTURE_INPUT_ROOT PUTPOCKET_EPISODE_ROOT PUTPOCKET_DURABLE_OUTPUT_ROOT; do
   [[ -n ${!name:-} ]] || fail "ENV_${name}_MISSING"
 done
 
 PACKAGE=$(realpath "$PUTPOCKET_PACKAGE_ROOT")
-BASELINE=$(realpath "$PUTPOCKET_BASELINE_CAPTURE_ROOT")
-EDITED=$(realpath "$PUTPOCKET_EDITED_CAPTURE_ROOT")
-DONOR=$(realpath "$PUTPOCKET_DONOR_PROMPT_TOKENS")
-EDITED_PROMPT=$(realpath "$PUTPOCKET_EDITED_PROMPT_TOKENS")
-[[ -f $PACKAGE/PACKAGE-MANIFEST.json && -f $PACKAGE/SHA256SUMS ]] || fail PACKAGE_MANIFEST_MISSING
-(cd "$PACKAGE" && sha256sum -c SHA256SUMS) >/dev/null || fail PACKAGE_DIGEST_MISMATCH
-[[ -d $BASELINE && -d $EDITED && -f $DONOR && -f $EDITED_PROMPT ]] || fail INPUT_ARTIFACT_MISSING
+INPUTS=$(realpath "$PUTPOCKET_CAPTURE_INPUT_ROOT")
+EPISODE_PARENT=$(realpath "$(dirname "$PUTPOCKET_EPISODE_ROOT")")
+EPISODE="$EPISODE_PARENT/$(basename "$PUTPOCKET_EPISODE_ROOT")"
+DURABLE=$(realpath "$PUTPOCKET_DURABLE_OUTPUT_ROOT")
+[[ ! -e $EPISODE ]] || fail EPISODE_ROOT_ALREADY_EXISTS
+[[ -f $PACKAGE/PACKAGE-MANIFEST.json && -f $PACKAGE/STATEFUL-EDIT-V3-MANIFEST.json && -f $PACKAGE/SHA256SUMS ]] || fail PACKAGE_MANIFEST_MISSING
+(cd "$PACKAGE" && sha256sum --check SHA256SUMS >/dev/null) || fail PACKAGE_DIGEST_MISMATCH
+[[ -d $INPUTS/baseline && -d $INPUTS/edited ]] || fail CAPTURE_PAIR_MISSING
+for relative in donor-prompt-token-ids.json edited-prompt-token-ids.json selector/selector.json SHA256SUMS; do
+  [[ -f $INPUTS/$relative ]] || fail CAPTURE_INPUT_INCOMPLETE
+done
+(cd "$INPUTS" && sha256sum --check SHA256SUMS >/dev/null) || fail CAPTURE_INPUT_DIGEST_MISMATCH
 
 PARTITION=H200
 ACCOUNT=gsai-account
@@ -27,7 +32,7 @@ WORK_ROOT=/local-data/user-data/jslee202403/putpocket-glm52-forced-reuse
 ARTIFACT_ROOT="$WORK_ROOT/artifacts"
 RUNNER="$PACKAGE/scripts/cluster/run_glm52_forced_reuse_ablation.sh"
 [[ -x $RUNNER ]] || fail RUNNER_NOT_EXECUTABLE
-mkdir -p "$LOG_ROOT"
+mkdir -p "$LOG_ROOT" "$DURABLE"
 
 exports=(
   "PUTPOCKET_PACKAGE_ROOT=$PACKAGE"
@@ -37,28 +42,36 @@ exports=(
   "PUTPOCKET_H200_STORAGE_PARENT=$STORAGE_PARENT"
   "PUTPOCKET_H200_WORK_ROOT=$WORK_ROOT"
   "PUTPOCKET_RUN_ARTIFACT_ROOT=$ARTIFACT_ROOT"
-  "PUTPOCKET_BASELINE_CAPTURE_ROOT=$BASELINE"
-  "PUTPOCKET_EDITED_CAPTURE_ROOT=$EDITED"
-  "PUTPOCKET_DONOR_PROMPT_TOKENS=$DONOR"
-  "PUTPOCKET_EDITED_PROMPT_TOKENS=$EDITED_PROMPT"
+  "PUTPOCKET_CAPTURE_INPUT_ROOT=$INPUTS"
+  "PUTPOCKET_EPISODE_ROOT=$EPISODE"
+  "PUTPOCKET_DURABLE_OUTPUT_ROOT=$DURABLE"
   "PUTPOCKET_UNSAFE_FORCED_REUSE_ACK=I_UNDERSTAND_ZERO_SAFE_PAGES"
 )
 export_csv=$(IFS=,; printf '%s' "${exports[*]}")
 
-SMOKE_JOB_ID=$(sbatch --parsable --job-name=pp-glm52-reuse-smoke \
+EPISODE_JOB_ID=$(sbatch --parsable --job-name=pp-glm52-episode-v3 \
   --partition="$PARTITION" --account="$ACCOUNT" --qos="$QOS" \
-  --nodes=1 --ntasks=1 --gres=gpu:H200:4 --cpus-per-task=32 --mem=512G --time=06:00:00 \
+  --nodes=1 --ntasks=1 --gres=gpu:H200:4 --cpus-per-task=32 --mem=512G --time=12:00:00 \
+  --output="$LOG_ROOT/%x-%j.out" --error="$LOG_ROOT/%x-%j.err" \
+  --export="$export_csv,PUTPOCKET_SWEEP_PROFILE=episode" "$RUNNER")
+[[ $EPISODE_JOB_ID =~ ^[0-9]+$ ]] || fail EPISODE_SBATCH_RESPONSE_INVALID
+
+SMOKE_JOB_ID=$(sbatch --parsable --job-name=pp-glm52-edit-smoke \
+  --partition="$PARTITION" --account="$ACCOUNT" --qos="$QOS" \
+  --nodes=1 --ntasks=1 --gres=gpu:H200:4 --cpus-per-task=32 --mem=512G --time=16:00:00 \
+  --dependency="afterok:$EPISODE_JOB_ID" --kill-on-invalid-dep=yes \
   --output="$LOG_ROOT/%x-%j.out" --error="$LOG_ROOT/%x-%j.err" \
   --export="$export_csv,PUTPOCKET_SWEEP_PROFILE=smoke" "$RUNNER")
 [[ $SMOKE_JOB_ID =~ ^[0-9]+$ ]] || fail SMOKE_SBATCH_RESPONSE_INVALID
 
-FULL_JOB_ID=$(sbatch --parsable --job-name=pp-glm52-reuse-full \
+FULL_JOB_ID=$(sbatch --parsable --job-name=pp-glm52-edit-full \
   --partition="$PARTITION" --account="$ACCOUNT" --qos="$QOS" \
-  --nodes=1 --ntasks=1 --gres=gpu:H200:4 --cpus-per-task=32 --mem=512G --time=06:00:00 \
+  --nodes=1 --ntasks=1 --gres=gpu:H200:4 --cpus-per-task=32 --mem=512G --time=48:00:00 \
   --dependency="afterok:$SMOKE_JOB_ID" --kill-on-invalid-dep=yes \
   --output="$LOG_ROOT/%x-%j.out" --error="$LOG_ROOT/%x-%j.err" \
   --export="$export_csv,PUTPOCKET_SWEEP_PROFILE=full" "$RUNNER")
 [[ $FULL_JOB_ID =~ ^[0-9]+$ ]] || fail FULL_SBATCH_RESPONSE_INVALID
 
-printf 'SMOKE_JOB_ID=%s\nFULL_JOB_ID=%s\nDEPENDENCY=afterok:%s\n' "$SMOKE_JOB_ID" "$FULL_JOB_ID" "$SMOKE_JOB_ID"
-squeue --jobs="$SMOKE_JOB_ID,$FULL_JOB_ID" --noheader --Format=JobID:20,Partition:16,State:16,ReasonList:80,NodeList:40
+printf 'EPISODE_JOB_ID=%s\nSMOKE_JOB_ID=%s\nFULL_JOB_ID=%s\nSMOKE_DEPENDENCY=afterok:%s\nFULL_DEPENDENCY=afterok:%s\n' \
+  "$EPISODE_JOB_ID" "$SMOKE_JOB_ID" "$FULL_JOB_ID" "$EPISODE_JOB_ID" "$SMOKE_JOB_ID"
+squeue --jobs="$EPISODE_JOB_ID,$SMOKE_JOB_ID,$FULL_JOB_ID" --noheader --Format=JobID:20,Partition:16,State:16,ReasonList:80,NodeList:40

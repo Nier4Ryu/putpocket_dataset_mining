@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
-  "experiment_id": "glm52_sr_cc_1_forced_edit_reuse_ratio_ablation_20260825",
-  "status": "unsafe_cross_environment_research_ablation_default_off",
+  "schema_version": 2,
+  "experiment_id": "glm52_sr_cc_1_stateful_mid_trajectory_edit_v3_20260826",
+  "status": "unsafe_stateful_mid_trajectory_edit_accuracy_ablation_default_off",
   "production_default_enabled": false,
   "unsafe_acknowledgement": "I_UNDERSTAND_ZERO_SAFE_PAGES",
   "source": {
@@ -12,7 +12,7 @@
     "patch": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_forced_edit_reuse.patch",
     "patch_sha256": "7f65cf6d0e7c3ff575506ad2d8b1a61f5526145971d41ba0e5e1e4db3bf1433e",
     "instrumentation": "instrumentation/vllm/glm52_forced_edit_reuse.py",
-    "instrumentation_sha256": "c705486af61739a1ddf2530c12185700a177b7ec3994062ed468e4cf89e5b13a",
+    "instrumentation_sha256": "d3bb32c706e902931c2a19948ed56ba9aac03a8fc86c591a7ebaba2fcdf65c1b",
     "base_and_post_sha256": {
       "vllm/model_executor/layers/attention/mla_attention.py": [
         "968a75237e127fa2b26464d7918192cd7b2ffe9cc51ae9c5e568d08136814ffd",
@@ -39,11 +39,13 @@
     "kv_cache_dtype": "bfloat16",
     "tensor_parallel": 4,
     "pipeline_parallel": 1,
-    "max_model_len": 4096,
+    "max_model_len": 65536,
+    "max_num_batched_tokens": 65536,
     "max_num_seqs": 1,
     "cpu_offload_gb": 0,
     "nvme_offload": false,
     "prefix_cache": false,
+    "chunked_prefill": false,
     "tokenizer_sha256": {
       "tokenizer.json": "19e773648cb4e65de8660ea6365e10acca112d42a854923df93db4a6f333a82d",
       "tokenizer_config.json": "77af7d4769cd62c107b90495cac9b0ba81573c86486821bfba2980c04285ec7a",
@@ -52,22 +54,23 @@
   },
   "scenario": {
     "instance_id": "instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
-    "prompt_token_count": 2071,
+    "base_prompt_token_count": 2071,
     "edit_position": 114,
     "old_token_id": 17526,
     "new_token_id": 11660,
-    "downstream_range": [115, 2071],
-    "downstream_denominator": 1956,
+    "trajectory": {
+      "kind": "frozen_old_system_turn1_then_new_system_continuation",
+      "event_sequence": "SYS_old+Q1 -> frozen A1/action/Q2; edit; SYS_new+Q1+A1+Q2 -> continuation",
+      "history_token_count": "dynamic and frozen before ratio outcomes",
+      "eligible_range": "[115, history_token_count), including frozen A1",
+      "q2_and_later_extensions": "always recomputed",
+      "fresh_repository_container_per_ratio": true,
+      "frozen_q2_exact_match_required": true
+    },
     "same_length": true,
     "absolute_rope_positions_unchanged": true,
     "insertion_deletion_supported": false,
-    "completion": {
-      "temperature": 0,
-      "top_p": 1,
-      "seed": 0,
-      "max_tokens": 512,
-      "return_token_ids": true
-    }
+    "completion_temperature": 0
   },
   "transplanted_state": {
     "real_block_size": 64,
@@ -84,22 +87,43 @@
   "selector": {
     "status_required": "attested_before_benchmark_outcomes",
     "ratios_percent": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-    "ratio_counts": [0, 195, 391, 586, 782, 978, 1173, 1369, 1564, 1760, 1956],
-    "algorithm": "lexicographic_worst_case_layer_query_stability_v1",
+    "ratio_count_rule": "floor((history_token_count - 115) * ratio_percent / 100)",
+    "algorithm": "base_dsa_rank_interleaved_with_frozen_a1_hash_quantiles_v1",
+    "base_selector_algorithm": "lexicographic_prefill_only_layer_stability_v2",
+    "base_selector_frozen_before_episode": true,
+    "a1_order_frozen_before_ratio_outcomes": true,
+    "a1_order_limitation": "deterministic SHA-256 quantiles because native full-history A1 DSA capture is unavailable",
+    "ratio_denominator_includes_a1": true,
     "global_raw_score_threshold": false,
-    "requires_all_21_layers_all_5_capture_points_all_tp_ranks": true,
+    "requires_all_21_layers_prefill_capture_all_tp_ranks": true,
     "fail_closed_nonfinite_missing_or_tp_raw_disagreement": true
   },
   "predeclared_analysis": {
     "actual_reuse_required_for_ratio_gt_zero": true,
     "minimum_runtime_layer_products_per_tp_rank": 99,
     "exact_output_equality_reported_not_required_due_observed_full_recompute_nondeterminism": true,
-    "benchmark_primary_metric": "official_SWE-bench_Pro_instance_resolved_boolean_and_pass_rate",
+    "benchmark_primary_metric": "pinned_single_SWE-bench_Pro_instance_official_resolved_boolean_after_mid_trajectory_edit",
     "logit_secondary_thresholds_if_comparable_full_vocabulary_logits_are_available": {
       "kl_max": 0.000001,
       "max_raw_logit_error": 0.0001
     },
-    "no_speedup_claim_from_single_sweep": true
+    "hybrid_state_semantics": "full target KV is computed, then selected frozen-history rows are overwritten from donor snapshots",
+    "no_speedup_claim": true,
+    "no_skipped_flop_claim": true,
+    "no_true_partial_prefill_claim": true,
+    "latency_is_not_an_outcome": true,
+    "ratio_0_and_10_smoke_must_pass_before_full_sweep": true
+  },
+  "stateful_edit_contract": {
+    "turn_1_system": "old",
+    "turn_1_response_generated_once": true,
+    "turn_1_action_executed_once_for_freeze": true,
+    "turn_1_response_replayed_exactly_once_per_ratio": true,
+    "system_edit_before_first_post_edit_model_call": true,
+    "frozen_observation_attested_before_forward": true,
+    "edit_token_never_reused": true,
+    "post_edit_extensions_never_reused": true,
+    "official_evaluator_required_per_ratio": true
   },
   "submission": {
     "accelerator": "H200",
@@ -111,6 +135,8 @@
     "sm": 90,
     "smoke_ratios": [0, 10],
     "full_ratios": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+    "episode_dependency": "immutable prefill capture inputs",
+    "smoke_dependency": "afterok:episode_job_id",
     "full_dependency": "afterok:smoke_job_id",
     "login_node_heavy_work": false
   }

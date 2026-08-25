@@ -1,0 +1,184 @@
+schema_version: 1
+scenario_id: swebench-stateful-edit-authoring-example-v1
+status: authoring_example_not_executable
+
+# Synthetic coordinates and placeholder identities make this a copyable authoring
+# example, not a runnable benchmark manifest. Replace and freeze every value before
+# observing A2 or an evaluator outcome.
+benchmark:
+  family: swe_bench
+  dataset_id: princeton-nlp/SWE-bench_Verified
+  dataset_revision: authoring-revision-placeholder
+  split: test
+  instance_id: project__project-1234
+  official_evaluator:
+    repository: swe-bench/SWE-bench
+    commit: "1111111111111111111111111111111111111111"
+    entrypoint: python -m swebench.harness.run_evaluation
+
+source_state:
+  repository: https://example.invalid/project/project.git
+  base_commit: "2222222222222222222222222222222222222222"
+  container_image_digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+  clean_repository_required: true
+  fresh_repository_container_per_method_budget: true
+
+generation:
+  model_id: model-neutral-chat-model-placeholder
+  model_revision: pinned-model-revision-placeholder
+  agent_implementation_id: model-neutral-swe-agent-placeholder
+  agent_implementation_sha256: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+  serializer_id: declared-chat-and-tool-serializer
+  serializer_revision: pinned-serializer-revision-placeholder
+  decoding:
+    canonical_config_sha256: "bcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789a"
+    seed: 42
+    deterministic_requested: true
+  tool_protocol_id: declared-bounded-shell-tool
+  tool_protocol_revision: pinned-tool-protocol-revision-placeholder
+
+episode:
+  construction_order:
+    - sys_old_plus_q1_to_a1
+    - execute_frozen_a1
+    - freeze_q2
+    - apply_system_edit
+    - patch_frozen_history_cache
+    - prefill_q2_then_continue_a2
+  q1:
+    source: public_issue_text_and_permitted_instance_metadata
+    canonical_message_sha256: "4444444444444444444444444444444444444444444444444444444444444444"
+  sys_old:
+    source: scenario/sys_old.txt
+    canonical_message_sha256: "5555555555555555555555555555555555555555555555555555555555555555"
+  sys_new:
+    source: scenario/sys_new.txt
+    canonical_message_sha256: "6666666666666666666666666666666666666666666666666666666666666666"
+  a1:
+    generated_once: true
+    backend_response_sha256: "7777777777777777777777777777777777777777777777777777777777777777"
+    message_sha256: "8888888888888888888888888888888888888888888888888888888888888888"
+    tool_action_sha256: "9999999999999999999999999999999999999999999999999999999999999999"
+    tool_action_count: 1
+  q2:
+    kind: frozen_pre_edit_tool_observation
+    frozen_before_edit: true
+    message_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    tool_result_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    repository_state_sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    included_in_first_post_edit_request: true
+    has_old_trajectory_kv: false
+  exact_replay_across_methods_budgets: true
+  selector_frozen_before_a2_or_outcomes: true
+
+tokenization:
+  tokenizer_id: model-neutral-tokenizer-placeholder
+  tokenizer_revision: pinned-revision-placeholder
+  chat_template_sha256: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+  frozen_history:
+    messages: [sys, q1, a1]
+    history_token_count: 16
+    donor_token_ids_sha256: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+    edited_token_ids_sha256: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+  first_post_edit_request_token_ids_sha256: "cdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789ab"
+  edit:
+    message_path: sys
+    old_utf8_span: [48, 60]
+    new_utf8_span: [48, 60]
+    mapping_kind: same_length_same_position
+    positions: [5]
+    old_token_ids: [101]
+    new_token_ids: [202]
+    alignment_sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    rope_treatment: positions_unchanged
+  mandatory_recompute_positions: [5]
+  mandatory_recompute_reason: edited token; no additional implementation closure in this example
+  eligible_downstream_history_range: [6, 16]
+  q2_token_range_in_first_post_edit_request: [16, 20]
+  first_genuinely_later_token_position: 20
+
+selector:
+  ranked_quantity: importance_for_recompute
+  score_direction: higher_score_first
+  source_provenance:
+    method: native_indexer_edit_sensitivity
+    capture_stage: frozen_history_before_a2_or_outcome
+    artifact_sha256: "123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0"
+    outcome_independent: true
+    coverage: all declared layers, products, query groups, and parallel ranks
+    direction_normalization: native score already means greater edit sensitivity
+  aggregation: mean across declared layer-product-query-rank axes
+  deterministic_tie_break: [importance_score_desc, absolute_position_asc]
+  selection_order_positions: [10, 7, 14, 6, 12, 8, 15, 9, 13, 11]
+  selection_order_sha256: a0bc32ba6c5f62cf7979252e8766ca5857c2d3b7c3676097108c8133ee4095d2
+  frozen_before_a2_or_outcomes: true
+
+# Mandatory position 5 is recomputed at every budget and is excluded from these
+# complementary ratios. The ordered lists, not the ratio names, are authoritative.
+budgets:
+  - budget_id: recompute-000
+    recompute_count: 0
+    selected_recompute_positions_in_selection_order: []
+    selected_recompute_positions_sorted: []
+    retained_old_kv_positions_sorted: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    selected_recompute_positions_in_selection_order_sha256: 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+    selected_recompute_positions_sorted_sha256: 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+    retained_old_kv_positions_sorted_sha256: 1c39b878fb2b2c0b441d396fc967a9446d513b6833f57b12ea860392621d6165
+    complement_attested: true
+    recompute_ratio: 0.0
+    reuse_ratio: 1.0
+  - budget_id: recompute-030
+    recompute_count: 3
+    selected_recompute_positions_in_selection_order: [10, 7, 14]
+    selected_recompute_positions_sorted: [7, 10, 14]
+    retained_old_kv_positions_sorted: [6, 8, 9, 11, 12, 13, 15]
+    selected_recompute_positions_in_selection_order_sha256: 1276347d80791ca1f0cb6f0b01b191cd86ae9cbcf36c0b9f403a9ccef00a6b1d
+    selected_recompute_positions_sorted_sha256: a618e3b1fc5b60a05d0a8fbffffe1af13f1409f72e8aeaabe97038fd28919333
+    retained_old_kv_positions_sorted_sha256: 57ea1bc8e619bb43cf00d7079da254de5dcab521b511ee6cdd02657ff7a257d8
+    complement_attested: true
+    recompute_ratio: 0.3
+    reuse_ratio: 0.7
+  - budget_id: recompute-100
+    recompute_count: 10
+    selected_recompute_positions_in_selection_order: [10, 7, 14, 6, 12, 8, 15, 9, 13, 11]
+    selected_recompute_positions_sorted: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    retained_old_kv_positions_sorted: []
+    selected_recompute_positions_in_selection_order_sha256: a0bc32ba6c5f62cf7979252e8766ca5857c2d3b7c3676097108c8133ee4095d2
+    selected_recompute_positions_sorted_sha256: 1c39b878fb2b2c0b441d396fc967a9446d513b6833f57b12ea860392621d6165
+    retained_old_kv_positions_sorted_sha256: 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+    complement_attested: true
+    recompute_ratio: 1.0
+    reuse_ratio: 0.0
+
+runtime:
+  backend_kind: true_selective_prefill
+  baseline_cache: existing_old_trajectory_kv
+  selected_recompute_disposition: recompute_under_sys_new_and_patch_existing_cache
+  unselected_disposition: retain_or_restore_old_kv
+  q2_and_later_tokens_run_normally: true
+  true_selective_prefill_claim: true
+  compute_saving_claim: true
+  layer_product_rank_slot_evidence_required: true
+
+# For a full-target-prefill/donor-overwrite reference, change backend_kind to
+# accuracy_emulation_compute_then_overwrite and set both claim fields false.
+evaluation:
+  official_evaluator_only: true
+  fresh_repository_container_per_method_budget: true
+  a1_q2_replay_attested: true
+  one_complete_result_per_budget: true
+
+evidence:
+  required_artifacts:
+    - frozen_episode_manifest
+    - canonical_messages_and_token_arrays
+    - edit_alignment_and_position_sets
+    - a1_backend_message_and_tool_action
+    - q2_tool_result_and_post_a1_repository_attestation
+    - selector_scores_order_and_budget_sets
+    - backend_layer_product_rank_slot_evidence
+    - complete_agent_trajectory_and_generated_patch
+    - official_evaluator_logs_and_result
+  checksum_manifest: scenario/checksums.sha256
+  checksum_algorithm: sha256
+  structured_digest_canonicalization: RFC_8785_JCS_UTF8

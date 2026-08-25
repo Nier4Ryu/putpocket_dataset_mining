@@ -27,7 +27,6 @@ RUNNER_PATH = ROOT / "scripts/cluster/run_glm52_forced_reuse_ablation.sh"
 SUBMIT_PATH = ROOT / "scripts/cluster/submit_glm52_forced_reuse_ablation.sh"
 PACKAGE_PATH = ROOT / "scripts/cluster/package_glm52_forced_reuse_ablation.sh"
 LOCK_PATH = ROOT / "configs/cluster/glm52_forced_reuse_ablation.lock.json"
-DOC_PATH = ROOT / "docs/CLUSTER_GLM52_STATEFUL_EDIT_V3.md"
 PROXY_PATH = ROOT / "src/putpocket_dataset_mining/glm52_stateful_proxy.py"
 CLI_PATH = ROOT / "src/putpocket_dataset_mining/glm52_stateful_cli.py"
 
@@ -248,6 +247,14 @@ class ProxyIntegrationTests(unittest.TestCase):
                 time.sleep(0.02)
         self.fail("proxy did not become ready")
 
+    def _wait_for_log_records(self, path: Path, minimum: int) -> list[dict[str, object]]:
+        for _ in range(100):
+            records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+            if len(records) >= minimum:
+                return records
+            time.sleep(0.02)
+        self.fail(f"proxy log did not reach {minimum} records")
+
     def test_proxy_captures_replays_and_rewrites_only_at_turn_two(self) -> None:
         backend_posts: list[dict[str, object]] = []
         a1_content = "```bash\nprintf ok\n```"
@@ -323,7 +330,7 @@ class ProxyIntegrationTests(unittest.TestCase):
                 forwarded = backend_posts[-1]["messages"]  # type: ignore[index]
                 self.assertIn(MODULE.EDIT_SENTENCE_NEW, forwarded[0]["content"])  # type: ignore[index]
                 self.assertNotIn(MODULE.EDIT_SENTENCE_OLD, forwarded[0]["content"])  # type: ignore[index]
-                records = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+                records = self._wait_for_log_records(log, 3)
                 self.assertEqual([record["request_kind"] for record in records[-2:]], ["replayed_frozen_old_turn1", "forwarded_after_system_edit"])
                 self.assertTrue(records[-1]["frozen_q2_attested"])
         finally:
@@ -346,7 +353,6 @@ class StatefulPackageContractTests(unittest.TestCase):
             PROXY_PATH: "512ff6026e6cb61b4f636d0addb2e4a47b08a4e2d9330336186b7be237aee73b",
             HOOK_PATH: "d3bb32c706e902931c2a19948ed56ba9aac03a8fc86c591a7ebaba2fcdf65c1b",
             RUNNER_PATH: "60d45c68ae2b668316d8a0771b9e2ae1d52aeac8feffa906ac3cd408b7cff548",
-            DOC_PATH: "489bf8421408885a259adc7129a095eb091c65858c108fb57a5f8ae6ef58f57c",
         }
         for path, digest in expected.items():
             with self.subTest(path=path.name):

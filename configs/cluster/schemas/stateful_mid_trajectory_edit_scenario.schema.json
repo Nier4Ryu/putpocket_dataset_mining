@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/stateful-mid-trajectory-edit-scenario-v1.json",
+  "title": "Model-neutral stateful mid-trajectory edit scenario",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "scenario_id",
+    "status",
+    "benchmark",
+    "source_state",
+    "generation",
+    "episode",
+    "tokenization",
+    "selector",
+    "budgets",
+    "runtime",
+    "evaluation",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "scenario_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]+$"},
+    "status": {"enum": ["authoring_example_not_executable", "frozen_before_outcomes"]},
+    "benchmark": {"$ref": "#/$defs/benchmark"},
+    "source_state": {"$ref": "#/$defs/source_state"},
+    "generation": {"$ref": "#/$defs/generation"},
+    "episode": {"$ref": "#/$defs/episode"},
+    "tokenization": {"$ref": "#/$defs/tokenization"},
+    "selector": {"$ref": "#/$defs/selector"},
+    "budgets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/budget"}
+    },
+    "runtime": {"$ref": "#/$defs/runtime"},
+    "evaluation": {"$ref": "#/$defs/evaluation"},
+    "evidence": {"$ref": "#/$defs/evidence"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "position_array": {
+      "type": "array",
+      "items": {"type": "integer", "minimum": 0},
+      "uniqueItems": true
+    },
+    "nonempty_position_array": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "integer", "minimum": 0},
+      "uniqueItems": true
+    },
+    "half_open_range": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": 0},
+        {"type": "integer", "minimum": 1}
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "benchmark": {
+      "type": "object",
+      "required": ["family", "dataset_id", "dataset_revision", "split", "instance_id", "official_evaluator"],
+      "properties": {
+        "family": {"enum": ["swe_bench", "swe_bench_pro"]},
+        "dataset_id": {"type": "string", "minLength": 1},
+        "dataset_revision": {"type": "string", "minLength": 7},
+        "split": {"type": "string", "minLength": 1},
+        "instance_id": {"type": "string", "minLength": 1},
+        "official_evaluator": {
+          "type": "object",
+          "required": ["repository", "commit", "entrypoint"],
+          "properties": {
+            "repository": {"type": "string", "minLength": 1},
+            "commit": {"$ref": "#/$defs/git_commit"},
+            "entrypoint": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_state": {
+      "type": "object",
+      "required": ["repository", "base_commit", "container_image_digest", "clean_repository_required", "fresh_repository_container_per_method_budget"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "base_commit": {"$ref": "#/$defs/git_commit"},
+        "container_image_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "clean_repository_required": {"const": true},
+        "fresh_repository_container_per_method_budget": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "generation": {
+      "type": "object",
+      "required": ["model_id", "model_revision", "agent_implementation_id", "agent_implementation_sha256", "serializer_id", "serializer_revision", "decoding", "tool_protocol_id", "tool_protocol_revision"],
+      "properties": {
+        "model_id": {"type": "string", "minLength": 1},
+        "model_revision": {"type": "string", "minLength": 7},
+        "agent_implementation_id": {"type": "string", "minLength": 1},
+        "agent_implementation_sha256": {"$ref": "#/$defs/sha256"},
+        "serializer_id": {"type": "string", "minLength": 1},
+        "serializer_revision": {"type": "string", "minLength": 7},
+        "decoding": {
+          "type": "object",
+          "required": ["canonical_config_sha256", "seed", "deterministic_requested"],
+          "properties": {
+            "canonical_config_sha256": {"$ref": "#/$defs/sha256"},
+            "seed": {"type": "integer"},
+            "deterministic_requested": {"const": true}
+          },
+          "additionalProperties": false
+        },
+        "tool_protocol_id": {"type": "string", "minLength": 1},
+        "tool_protocol_revision": {"type": "string", "minLength": 7}
+      },
+      "additionalProperties": false
+    },
+    "episode": {
+      "type": "object",
+      "required": ["construction_order", "q1", "sys_old", "sys_new", "a1", "q2", "exact_replay_across_methods_budgets", "selector_frozen_before_a2_or_outcomes"],
+      "properties": {
+        "construction_order": {
+          "const": ["sys_old_plus_q1_to_a1", "execute_frozen_a1", "freeze_q2", "apply_system_edit", "patch_frozen_history_cache", "prefill_q2_then_continue_a2"]
+        },
+        "q1": {"$ref": "#/$defs/frozen_message"},
+        "sys_old": {"$ref": "#/$defs/frozen_message"},
+        "sys_new": {"$ref": "#/$defs/frozen_message"},
+        "a1": {
+          "type": "object",
+          "required": ["generated_once", "backend_response_sha256", "message_sha256", "tool_action_sha256", "tool_action_count"],
+          "properties": {
+            "generated_once": {"const": true},
+            "backend_response_sha256": {"$ref": "#/$defs/sha256"},
+            "message_sha256": {"$ref": "#/$defs/sha256"},
+            "tool_action_sha256": {"$ref": "#/$defs/sha256"},
+            "tool_action_count": {"type": "integer", "minimum": 1}
+          },
+          "additionalProperties": false
+        },
+        "q2": {
+          "type": "object",
+          "required": ["kind", "frozen_before_edit", "message_sha256", "tool_result_sha256", "repository_state_sha256", "included_in_first_post_edit_request", "has_old_trajectory_kv"],
+          "properties": {
+            "kind": {"const": "frozen_pre_edit_tool_observation"},
+            "frozen_before_edit": {"const": true},
+            "message_sha256": {"$ref": "#/$defs/sha256"},
+            "tool_result_sha256": {"$ref": "#/$defs/sha256"},
+            "repository_state_sha256": {"$ref": "#/$defs/sha256"},
+            "included_in_first_post_edit_request": {"const": true},
+            "has_old_trajectory_kv": {"const": false}
+          },
+          "additionalProperties": false
+        },
+        "exact_replay_across_methods_budgets": {"const": true},
+        "selector_frozen_before_a2_or_outcomes": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "frozen_message": {
+      "type": "object",
+      "required": ["source", "canonical_message_sha256"],
+      "properties": {
+        "source": {"type": "string", "minLength": 1},
+        "canonical_message_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "tokenization": {
+      "type": "object",
+      "required": ["tokenizer_id", "tokenizer_revision", "chat_template_sha256", "frozen_history", "first_post_edit_request_token_ids_sha256", "edit", "mandatory_recompute_positions", "mandatory_recompute_reason", "eligible_downstream_history_range", "q2_token_range_in_first_post_edit_request", "first_genuinely_later_token_position"],
+      "properties": {
+        "tokenizer_id": {"type": "string", "minLength": 1},
+        "tokenizer_revision": {"type": "string", "minLength": 1},
+        "chat_template_sha256": {"$ref": "#/$defs/sha256"},
+        "frozen_history": {
+          "type": "object",
+          "required": ["messages", "history_token_count", "donor_token_ids_sha256", "edited_token_ids_sha256"],
+          "properties": {
+            "messages": {"const": ["sys", "q1", "a1"]},
+            "history_token_count": {"type": "integer", "minimum": 1},
+            "donor_token_ids_sha256": {"$ref": "#/$defs/sha256"},
+            "edited_token_ids_sha256": {"$ref": "#/$defs/sha256"}
+          },
+          "additionalProperties": false
+        },
+        "first_post_edit_request_token_ids_sha256": {"$ref": "#/$defs/sha256"},
+        "edit": {
+          "type": "object",
+          "required": ["message_path", "old_utf8_span", "new_utf8_span", "mapping_kind", "positions", "old_token_ids", "new_token_ids", "alignment_sha256", "rope_treatment"],
+          "properties": {
+            "message_path": {"const": "sys"},
+            "old_utf8_span": {"$ref": "#/$defs/half_open_range"},
+            "new_utf8_span": {"$ref": "#/$defs/half_open_range"},
+            "mapping_kind": {"enum": ["same_length_same_position", "explicit_old_to_new_position_map"]},
+            "positions": {"$ref": "#/$defs/nonempty_position_array"},
+            "old_token_ids": {"type": "array", "minItems": 1, "items": {"type": "integer", "minimum": 0}},
+            "new_token_ids": {"type": "array", "minItems": 1, "items": {"type": "integer", "minimum": 0}},
+            "alignment_sha256": {"$ref": "#/$defs/sha256"},
+            "rope_treatment": {"enum": ["positions_unchanged", "validated_position_correction", "unsupported_fail_closed"]}
+          },
+          "additionalProperties": false
+        },
+        "mandatory_recompute_positions": {"$ref": "#/$defs/nonempty_position_array"},
+        "mandatory_recompute_reason": {"type": "string", "minLength": 1},
+        "eligible_downstream_history_range": {"$ref": "#/$defs/half_open_range"},
+        "q2_token_range_in_first_post_edit_request": {"$ref": "#/$defs/half_open_range"},
+        "first_genuinely_later_token_position": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "selector": {
+      "type": "object",
+      "required": ["ranked_quantity", "score_direction", "source_provenance", "aggregation", "deterministic_tie_break", "selection_order_positions", "selection_order_sha256", "frozen_before_a2_or_outcomes"],
+      "properties": {
+        "ranked_quantity": {"const": "importance_for_recompute"},
+        "score_direction": {"const": "higher_score_first"},
+        "source_provenance": {
+          "type": "object",
+          "required": ["method", "capture_stage", "artifact_sha256", "outcome_independent", "coverage", "direction_normalization"],
+          "properties": {
+            "method": {"type": "string", "minLength": 1},
+            "capture_stage": {"type": "string", "minLength": 1},
+            "artifact_sha256": {"$ref": "#/$defs/sha256"},
+            "outcome_independent": {"const": true},
+            "coverage": {"type": "string", "minLength": 1},
+            "direction_normalization": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        "aggregation": {"type": "string", "minLength": 1},
+        "deterministic_tie_break": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "selection_order_positions": {"$ref": "#/$defs/nonempty_position_array"},
+        "selection_order_sha256": {"$ref": "#/$defs/sha256"},
+        "frozen_before_a2_or_outcomes": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "required": ["budget_id", "recompute_count", "selected_recompute_positions_in_selection_order", "selected_recompute_positions_sorted", "retained_old_kv_positions_sorted", "selected_recompute_positions_in_selection_order_sha256", "selected_recompute_positions_sorted_sha256", "retained_old_kv_positions_sorted_sha256", "complement_attested", "recompute_ratio", "reuse_ratio"],
+      "properties": {
+        "budget_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]+$"},
+        "recompute_count": {"type": "integer", "minimum": 0},
+        "selected_recompute_positions_in_selection_order": {"$ref": "#/$defs/position_array"},
+        "selected_recompute_positions_sorted": {"$ref": "#/$defs/position_array"},
+        "retained_old_kv_positions_sorted": {"$ref": "#/$defs/position_array"},
+        "selected_recompute_positions_in_selection_order_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_recompute_positions_sorted_sha256": {"$ref": "#/$defs/sha256"},
+        "retained_old_kv_positions_sorted_sha256": {"$ref": "#/$defs/sha256"},
+        "complement_attested": {"const": true},
+        "recompute_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+        "reuse_ratio": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["backend_kind", "baseline_cache", "selected_recompute_disposition", "unselected_disposition", "q2_and_later_tokens_run_normally", "true_selective_prefill_claim", "compute_saving_claim", "layer_product_rank_slot_evidence_required"],
+      "properties": {
+        "backend_kind": {"enum": ["true_selective_prefill", "accuracy_emulation_compute_then_overwrite"]},
+        "baseline_cache": {"const": "existing_old_trajectory_kv"},
+        "selected_recompute_disposition": {"const": "recompute_under_sys_new_and_patch_existing_cache"},
+        "unselected_disposition": {"const": "retain_or_restore_old_kv"},
+        "q2_and_later_tokens_run_normally": {"const": true},
+        "true_selective_prefill_claim": {"type": "boolean"},
+        "compute_saving_claim": {"type": "boolean"},
+        "layer_product_rank_slot_evidence_required": {"const": true}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"backend_kind": {"const": "accuracy_emulation_compute_then_overwrite"}}},
+          "then": {
+            "properties": {
+              "true_selective_prefill_claim": {"const": false},
+              "compute_saving_claim": {"const": false}
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "evaluation": {
+      "type": "object",
+      "required": ["official_evaluator_only", "fresh_repository_container_per_method_budget", "a1_q2_replay_attested", "one_complete_result_per_budget"],
+      "properties": {
+        "official_evaluator_only": {"const": true},
+        "fresh_repository_container_per_method_budget": {"const": true},
+        "a1_q2_replay_attested": {"const": true},
+        "one_complete_result_per_budget": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["required_artifacts", "checksum_manifest", "checksum_algorithm", "structured_digest_canonicalization"],
+      "properties": {
+        "required_artifacts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "checksum_manifest": {"type": "string", "minLength": 1},
+        "checksum_algorithm": {"const": "sha256"},
+        "structured_digest_canonicalization": {"const": "RFC_8785_JCS_UTF8"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "x-putpocket-cross-field-invariants": [
+    "edit positions are a non-empty subset of mandatory recompute positions",
+    "eligible positions are the declared downstream half-open range minus mandatory recompute closure",
+    "selector selection order is a permutation of all eligible positions and is highest importance first",
+    "each budget ordered recompute list is the exact prefix of selector selection order of recompute_count",
+    "each budget sorted recompute list is the sorted form of its ordered recompute list",
+    "each retained-old-KV list is the exact eligible-set complement of the recompute list",
+    "recompute_ratio plus reuse_ratio equals one when the eligible set is non-empty",
+    "Q2 starts at frozen history end and ends at first genuinely later token position",
+    "Q2 and genuinely later positions occur in no frozen-history selector or budget set"
+  ]
+}

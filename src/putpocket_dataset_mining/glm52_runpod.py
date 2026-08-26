@@ -124,8 +124,9 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
     _require(
         layout.get("layers") == 78
         and layout.get("main_attention_heads") == 64
-        and layout.get("qk_nope_head_dim") == 128
+        and layout.get("qk_nope_head_dim") == 192
         and layout.get("qk_rope_head_dim") == 64
+        and layout.get("v_head_dim") == 256
         and layout.get("kv_lora_rank") == 512
         and layout.get("indexer_heads") == 32
         and layout.get("indexer_head_dim") == 128
@@ -300,6 +301,14 @@ def _model_config_check(model_root: Path, lock: Mapping[str, Any]) -> dict[str, 
     _require(config.get("architectures") == [runtime["architecture"]], "DOCTOR_MODEL_ARCHITECTURE_MISMATCH")
     _require(config.get("model_type") == runtime["model_type"], "DOCTOR_MODEL_TYPE_MISMATCH")
     _require(config.get("num_hidden_layers") == layout["layers"], "DOCTOR_MODEL_LAYERS_MISMATCH")
+    _require(
+        config.get("num_attention_heads") == layout["main_attention_heads"]
+        and config.get("qk_nope_head_dim") == layout["qk_nope_head_dim"]
+        and config.get("qk_rope_head_dim") == layout["qk_rope_head_dim"]
+        and config.get("v_head_dim") == layout["v_head_dim"]
+        and config.get("kv_lora_rank") == layout["kv_lora_rank"],
+        "DOCTOR_MAIN_ATTENTION_LAYOUT_MISMATCH",
+    )
     _require(config.get("index_topk") == layout["index_topk"], "DOCTOR_INDEX_TOPK_MISMATCH")
     _require(config.get("index_n_heads") == layout["indexer_heads"], "DOCTOR_INDEX_HEADS_MISMATCH")
     _require(config.get("index_head_dim") == layout["indexer_head_dim"], "DOCTOR_INDEX_HEAD_DIM_MISMATCH")

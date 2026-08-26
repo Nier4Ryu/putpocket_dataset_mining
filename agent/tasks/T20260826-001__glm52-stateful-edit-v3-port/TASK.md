@@ -112,6 +112,8 @@ validation:
   - the DeepSeek/GLM hook correction passed 76 focused tests, the full `389 passed, 2 skipped, 89 subtests` pytest suite, 291 unittests, project hash/schema/compile/shell/diff checks, and a genuinely fresh exact three-overlay source-chain validation
   - live query-sum attempt 5 reached the corrected model hook but vLLM's position-zero synthetic memory-profile batch failed the frozen-prompt count assertion before serving a request; the hook now ignores only nonmatching-count initialization/decode batches while exact-count position and token-digest mismatches remain fail-closed
   - the profile-batch correction passed 61 focused tests plus project hashes/schema/compile/shell/diff checks, the full `391 passed, 2 skipped, 89 subtests` pytest suite, 291 unittests, and a brand-new exact three-overlay source-chain/postimage validation
+  - live query-sum attempt 6 passed engine startup and emitted every layer-0 native indexer row on all four ranks, then failed closed before main-reference output because the exact model uses a 192-dimensional non-RoPE main Q/K component while the package incorrectly declared 128; the corrected package distinguishes main Q/K 192+64 from the independent 128-dimensional indexer head and makes the doctor validate the exact main layout
+  - the main-layout correction passed 61 focused tests plus package hashes/schema/compile/shell/diff checks, the full `391 passed, 2 skipped, 89 subtests` pytest suite, 291 unittests, and a brand-new exact three-overlay source-chain/postimage validation
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/

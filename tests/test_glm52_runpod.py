@@ -99,6 +99,10 @@ def test_package_lock_pins_order_apply_arguments_provenance_and_artifacts() -> N
     assert lock["benchmark_provenance"]["mini_swe_submodule_commit"] == "d74716a3c8104a113f77cc9ab94cf407ecdcf1e9"
     assert lock["benchmark_provenance"]["mini_swe_scaffold"].startswith("mini-swe-agent/")
     assert lock["environment"]["python_distributions"]["torch"] == "2.13.0+cu129"
+    assert lock["model_layout"]["main_attention_heads"] == 64
+    assert lock["model_layout"]["qk_nope_head_dim"] == 192
+    assert lock["model_layout"]["qk_rope_head_dim"] == 64
+    assert lock["model_layout"]["v_head_dim"] == 256
     assert lock["matrix_capture"]["hard_max_window_tokens"] == 2176
     assert lock["matrix_capture"]["hard_max_total_edges_per_rank"] == 9465600
     assert lock["query_sum_capture"]["hard_max_candidate_tokens"] == 2176
@@ -145,6 +149,7 @@ def test_score_overlay_captures_full_reference_and_native_pre_topk_only() -> Non
     assert "diff --git a/vllm/model_executor/models/deepseek_v2.py" in patch
     assert "+        maybe_set_score_diagnostic_batch(input_ids, positions)" in patch
     assert "SCORE_DIAGNOSTIC_INPUT_IDS_REQUIRED" in hook
+    assert 'value["main_qk_nope_head_dim"] == 192' in hook
     assert "maybe_capture_main_attention_reference" in patch
     assert "maybe_capture_indexer_native_logits" in patch
     assert "Diagnostic capture is deliberately before top_k_per_row_prefill" in patch
@@ -250,6 +255,8 @@ def test_doctor_binds_matrix_capture_mode_constant_and_function_dispatch() -> No
     )
     assert '"glm_dsa_diagnostic_batch_attestation"' in source
     assert 'DeepseekV2Model,\n            "maybe_set_score_diagnostic_batch"' in source
+    assert 'config.get("qk_nope_head_dim") == layout["qk_nope_head_dim"]' in source
+    assert 'config.get("v_head_dim") == layout["v_head_dim"]' in source
 
 
 def lock_query_sum_boundary() -> dict[str, object]:

@@ -252,7 +252,7 @@ def _load_config() -> dict[str, Any]:
         )
         _require(
             value["global_main_attention_heads"] == 64
-            and value["main_qk_nope_head_dim"] == 128
+            and value["main_qk_nope_head_dim"] == 192
             and value["main_qk_rope_head_dim"] == 64,
             "SCORE_DIAGNOSTIC_MAIN_LAYOUT_INVALID",
         )

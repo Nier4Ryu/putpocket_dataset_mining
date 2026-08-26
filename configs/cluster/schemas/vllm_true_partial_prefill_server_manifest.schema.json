@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.local/schemas/vllm_true_partial_prefill_server_manifest.schema.json",
+  "title": "PutPocket vLLM true partial-prefill server manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "backend_kind",
+    "operation",
+    "handle",
+    "owner_token_sha256",
+    "runtime",
+    "cache_contract",
+    "source",
+    "evidence_path",
+    "production_default_enabled",
+    "lifetime"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "backend_kind": {"const": "true_partial_prefill"},
+    "operation": {"enum": ["donor_register", "target_sparse"]},
+    "handle": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{15,127}$"},
+    "owner_token_sha256": {"$ref": "#/$defs/sha256"},
+    "runtime": {"$ref": "#/$defs/runtime"},
+    "cache_contract": {"$ref": "#/$defs/cacheContract"},
+    "source": {"$ref": "#/$defs/tokenSequence"},
+    "target": {"$ref": "#/$defs/target"},
+    "alignment": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/alignment"},
+      "uniqueItems": true
+    },
+    "edit_operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/editOperation"}
+    },
+    "selection": {"$ref": "#/$defs/selection"},
+    "evidence_path": {"type": "string", "pattern": "^/"},
+    "production_default_enabled": {"const": false},
+    "lifetime": {"const": "single_use_after_donor_finish"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"operation": {"const": "donor_register"}}},
+      "then": {
+        "not": {
+          "anyOf": [
+            {"required": ["target"]},
+            {"required": ["alignment"]},
+            {"required": ["edit_operations"]},
+            {"required": ["selection"]}
+          ]
+        }
+      },
+      "else": {
+        "required": ["target", "alignment", "edit_operations", "selection"]
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "positions": {
+      "type": "array",
+      "items": {"type": "integer", "minimum": 0},
+      "uniqueItems": true
+    },
+    "tokenSequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token_count", "token_ids_sha256"],
+      "properties": {
+        "token_count": {"type": "integer", "minimum": 1},
+        "token_ids_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vllm_commit",
+        "model",
+        "model_revision",
+        "architecture",
+        "tokenizer",
+        "tokenizer_revision",
+        "tokenizer_identity_sha256",
+        "serializer_identity_sha256",
+        "kv_cache_dtype",
+        "attention_backend",
+        "tensor_parallel_size",
+        "pipeline_parallel_size",
+        "decode_context_parallel_size",
+        "prefill_context_parallel_size"
+      ],
+      "properties": {
+        "vllm_commit": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1},
+        "model_revision": {"type": "string", "minLength": 1},
+        "architecture": {"type": "string", "minLength": 1},
+        "tokenizer": {"type": "string", "minLength": 1},
+        "tokenizer_revision": {"type": "string", "minLength": 1},
+        "tokenizer_identity_sha256": {"$ref": "#/$defs/sha256"},
+        "serializer_identity_sha256": {"$ref": "#/$defs/sha256"},
+        "kv_cache_dtype": {"const": "bfloat16"},
+        "attention_backend": {"const": "FLASHMLA_SPARSE"},
+        "tensor_parallel_size": {"type": "integer", "minimum": 1},
+        "pipeline_parallel_size": {"const": 1},
+        "decode_context_parallel_size": {"const": 1},
+        "prefill_context_parallel_size": {"const": 1}
+      }
+    },
+    "cacheContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "block_size",
+        "main_dtype",
+        "main_row_width",
+        "main_layer_names",
+        "indexer_dtype",
+        "indexer_value_bytes",
+        "indexer_scale_bytes",
+        "indexer_layer_names",
+        "kv_lora_rank",
+        "qk_rope_head_dim",
+        "num_attention_heads"
+      ],
+      "properties": {
+        "block_size": {"type": "integer", "minimum": 1},
+        "main_dtype": {"const": "bfloat16"},
+        "main_row_width": {"type": "integer", "minimum": 1},
+        "main_layer_names": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "indexer_dtype": {"const": "uint8"},
+        "indexer_value_bytes": {"type": "integer", "minimum": 1},
+        "indexer_scale_bytes": {"type": "integer", "minimum": 1},
+        "indexer_layer_names": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "kv_lora_rank": {"type": "integer", "minimum": 1},
+        "qk_rope_head_dim": {"type": "integer", "minimum": 1},
+        "num_attention_heads": {"type": "integer", "minimum": 1}
+      }
+    },
+    "target": {
+      "type": "object",
+      "description": "The server additionally requires request_token_count > frozen_history_token_count so the sparse patch is followed by at least one ordinary continuation/Q2 token.",
+      "additionalProperties": false,
+      "required": [
+        "request_token_count",
+        "request_token_ids_sha256",
+        "frozen_history_token_count",
+        "frozen_history_token_ids_sha256",
+        "continuation_start"
+      ],
+      "properties": {
+        "request_token_count": {"type": "integer", "minimum": 1},
+        "request_token_ids_sha256": {"$ref": "#/$defs/sha256"},
+        "frozen_history_token_count": {"type": "integer", "minimum": 1},
+        "frozen_history_token_ids_sha256": {"$ref": "#/$defs/sha256"},
+        "continuation_start": {"type": "integer", "minimum": 1}
+      }
+    },
+    "alignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target_position", "donor_position"],
+      "properties": {
+        "target_position": {"type": "integer", "minimum": 0},
+        "donor_position": {"type": "integer", "minimum": 0}
+      }
+    },
+    "editOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "donor_positions", "target_positions"],
+      "properties": {
+        "kind": {"enum": ["delete", "insert", "replace"]},
+        "donor_positions": {"$ref": "#/$defs/positions"},
+        "target_positions": {"$ref": "#/$defs/positions"}
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "semantic_quantity",
+        "score_direction",
+        "eligible_recompute_positions",
+        "selection_order",
+        "mandatory_recompute_positions",
+        "selected_recompute_positions",
+        "recompute_positions"
+      ],
+      "properties": {
+        "semantic_quantity": {"const": "importance_for_recompute"},
+        "score_direction": {"const": "higher_score_first"},
+        "eligible_recompute_positions": {"$ref": "#/$defs/positions"},
+        "selection_order": {"$ref": "#/$defs/positions"},
+        "mandatory_recompute_positions": {"$ref": "#/$defs/positions"},
+        "selected_recompute_positions": {"$ref": "#/$defs/positions"},
+        "recompute_positions": {"$ref": "#/$defs/positions"}
+      }
+    }
+  }
+}

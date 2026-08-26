@@ -1,0 +1,727 @@
+diff --git a/vllm/model_executor/layers/attention/sparse_mla_attention.py b/vllm/model_executor/layers/attention/sparse_mla_attention.py
+index 90934d2..76d61dd 100644
+--- a/vllm/model_executor/layers/attention/sparse_mla_attention.py
++++ b/vllm/model_executor/layers/attention/sparse_mla_attention.py
+@@ -215,0 +216,3 @@ class SparseMLACommonMetadataBuilder(AttentionMetadataBuilder[T]):
++        common_attn_metadata = (
++            common_attn_metadata.putpocket_virtual_decode_lanes()
++        )
+diff --git a/vllm/v1/attention/backend.py b/vllm/v1/attention/backend.py
+index 97bfd41..200e875 100644
+--- a/vllm/v1/attention/backend.py
++++ b/vllm/v1/attention/backend.py
+@@ -494,0 +495,9 @@ class CommonAttentionMetadata:
++    putpocket_true_partial_positions: torch.Tensor | None = None
++    """Experimental absolute positions for sparse frozen-history rows.
++
++    When set, supported builders reinterpret each query row as an independent
++    one-token decode lane sharing the target block table.  This makes the
++    causal length for row ``p`` exactly ``p + 1`` without pretending that the
++    sparse rows form a contiguous token prefix.
++    """
++
+@@ -497,0 +507,38 @@ class CommonAttentionMetadata:
++    def putpocket_virtual_decode_lanes(self) -> "CommonAttentionMetadata":
++        positions = self.putpocket_true_partial_positions
++        if positions is None:
++            return self
++        if self.num_reqs != 1 or positions.numel() != self.num_actual_tokens:
++            raise ValueError("PutPocket sparse rows require one physical target request")
++        num_rows = positions.numel()
++        if num_rows <= 0:
++            raise ValueError("PutPocket sparse rows cannot be empty")
++        positions_cpu = positions.detach().to(device="cpu", dtype=torch.int32)
++        query_start_cpu = torch.arange(num_rows + 1, dtype=torch.int32)
++        query_start = query_start_cpu.to(device=positions.device, non_blocking=True)
++        seq_lens_cpu = positions_cpu + 1
++        seq_lens = seq_lens_cpu.to(device=positions.device, non_blocking=True)
++        block_table = self.block_table_tensor[:1].repeat(num_rows, 1)
++        return replace(
++            self,
++            query_start_loc=query_start,
++            query_start_loc_cpu=query_start_cpu,
++            seq_lens=seq_lens,
++            _seq_lens_cpu=seq_lens_cpu,
++            _num_computed_tokens_cpu=positions_cpu,
++            seq_lens_cpu_upper_bound=seq_lens_cpu,
++            num_reqs=num_rows,
++            num_actual_tokens=num_rows,
++            max_query_len=1,
++            max_seq_len=int(seq_lens_cpu.max().item()),
++            block_table_tensor=block_table,
++            is_prefilling=torch.zeros(
++                num_rows, dtype=torch.bool, device=positions.device
++            ),
++            dcp_local_seq_lens=None,
++            dcp_local_seq_lens_cpu=None,
++            putpocket_true_partial_positions=None,
++            _num_computed_tokens_cache=None,
++            _token_to_req_indices_cache=None,
++        )
++
+diff --git a/vllm/v1/attention/backends/mla/indexer.py b/vllm/v1/attention/backends/mla/indexer.py
+index 7051023..fddc32c 100644
+--- a/vllm/v1/attention/backends/mla/indexer.py
++++ b/vllm/v1/attention/backends/mla/indexer.py
+@@ -769,0 +770,3 @@ class DeepseekV32IndexerMetadataBuilder(AttentionMetadataBuilder):
++        common_attn_metadata = (
++            common_attn_metadata.putpocket_virtual_decode_lanes()
++        )
+diff --git a/vllm/v1/core/sched/output.py b/vllm/v1/core/sched/output.py
+index 8782061..fa16794 100644
+--- a/vllm/v1/core/sched/output.py
++++ b/vllm/v1/core/sched/output.py
+@@ -6 +6 @@ from functools import cached_property
+-from typing import TYPE_CHECKING
++from typing import TYPE_CHECKING, Any
+@@ -260,0 +261,9 @@ class SchedulerOutput:
++    # Default-OFF PutPocket donor-cache sparse patch instructions.  This is
++    # independent of prefix matching and is populated only for the one special
++    # target-cache construction step.
++    putpocket_true_partial: dict[str, Any] | None = None
++
++    # First ordinary cached step after the sparse patch. The scheduler and
++    # worker use this to attest that Q2 starts at the full frozen boundary.
++    putpocket_true_partial_continuation: dict[str, Any] | None = None
++
+diff --git a/vllm/v1/core/sched/scheduler.py b/vllm/v1/core/sched/scheduler.py
+index 99a8b44..4f94324 100644
+--- a/vllm/v1/core/sched/scheduler.py
++++ b/vllm/v1/core/sched/scheduler.py
+@@ -3,0 +4 @@ import itertools
++import os
+@@ -55,0 +57,7 @@ from vllm.v1.engine import EngineCoreEventType, EngineCoreOutput, EngineCoreOutp
++from vllm.v1.putpocket_true_partial_prefill import (
++    DonorRegistry as PutPocketDonorRegistry,
++    TruePartialPrefillError as PutPocketTruePartialError,
++    assert_runtime_compatible as putpocket_assert_runtime_compatible,
++    build_continuation_payload as putpocket_build_continuation_payload,
++    validate_continuation_payload as putpocket_validate_continuation_payload,
++)
+@@ -295,0 +304,6 @@ class Scheduler(SchedulerInterface):
++        # Explicit donor handles are deliberately separate from prefix-cache
++        # hashes. Entries hold an extra block-pool ref until their one target
++        # sparse-patch step has completed.
++        self.putpocket_donor_registry = PutPocketDonorRegistry()
++        self.putpocket_pending_continuations: dict[str, dict[str, Any]] = {}
++
+@@ -361,0 +376,75 @@ class Scheduler(SchedulerInterface):
++    @staticmethod
++    def _putpocket_enum_value(value: Any) -> str:
++        raw = getattr(value, "value", value)
++        return str(raw)
++
++    def _putpocket_runtime_identity(self) -> dict[str, Any]:
++        model_config = self.vllm_config.model_config
++        hf_config = model_config.hf_config
++        architectures = getattr(hf_config, "architectures", None) or ()
++        attention_backend = self._putpocket_enum_value(
++            self.vllm_config.attention_config.backend
++        )
++        return {
++            "vllm_commit": os.environ.get("PUTPOCKET_VLLM_SOURCE_COMMIT", ""),
++            "model": str(model_config.model),
++            "model_revision": str(model_config.revision or ""),
++            "architecture": str(architectures[0] if architectures else ""),
++            "tokenizer": str(model_config.tokenizer),
++            "tokenizer_revision": str(model_config.tokenizer_revision or ""),
++            "tokenizer_identity_sha256": os.environ.get(
++                "PUTPOCKET_VLLM_TRUE_PARTIAL_TOKENIZER_IDENTITY_SHA256", ""
++            ),
++            "serializer_identity_sha256": os.environ.get(
++                "PUTPOCKET_VLLM_TRUE_PARTIAL_SERIALIZER_IDENTITY_SHA256", ""
++            ),
++            "kv_cache_dtype": self._putpocket_enum_value(
++                self.vllm_config.cache_config.cache_dtype
++            ),
++            "attention_backend": attention_backend,
++            "tensor_parallel_size": self.parallel_config.tensor_parallel_size,
++            "pipeline_parallel_size": self.parallel_config.pipeline_parallel_size,
++            "decode_context_parallel_size": self.dcp_world_size,
++            "prefill_context_parallel_size": self.pcp_world_size,
++        }
++
++    def _putpocket_validate_feature_boundary(self, request: Request) -> None:
++        instruction = request.putpocket_true_partial_instruction
++        if instruction is None:
++            return
++        if self.cache_config.enable_prefix_caching:
++            raise PutPocketTruePartialError("TRUE_PARTIAL_REQUIRES_PREFIX_CACHE_DISABLED")
++        if os.environ.get("PUTPOCKET_GLM52_FORCED_REUSE_CONTROL"):
++            raise PutPocketTruePartialError(
++                "TRUE_PARTIAL_CANNOT_COEXIST_WITH_ACCURACY_EMULATION_CONTROL"
++            )
++        if self.connector is not None or self.ec_connector is not None:
++            raise PutPocketTruePartialError("TRUE_PARTIAL_CONNECTORS_UNSUPPORTED")
++        if self.scheduler_config.async_scheduling:
++            raise PutPocketTruePartialError("TRUE_PARTIAL_ASYNC_SCHEDULING_UNSUPPORTED")
++        if self.max_num_running_reqs != 1:
++            raise PutPocketTruePartialError("TRUE_PARTIAL_REQUIRES_MAX_NUM_SEQS_ONE")
++        if self.use_v2_model_runner or self.use_pp:
++            raise PutPocketTruePartialError("TRUE_PARTIAL_REQUIRES_MRV1_PP_ONE")
++        if self.num_spec_tokens or self.dcp_world_size != 1 or self.pcp_world_size != 1:
++            raise PutPocketTruePartialError("TRUE_PARTIAL_SPEC_OR_CONTEXT_PARALLEL_UNSUPPORTED")
++        if self.has_mamba_layers or self.is_encoder_decoder:
++            raise PutPocketTruePartialError("TRUE_PARTIAL_NON_MLA_OR_HYBRID_MODEL_UNSUPPORTED")
++        if self.block_size != instruction.cache_contract["block_size"]:
++            raise PutPocketTruePartialError("TRUE_PARTIAL_SCHEDULER_BLOCK_SIZE_MISMATCH")
++        hf_config = self.vllm_config.model_config.hf_config
++        for manifest_key, config_attr in (
++            ("kv_lora_rank", "kv_lora_rank"),
++            ("qk_rope_head_dim", "qk_rope_head_dim"),
++            ("num_attention_heads", "num_attention_heads"),
++        ):
++            if instruction.cache_contract[manifest_key] != getattr(
++                hf_config, config_attr, None
++            ):
++                raise PutPocketTruePartialError(
++                    f"TRUE_PARTIAL_MODEL_DIMENSION_MISMATCH_{manifest_key.upper()}"
++                )
++        putpocket_assert_runtime_compatible(
++            instruction.runtime, self._putpocket_runtime_identity()
++        )
++
+@@ -458,0 +548,2 @@ class Scheduler(SchedulerInterface):
++        putpocket_true_partial_payload: dict[str, Any] | None = None
++        putpocket_continuation_payload: dict[str, Any] | None = None
+@@ -486,0 +578,11 @@ class Scheduler(SchedulerInterface):
++            putpocket_pending_continuation = (
++                self.putpocket_pending_continuations.get(request.request_id)
++            )
++            if (
++                putpocket_pending_continuation is not None
++                and request.num_computed_tokens
++                != putpocket_pending_continuation["frozen_history_token_count"]
++            ):
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_POST_PATCH_SCHEDULER_BOUNDARY_STALE"
++                )
+@@ -636,0 +739,14 @@ class Scheduler(SchedulerInterface):
++            if putpocket_pending_continuation is not None:
++                if putpocket_continuation_payload is not None:
++                    raise PutPocketTruePartialError(
++                        "TRUE_PARTIAL_MULTIPLE_CONTINUATIONS_UNSUPPORTED"
++                    )
++                putpocket_continuation_payload = (
++                    putpocket_build_continuation_payload(
++                        putpocket_pending_continuation,
++                        self.kv_cache_manager.get_blocks(
++                            request_id
++                        ).get_block_ids(),
++                        num_new_tokens,
++                    )
++                )
+@@ -738,0 +855,104 @@ class Scheduler(SchedulerInterface):
++                putpocket_instruction = request.putpocket_true_partial_instruction
++                if putpocket_instruction is not None:
++                    self._putpocket_validate_feature_boundary(request)
++                    if (
++                        putpocket_instruction.is_donor
++                        and (
++                            request.max_tokens != 1
++                            or request.num_prompt_tokens
++                            != putpocket_instruction.source_token_count
++                        )
++                    ):
++                        raise PutPocketTruePartialError(
++                            "TRUE_PARTIAL_DONOR_REQUIRES_EXACT_PROMPT_AND_ONE_OUTPUT"
++                        )
++                if (
++                    putpocket_instruction is not None
++                    and putpocket_instruction.is_target
++                    and request.num_computed_tokens == 0
++                ):
++                    # This is the only point that may construct a target cache
++                    # from an explicit donor. It bypasses normal prefix lookup,
++                    # allocates logical slots for the complete frozen history,
++                    # but schedules model execution for only the exact sparse
++                    # recompute rows.
++                    recompute_count = len(
++                        putpocket_instruction.recompute_positions
++                    )
++                    frozen_count = putpocket_instruction.target_frozen_token_count
++                    if frozen_count is None:
++                        raise PutPocketTruePartialError(
++                            "TRUE_PARTIAL_TARGET_BOUNDARY_MISSING"
++                        )
++                    if not (0 < recompute_count < frozen_count):
++                        raise PutPocketTruePartialError(
++                            "TRUE_PARTIAL_RECOMPUTE_COUNT_NOT_SPARSE"
++                        )
++                    if recompute_count > token_budget:
++                        break
++                    donor, plan = self.putpocket_donor_registry.resolve(
++                        request_id,
++                        putpocket_instruction,
++                        request.prompt_token_ids or (),
++                    )
++                    new_blocks = self.kv_cache_manager.allocate_slots(
++                        request,
++                        frozen_count,
++                        num_lookahead_tokens=0,
++                        delay_cache_blocks=True,
++                        full_sequence_must_fit=False,
++                        has_scheduled_reqs=bool(self.running),
++                    )
++                    if new_blocks is None:
++                        self.putpocket_donor_registry.cancel_consumption(
++                            putpocket_instruction.handle, request_id
++                        )
++                        break
++
++                    request = request_queue.pop_request()
++                    self.running.append(request)
++                    if self.log_stats:
++                        request.record_event(
++                            EngineCoreEventType.SCHEDULED, scheduled_timestamp
++                        )
++                    if request.status != RequestStatus.WAITING:
++                        raise PutPocketTruePartialError(
++                            "TRUE_PARTIAL_TARGET_MUST_BE_NEW_WAITING_REQUEST"
++                        )
++                    scheduled_new_reqs.append(request)
++                    request.status = RequestStatus.RUNNING
++                    req_to_new_blocks[request_id] = self.kv_cache_manager.get_blocks(
++                        request_id
++                    )
++                    num_scheduled_tokens[request_id] = recompute_count
++                    token_budget -= recompute_count
++                    self._inflight_prefills.add(request)
++                    target_block_ids = req_to_new_blocks[request_id].get_block_ids()
++                    putpocket_true_partial_payload = {
++                        "request_id": request_id,
++                        "donor_request_id": donor.request_id,
++                        "manifest_sha256": putpocket_instruction.manifest_sha256,
++                        "evidence_path": str(putpocket_instruction.evidence_path),
++                        "cache_contract": putpocket_instruction.cache_contract,
++                        "plan": plan.as_scheduler_payload(),
++                        "donor_block_ids": [list(group) for group in donor.block_ids],
++                        "target_block_ids": [list(group) for group in target_block_ids],
++                    }
++                    self.putpocket_pending_continuations[request_id] = {
++                        "request_id": request_id,
++                        "manifest_sha256": putpocket_instruction.manifest_sha256,
++                        "evidence_path": str(putpocket_instruction.evidence_path),
++                        "frozen_history_token_count": frozen_count,
++                        "target_request_token_count": (
++                            putpocket_instruction.target_request_token_count
++                        ),
++                        "initial_target_block_ids": [
++                            list(group) for group in target_block_ids
++                        ],
++                        "block_size": putpocket_instruction.cache_contract[
++                            "block_size"
++                        ],
++                        "sparse_recompute_count": recompute_count,
++                    }
++                    continue
++
+@@ -1225,0 +1446,2 @@ class Scheduler(SchedulerInterface):
++            putpocket_true_partial=putpocket_true_partial_payload,
++            putpocket_true_partial_continuation=putpocket_continuation_payload,
+@@ -1331,0 +1554,12 @@ class Scheduler(SchedulerInterface):
++            putpocket_payload = scheduler_output.putpocket_true_partial
++            if (
++                putpocket_payload is not None
++                and putpocket_payload["request_id"] == req_id
++            ):
++                # Physical target slots cover the frozen history and the worker
++                # computes exactly the sparse rows in this step. Advance the
++                # logical scheduler boundary to Q2 only after preserving the
++                # original count in SchedulerOutput for model input creation.
++                request.num_computed_tokens = putpocket_payload["plan"][
++                    "frozen_history_token_count"
++                ]
+@@ -1689,0 +1924,29 @@ class Scheduler(SchedulerInterface):
++        putpocket_payload = scheduler_output.putpocket_true_partial
++        if putpocket_payload is not None:
++            record = self.putpocket_donor_registry.release(
++                putpocket_payload["plan"]["handle"],
++                putpocket_payload["request_id"],
++            )
++            self.kv_cache_manager.block_pool.free_blocks(
++                [
++                    block
++                    for group in reversed(record.block_groups)
++                    for block in reversed(group)
++                ]
++            )
++
++        putpocket_continuation = (
++            scheduler_output.putpocket_true_partial_continuation
++        )
++        if putpocket_continuation is not None:
++            pending = self.putpocket_pending_continuations.pop(
++                putpocket_continuation["request_id"], None
++            )
++            if pending is None:
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_CONTINUATION_ATTESTATION_MISSING"
++                )
++            putpocket_validate_continuation_payload(
++                pending, putpocket_continuation
++            )
++
+@@ -2305,0 +2569,29 @@ class Scheduler(SchedulerInterface):
++        putpocket_instruction = request.putpocket_true_partial_instruction
++        if putpocket_instruction is not None and putpocket_instruction.is_target:
++            self.putpocket_pending_continuations.pop(request.request_id, None)
++        if putpocket_instruction is not None and putpocket_instruction.is_donor:
++            self._putpocket_validate_feature_boundary(request)
++            if request.num_computed_tokens != putpocket_instruction.source_token_count:
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_DONOR_COMPUTED_BOUNDARY_MISMATCH"
++                )
++            donor_blocks = self.kv_cache_manager.get_blocks(request.request_id)
++            needed = (
++                putpocket_instruction.source_token_count + self.block_size - 1
++            ) // self.block_size
++            if any(len(group) < needed for group in donor_blocks.blocks):
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_DONOR_BLOCK_TABLE_INCOMPLETE"
++                )
++            record = self.putpocket_donor_registry.register(
++                request.request_id,
++                putpocket_instruction,
++                request.prompt_token_ids or (),
++                donor_blocks.blocks,
++            )
++            # Pin independently of prefix-cache membership. Normal request
++            # cleanup drops its own refs below, leaving exactly these explicit
++            # registry refs live until the target copy has executed.
++            self.kv_cache_manager.block_pool.touch(
++                tuple(block for group in record.block_groups for block in group)
++            )
+diff --git a/vllm/v1/request.py b/vllm/v1/request.py
+index 4a2cc8d..332d718 100644
+--- a/vllm/v1/request.py
++++ b/vllm/v1/request.py
+@@ -23,0 +24,4 @@ from vllm.v1.metrics.stats import PrefillStats
++from vllm.v1.putpocket_true_partial_prefill import (
++    RequestInstruction as PutPocketTruePartialInstruction,
++    request_instruction_from_xargs as putpocket_instruction_from_xargs,
++)
+@@ -149,0 +154,17 @@ class Request:
++        extra_args = sampling_params.extra_args if sampling_params is not None else None
++        self.putpocket_true_partial_instruction: PutPocketTruePartialInstruction | None = (
++            putpocket_instruction_from_xargs(extra_args, prompt_token_ids)
++        )
++        if self.putpocket_true_partial_instruction is not None:
++            if (
++                prompt_embeds is not None
++                or mm_features
++                or lora_request is not None
++                or pooling_params is not None
++                or resumable
++            ):
++                raise ValueError(
++                    "PutPocket true partial prefill supports only non-resumable, "
++                    "token-ID-only text generation without LoRA"
++                )
++
+@@ -211,0 +233,4 @@ class Request:
++        if self.putpocket_true_partial_instruction is not None:
++            # The donor hook is an explicit authority independent of normal
++            # token-prefix hashing.  Do not look up or adopt prefix-cache rows.
++            self.skip_reading_prefix_cache = True
+diff --git a/vllm/v1/worker/gpu_model_runner.py b/vllm/v1/worker/gpu_model_runner.py
+index 4291d72..d0e17c3 100644
+--- a/vllm/v1/worker/gpu_model_runner.py
++++ b/vllm/v1/worker/gpu_model_runner.py
+@@ -14,0 +15 @@ from functools import reduce
++from pathlib import Path
+@@ -155,0 +157,10 @@ from vllm.v1.cudagraph_dispatcher import CudagraphDispatcher
++from vllm.v1.putpocket_true_partial_prefill import (
++    TruePartialPrefillError as PutPocketTruePartialError,
++    canonical_json_sha256 as putpocket_canonical_json_sha256,
++    continuation_execution_evidence as putpocket_continuation_evidence,
++    copy_reuse_rows_inplace as putpocket_copy_reuse_rows_inplace,
++    execution_evidence as putpocket_execution_evidence,
++    target_plan_from_scheduler_payload as putpocket_plan_from_payload,
++    verify_exact_slot_mappings as putpocket_verify_slot_mappings,
++    write_evidence_event as putpocket_write_evidence_event,
++)
+@@ -563,0 +575,5 @@ class GPUModelRunner(
++        self.putpocket_kv_caches_by_name: dict[str, torch.Tensor] = {}
++        self.putpocket_true_partial_copy_evidence: dict[str, Any] | None = None
++        self.putpocket_true_partial_active_payload: dict[str, Any] | None = None
++        self.putpocket_true_partial_pending_evidence: dict[str, Any] | None = None
++        self.putpocket_continuation_pending_evidence: dict[str, Any] | None = None
+@@ -1191,0 +1208,45 @@ class GPUModelRunner(
++    def _putpocket_copy_true_partial_rows(
++        self, scheduler_output: "SchedulerOutput"
++    ) -> None:
++        payload = scheduler_output.putpocket_true_partial
++        self.putpocket_true_partial_copy_evidence = None
++        self.putpocket_true_partial_active_payload = payload
++        if payload is None:
++            return
++        if scheduler_output.kv_cache_block_copies:
++            raise PutPocketTruePartialError(
++                "TRUE_PARTIAL_CANNOT_MIX_PREFIX_OR_COW_BLOCK_COPIES"
++            )
++        cache_dtype = getattr(
++            self.cache_config.cache_dtype, "value", self.cache_config.cache_dtype
++        )
++        if str(cache_dtype) != "bfloat16":
++            raise PutPocketTruePartialError("TRUE_PARTIAL_REQUIRES_BFLOAT16_KV")
++        backend_names = {
++            group.backend.get_name()
++            for groups in self.attn_groups
++            for group in groups
++        }
++        if not backend_names <= {"FLASHMLA_SPARSE", "DEEPSEEK_V32_INDEXER"}:
++            raise PutPocketTruePartialError(
++                f"TRUE_PARTIAL_BACKEND_UNSUPPORTED_{sorted(backend_names)}"
++            )
++
++        layer_caches: list[tuple[str, int, torch.Tensor]] = []
++        for group_id, groups in enumerate(self.attn_groups):
++            for group in groups:
++                for layer_name in group.layer_names:
++                    cache = self.putpocket_kv_caches_by_name.get(layer_name)
++                    if cache is not None:
++                        layer_caches.append((layer_name, group_id, cache))
++        plan = putpocket_plan_from_payload(payload["plan"])
++        self.putpocket_true_partial_copy_evidence = (
++            putpocket_copy_reuse_rows_inplace(
++                layer_caches=layer_caches,
++                donor_block_ids=payload["donor_block_ids"],
++                target_block_ids=payload["target_block_ids"],
++                plan=plan,
++                cache_contract=payload["cache_contract"],
++            )
++        )
++
+@@ -1228,0 +1290 @@ class GPUModelRunner(
++        self._putpocket_copy_true_partial_rows(scheduler_output)
+@@ -1357,0 +1420,12 @@ class GPUModelRunner(
++            putpocket_continuation = (
++                scheduler_output.putpocket_true_partial_continuation
++            )
++            if (
++                putpocket_continuation is not None
++                and putpocket_continuation["request_id"] == req_id
++                and num_computed_tokens
++                != putpocket_continuation["frozen_history_token_count"]
++            ):
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_WORKER_RECEIVED_STALE_RECOMPUTE_BOUNDARY"
++                )
+@@ -1472,0 +1547,9 @@ class GPUModelRunner(
++            if (
++                putpocket_continuation is not None
++                and putpocket_continuation["request_id"] == req_id
++                and self.input_batch.num_computed_tokens_cpu[req_index]
++                != putpocket_continuation["frozen_history_token_count"]
++            ):
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_WORKER_CONTINUATION_BOUNDARY_WRITE_FAILED"
++                )
+@@ -1975,0 +2059,39 @@ class GPUModelRunner(
++        putpocket_payload = scheduler_output.putpocket_true_partial
++        putpocket_continuation = (
++            scheduler_output.putpocket_true_partial_continuation
++        )
++        if putpocket_payload is not None and putpocket_continuation is not None:
++            raise PutPocketTruePartialError(
++                "TRUE_PARTIAL_PATCH_AND_CONTINUATION_SAME_STEP"
++            )
++        putpocket_plan = None
++        if putpocket_payload is not None:
++            if (
++                num_reqs != 1
++                or self.input_batch.req_ids != [putpocket_payload["request_id"]]
++            ):
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_REQUIRES_EXCLUSIVE_SINGLE_REQUEST_BATCH"
++                )
++            putpocket_plan = putpocket_plan_from_payload(
++                putpocket_payload["plan"]
++            )
++            if total_num_scheduled_tokens != len(
++                putpocket_plan.recompute_positions
++            ):
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_SCHEDULED_ROW_COUNT_MISMATCH"
++                )
++        if putpocket_continuation is not None:
++            if (
++                num_reqs != 1
++                or self.input_batch.req_ids
++                != [putpocket_continuation["request_id"]]
++                or total_num_scheduled_tokens
++                != putpocket_continuation["num_scheduled_tokens"]
++                or self.input_batch.num_computed_tokens_cpu[0]
++                != putpocket_continuation["frozen_history_token_count"]
++            ):
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_CONTINUATION_BATCH_BOUNDARY_MISMATCH"
++                )
+@@ -1995,0 +2118,17 @@ class GPUModelRunner(
++        if putpocket_plan is not None:
++            positions_np = np.asarray(
++                putpocket_plan.recompute_positions, dtype=np.int64
++            )
++        elif putpocket_continuation is not None:
++            continuation_start = putpocket_continuation[
++                "frozen_history_token_count"
++            ]
++            expected_positions = np.arange(
++                continuation_start,
++                continuation_start + total_num_scheduled_tokens,
++                dtype=np.int64,
++            )
++            if not np.array_equal(positions_np, expected_positions):
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_CONTINUATION_ABSOLUTE_POSITIONS_MISMATCH"
++                )
+@@ -2191,0 +2331,6 @@ class GPUModelRunner(
++        if putpocket_plan is not None:
++            self.positions[:total_num_scheduled_tokens].copy_(
++                torch.from_numpy(positions_np).to(
++                    device=self.device, dtype=torch.int64, non_blocking=True
++                )
++            )
+@@ -2202,0 +2348,20 @@ class GPUModelRunner(
++        putpocket_slot_payload = putpocket_payload or putpocket_continuation
++        putpocket_slot_evidence: dict[str, Any] | None = None
++        if putpocket_slot_payload is not None:
++            actual_slot_ids = [
++                block_table.slot_mapping.gpu[:total_num_scheduled_tokens]
++                .to(device="cpu")
++                .tolist()
++                for block_table in self.input_batch.block_table.block_tables
++            ]
++            putpocket_slot_evidence = putpocket_verify_slot_mappings(
++                target_block_ids=putpocket_slot_payload["target_block_ids"],
++                positions=positions_np.tolist(),
++                actual_slot_ids=actual_slot_ids,
++                block_size=(
++                    putpocket_slot_payload["cache_contract"]["block_size"]
++                    if putpocket_payload is not None
++                    else putpocket_slot_payload["block_size"]
++                ),
++            )
++
+@@ -2209,0 +2375,57 @@ class GPUModelRunner(
++        if putpocket_plan is not None:
++            if self.putpocket_true_partial_copy_evidence is None:
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_CACHE_COPY_EVIDENCE_MISSING"
++                )
++            rank = (
++                int(torch.distributed.get_rank())
++                if torch.distributed.is_available()
++                and torch.distributed.is_initialized()
++                else 0
++            )
++            self.putpocket_true_partial_pending_evidence = (
++                putpocket_execution_evidence(
++                    request_id=putpocket_payload["request_id"],
++                    manifest_sha256=putpocket_payload["manifest_sha256"],
++                    plan=putpocket_plan,
++                    model_input_positions=positions_np.tolist(),
++                    model_input_token_ids=self.input_ids.cpu[
++                        :total_num_scheduled_tokens
++                    ].tolist(),
++                    copy_evidence={
++                        **self.putpocket_true_partial_copy_evidence,
++                        **(putpocket_slot_evidence or {}),
++                    },
++                    rank=rank,
++                )
++            )
++        elif putpocket_continuation is not None:
++            rank = (
++                int(torch.distributed.get_rank())
++                if torch.distributed.is_available()
++                and torch.distributed.is_initialized()
++                else 0
++            )
++            req_state = self.requests[putpocket_continuation["request_id"]]
++            self.putpocket_continuation_pending_evidence = (
++                putpocket_continuation_evidence(
++                    request_id=putpocket_continuation["request_id"],
++                    manifest_sha256=putpocket_continuation["manifest_sha256"],
++                    frozen_history_token_count=putpocket_continuation[
++                        "frozen_history_token_count"
++                    ],
++                    target_request_token_count=putpocket_continuation[
++                        "target_request_token_count"
++                    ],
++                    scheduler_num_computed_tokens=int(
++                        self.input_batch.num_computed_tokens_cpu[0]
++                    ),
++                    model_input_positions=positions_np.tolist(),
++                    model_input_token_ids=self.input_ids.cpu[
++                        :total_num_scheduled_tokens
++                    ].tolist(),
++                    target_token_ids=req_state.prompt_token_ids,
++                    slot_mapping_evidence=putpocket_slot_evidence or {},
++                    rank=rank,
++                )
++            )
+@@ -2447,0 +2670,5 @@ class GPUModelRunner(
++            putpocket_true_partial_positions=(
++                self.positions[:num_tokens]
++                if self.putpocket_true_partial_active_payload is not None
++                else None
++            ),
+@@ -4272,0 +4500 @@ class GPUModelRunner(
++                force_eager=scheduler_output.putpocket_true_partial is not None,
+@@ -4274,0 +4503,7 @@ class GPUModelRunner(
++            if (
++                scheduler_output.putpocket_true_partial is not None
++                and batch_desc.num_tokens != num_tokens_unpadded
++            ):
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_SEQUENCE_OR_GRAPH_PADDING_UNSUPPORTED"
++                )
+@@ -4445,0 +4681,44 @@ class GPUModelRunner(
++        if scheduler_output.putpocket_true_partial is not None:
++            evidence = self.putpocket_true_partial_pending_evidence
++            if evidence is None:
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_MODEL_INPUT_EVIDENCE_MISSING"
++                )
++            evidence["model_forward_returned"] = True
++            evidence["attention_execution_mode"] = (
++                "arbitrary_position_single_query_decode_lanes"
++            )
++            evidence["donor_request_id"] = scheduler_output.putpocket_true_partial[
++                "donor_request_id"
++            ]
++            evidence["donor_block_ids_sha256"] = (
++                putpocket_canonical_json_sha256(
++                    scheduler_output.putpocket_true_partial["donor_block_ids"]
++                )
++            )
++            evidence["target_block_ids_sha256"] = (
++                putpocket_canonical_json_sha256(
++                    scheduler_output.putpocket_true_partial["target_block_ids"]
++                )
++            )
++            putpocket_write_evidence_event(
++                Path(scheduler_output.putpocket_true_partial["evidence_path"]),
++                evidence,
++            )
++            self.putpocket_true_partial_pending_evidence = None
++
++        putpocket_continuation = (
++            scheduler_output.putpocket_true_partial_continuation
++        )
++        if putpocket_continuation is not None:
++            evidence = self.putpocket_continuation_pending_evidence
++            if evidence is None:
++                raise PutPocketTruePartialError(
++                    "TRUE_PARTIAL_CONTINUATION_EVIDENCE_MISSING"
++                )
++            evidence["model_forward_returned"] = True
++            putpocket_write_evidence_event(
++                Path(putpocket_continuation["evidence_path"]), evidence
++            )
++            self.putpocket_continuation_pending_evidence = None
++
+@@ -7565,0 +7845 @@ class GPUModelRunner(
++        self.putpocket_kv_caches_by_name = kv_caches

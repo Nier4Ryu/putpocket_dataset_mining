@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "status": "source_wired_cpu_static_validated_gpu_unvalidated_default_off",
+  "vllm_commit": "4a3447d200e5aa428d68d1a00aa00f1a19a1a729",
+  "patch_order": [
+    {
+      "path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_forced_edit_reuse.patch",
+      "sha256": "7f65cf6d0e7c3ff575506ad2d8b1a61f5526145971d41ba0e5e1e4db3bf1433e",
+      "role": "required_post_legacy_packaging_base_runtime_mode_isolated"
+    },
+    {
+      "path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/putpocket_true_partial_prefill.patch",
+      "sha256": "78dc0b9a6cde73974e1522d9e7af0e17df26094ca17c0d82b641bcdfccf680ba",
+      "apply_args": ["--unidiff-zero"],
+      "role": "distinct_true_partial_prefill_server_path"
+    }
+  ],
+  "instrumentation": {
+    "source": "instrumentation/vllm/putpocket_true_partial_prefill.py",
+    "install_path": "vllm/v1/putpocket_true_partial_prefill.py",
+    "sha256": "dc14e1ccf08969ed684381128ad22360204b40075fc32c59979a26004ebb5f32"
+  },
+  "server_manifest_schema": {
+    "path": "configs/cluster/schemas/vllm_true_partial_prefill_server_manifest.schema.json",
+    "sha256": "0bf8c190e8c72cfb8160ad500cc16955ff9f8af9e276254ee25c45771b619bca"
+  },
+  "base_is_post_legacy_patch": true,
+  "legacy_patch_required_as_packaging_base": true,
+  "legacy_and_true_runtime_modes_mutually_exclusive": true,
+  "source_hashes": {
+    "vllm/model_executor/layers/attention/sparse_mla_attention.py": {
+      "base_sha256": "1aa19b3dc2d74acd73d77a3d6b04c98b5e36585907308986098aff120a82d1cd",
+      "post_sha256": "0e8f2fab3b3ab338083e885eed10fae30dabf5b32d530190aa5394bad9b83d56"
+    },
+    "vllm/v1/attention/backend.py": {
+      "base_sha256": "14803680d6f0f3fcf04dd48def6b961c5dae70c061287610c8f0e1bbc82cb471",
+      "post_sha256": "4b2a449419b65eb7a409b4203f756e6dae8439cbd8fb1c02dfc6dc9fbcc8628c"
+    },
+    "vllm/v1/attention/backends/mla/indexer.py": {
+      "base_sha256": "9b355adda249c7b9d72567d1a6d8e0e66e330a3bdd74a09f2744cfc8d6e2ced9",
+      "post_sha256": "ffc13e7d3d1e8e12d679098821b3bdf1bf3572e3d2e43a0d4dd83d023b64a399"
+    },
+    "vllm/v1/core/sched/output.py": {
+      "base_sha256": "51643386fab3a56b7747aa784ad657833966ebe823acee1f37222e33c1e5696a",
+      "post_sha256": "10aadb6b58fa69e23758bbe2e2b2a0a71ebf4ca1d9d5c3aaf65a4a6f836500b7"
+    },
+    "vllm/v1/core/sched/scheduler.py": {
+      "base_sha256": "6ad2f292fd951a58efe4b751160483cf0f36b2040be0d287ec3ea12570ef58f7",
+      "post_sha256": "cc71fd85e30ee97af580037e0ede4cbe4de0e3fc02bea672bbf8cb2fe0d60686"
+    },
+    "vllm/v1/request.py": {
+      "base_sha256": "6085b0668f41d56cd81ef483c06456f4ebe88bc1d46c8131d7134182d7893012",
+      "post_sha256": "e4ea6c8a189ca1d8fc6d74e81cd236a6b845cf987f19cdd7ccfa9fc9517cec25"
+    },
+    "vllm/v1/worker/gpu_model_runner.py": {
+      "base_sha256": "945fc28626f29c6283a67d561cd7e1fd3446f3cf65b2c2e94837cb4aae1321b8",
+      "post_sha256": "52229c433f3fcea8ec43e76943f34ee13f09587ac8878b3985c647f23788effe"
+    }
+  },
+  "supported_boundary": {
+    "architecture": "GlmMoeDsaForCausalLM",
+    "attention_backend": "FLASHMLA_SPARSE",
+    "indexer_backend": "DEEPSEEK_V32_INDEXER",
+    "kv_cache_dtype": "bfloat16",
+    "block_size": 64,
+    "main_layers": 78,
+    "indexer_layers": 21,
+    "max_num_seqs": 1,
+    "pipeline_parallel_size": 1,
+    "decode_context_parallel_size": 1,
+    "prefill_context_parallel_size": 1,
+    "prefix_caching": false,
+    "async_scheduling": false,
+    "speculative_decoding": false,
+    "gpu_runtime_validated": false
+  },
+  "claim_boundary": {
+    "legacy_accuracy_emulation_is_true_partial": false,
+    "full_target_prefill_then_overwrite_prohibited_in_true_path": true,
+    "shifted_reused_k_rows_rope_correct": false,
+    "runtime_completion_claimed": false
+  }
+}

@@ -29,6 +29,19 @@ follow-up objective:
   - save a reusable model-neutral stateful mid-trajectory edit scenario contract
   - make top-ranked importance positions recompute under SYS_new while the unselected complement retains old KV
   - distinguish true sparse prefill from compute-then-overwrite accuracy emulation
+server follow-up objective:
+  - add a distinct default-OFF live-donor request hook independent of prefix matching
+  - allocate and patch target KV from copied donor rows plus exact sparse recompute rows
+  - wire arbitrary target positions through the pinned GLM sparse indexer and FLASHMLA_SPARSE backend
+  - preserve the legacy compute-then-overwrite path only as accuracy emulation
+registered next slice:
+  - name: glm52-rope-aware-shifted-reuse
+  - owner boundary: FLASHMLA_SPARSE main K-cache representation and DeepSeek V3.2 packed indexer representation
+  - implement inverse-old/forward-new RoPE transformation for reused K rows whose aligned absolute position shifts
+  - define whether the packed indexer K representation requires the same transformation
+  - pass old/new positions into the row-copy kernel and attest the transformation per rank/layer/row
+  - test equal/replacement/insertion/deletion, shifted/unshifted numerical parity, and Q2 decode
+  - do not claim shifted reuse is RoPE-correct until that slice passes GPU integration
 completion criteria:
   - tests pass
   - task-local TO_GPT handoff exists
@@ -42,10 +55,17 @@ validation:
   - follow-up focused docs/schema/GLM CPU suite: 37 passed, 28 subtests passed
   - follow-up full repository CPU suite: 341 passed, 89 subtests passed
   - follow-up JSON/YAML parse and git diff check passed
+  - true-partial focused stateful/legacy CPU suite: 45 passed, 4 subtests passed
+  - true-partial full repository CPU suite: 355 passed, 89 subtests passed
+  - exact zero-context vLLM patch applies with locked --unidiff-zero to a fresh post-legacy source tree
+  - all patched vLLM files and the installed instrumentation module pass py_compile
+  - patch, instrumentation, schema, and all seven vLLM pre/post source hashes verified against the lock
+  - sparse token selection, exact physical slot mapping, post-patch H boundary, P > H requirement, and Q2 block-boundary extension have focused CPU/static evidence
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/
 commits:
   - 9ced53fd605c0dd6c3c87f0e303e1fe6a256b3f2 (stateful v3 implementation)
-  - final documentation/contract follow-up commit containing this record
-final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-084555.md
+  - b77c9514e296d711e249a1cb91adf2f2f2618d8b (model-neutral scenario contract follow-up)
+  - current server-side true-partial-prefill commit containing this record
+final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-005948.md

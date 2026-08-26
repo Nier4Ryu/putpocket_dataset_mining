@@ -198,6 +198,21 @@ lost through sorting.
 
 ## 7. Runtime backends and claim boundary
 
+The scenario manifest and episode vocabulary are client-side authoring input.
+They MUST NOT be loaded by the model server as an authority for benchmark
+semantics. A client-side resolver freezes one budget and emits a separate,
+model-server manifest containing only token digests, runtime/cache identity,
+the live donor handle, target-to-donor alignment, edit operations, exact
+mandatory and selected recompute positions, and the continuation boundary.
+The server independently validates that manifest against the two real token
+sequences and its live cache allocation. It does not know Q1, A1, Q2,
+SWE-bench, tool actions, budgets, or evaluator outcomes.
+
+For the pinned experimental vLLM slice, that separate interface is specified
+by `configs/cluster/schemas/vllm_true_partial_prefill_server_manifest.schema.json`
+and `docs/CLUSTER_GLM52_STATEFUL_EDIT_V3.md`. The API hook is namespaced under
+`vllm_xargs.putpocket_true_partial_*`; it is not a prefix-cache hint.
+
 ### True selective prefill
 
 A compute-saving backend starts from existing `F_old` KV. At every model layer
@@ -228,6 +243,16 @@ true_selective_prefill_claim: false
 It must also record actual donor-overwrite positions as `U_b`; high-importance
 `S_b` positions remain target/new rows. Such a run cannot report skipped FLOPs,
 selective-prefill latency, or production speedup.
+
+The first server step for a true backend ends at `H`: it patches only frozen
+history. Q2 remains present in the target request token array at `[H, P)`, but
+the scheduler runs those positions in the next ordinary prefill step. Thus Q2
+is the frozen pre-edit observation included in the first post-edit API request,
+not a row in the sparse cache-patch operation. A2 and later tokens follow Q2
+through the ordinary continuation path. For the current fail-closed server
+slice, require `P > H`: at least one frozen Q2/normal-continuation token must
+follow the patch boundary. A request ending exactly at `H` is rejected rather
+than relying on ambiguous sampling semantics from the sparse-patch step.
 
 The current GLM-5.2 v3 hook is a legacy stability-ranked forced-reuse accuracy
 ablation. Its selected donor rows describe reuse suitability, not

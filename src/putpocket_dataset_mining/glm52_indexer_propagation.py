@@ -26,7 +26,7 @@ NATIVE_SCORE_ORIGIN = (
     "kernel_native_fp8_fp4_mqa_logits_before_top_k_per_row_prefill"
 )
 NATIVE_HEAD_AGGREGATION = (
-    "native_learned_weighted_sum_across_64_indexer_heads"
+    "native_learned_weighted_sum_across_32_indexer_heads"
 )
 _SCHEMA_VALIDATORS: dict[Path, jsonschema.Draft202012Validator] = {}
 
@@ -285,10 +285,10 @@ def load_indexer_matrix_capture(
                 and record.get("tensor_parallel_size") == tp_size
                 and record.get("tp_semantics")
                 == "replicated_native_aggregate_consensus_required_offline"
-                and record.get("indexer_head_count") == 64
+                and record.get("indexer_head_count") == 32
                 and record.get("indexer_head_dim") == 128
                 and record.get("scale")
-                == {"softmax_scale": 128**-0.5, "indexer_head_scale": 64**-0.5},
+                == {"softmax_scale": 128**-0.5, "indexer_head_scale": 32**-0.5},
                 "MATRIX_CAPTURE_TP_OR_SCALE_PROVENANCE_INVALID",
             )
             _require(

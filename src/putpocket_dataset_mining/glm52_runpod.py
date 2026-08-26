@@ -123,7 +123,7 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
         and layout.get("qk_nope_head_dim") == 128
         and layout.get("qk_rope_head_dim") == 64
         and layout.get("kv_lora_rank") == 512
-        and layout.get("indexer_heads") == 64
+        and layout.get("indexer_heads") == 32
         and layout.get("indexer_head_dim") == 128
         and layout.get("index_topk") == 2048
         and layout.get("indexer_layers") == INDEXER_LAYERS,

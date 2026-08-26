@@ -189,7 +189,7 @@ def _load_config() -> dict[str, Any]:
     )
     _require(
         value["tensor_parallel_size"] == 4
-        and value["indexer_heads"] == 64
+        and value["indexer_heads"] == 32
         and value["indexer_head_dim"] == 128,
         "SCORE_DIAGNOSTIC_MODEL_LAYOUT_INVALID",
     )
@@ -553,10 +553,10 @@ def maybe_capture_indexer_native_logits(
                     "normalized": False,
                     "reference_recomputed": False,
                     "padding_or_masked_values_included": False,
-                    "formula": "sum_h(weight_h*(128^-0.5)*(64^-0.5)*dot(fp8_q_h,quantized_k_with_scales))",
-                    "scale": {"softmax_scale": 128**-0.5, "indexer_head_scale": 64**-0.5},
+                    "formula": "sum_h(weight_h*(128^-0.5)*(32^-0.5)*dot(fp8_q_h,quantized_k_with_scales))",
+                    "scale": {"softmax_scale": 128**-0.5, "indexer_head_scale": 32**-0.5},
                     "mask": "strict_causal_key_position_lt_query_position",
-                    "head_aggregation_at_capture": "native_learned_weighted_sum_across_64_indexer_heads",
+                    "head_aggregation_at_capture": "native_learned_weighted_sum_across_32_indexer_heads",
                     "tp_semantics": "replicated_native_aggregate_consensus_required_offline",
                     "indexer_head_count": config["indexer_heads"],
                     "indexer_head_dim": config["indexer_head_dim"],
@@ -616,15 +616,15 @@ def maybe_capture_indexer_native_logits(
                 "score_origin": "kernel_native_fp8_fp4_mqa_logits_before_top_k_per_row_prefill",
                 "kernel_native": True,
                 "reference_recomputed": False,
-                "formula": "sum_h(weight_h*(128^-0.5)*(64^-0.5)*dot(fp8_q_h,quantized_k_with_scales))",
+                "formula": "sum_h(weight_h*(128^-0.5)*(32^-0.5)*dot(fp8_q_h,quantized_k_with_scales))",
                 "scale": {
                     "softmax_scale": 128**-0.5,
-                    "indexer_head_scale": 64**-0.5,
+                    "indexer_head_scale": 32**-0.5,
                 },
                 "mask": "native_cu_seqlen_ks_ke_causal_inclusive"
                 if capture_mode != QUERY_SUM_MODE
                 else "strict_causal_candidate_position_lt_query_position",
-                "head_aggregation_at_capture": "native_learned_weighted_sum_across_64_indexer_heads",
+                "head_aggregation_at_capture": "native_learned_weighted_sum_across_32_indexer_heads",
                 "indexer_head_count": config["indexer_heads"],
                 "indexer_head_dim": config["indexer_head_dim"],
                 "candidate_positions": candidate_positions,

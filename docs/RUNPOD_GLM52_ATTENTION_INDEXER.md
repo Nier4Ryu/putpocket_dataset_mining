@@ -159,8 +159,8 @@ content ranges:
   sparse substitute.
 - The Lightning/DeepSeek V3.2 indexer vector is the kernel-native
   `fp8_fp4_mqa_logits` output captured before `top_k_per_row_prefill`. It is the
-  learned weighted sum across 64 indexer heads with the native quantization
-  scales, `128^-0.5` softmax scale, and `64^-0.5` head scale.
+  learned weighted sum across 32 TP-replicated indexer heads with the native
+  quantization scales, `128^-0.5` softmax scale, and `32^-0.5` head scale.
 - Candidate logical positions and token IDs must agree exactly. TP-local main
   heads are concatenated to all 64 heads; replicated indexer vectors must agree
   exactly across TP ranks.

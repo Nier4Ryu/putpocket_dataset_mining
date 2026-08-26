@@ -51,6 +51,7 @@ RunPod execution follow-up objective:
   - replace the non-final four-row probe with a bounded all-Q1/Q2 content-token query-range capture and like-for-like query-sum report
   - freeze a deterministic two-query benchmark-derived fallback because no executed A1 artifact exists; prohibit stateful/cache-quality claims
   - execute the query-sum comparison and strict-causal matrix recurrence through level 6, retain raw evidence, transfer it to Montblanc, and plot only from copied artifacts
+  - bind the score package to the audited NVFP4 model layout: 64 global main-attention heads and 32 TP-replicated Lightning indexer heads, with native indexer head scale `32^-0.5`
 offline raw-indexer scoring follow-up objective:
   - preserve the sampled attention/indexer comparison unchanged and add a separate bounded full-row native indexer matrix capture
   - compute per-layer c_l,1=uA_l and c_l,n+1=c_l,nA_l in float64 with cumulative s_l,L and exact unnormalized layer sums
@@ -94,6 +95,9 @@ validation:
   - offline raw-indexer full repository CPU suite: 387 passed, 89 subtests passed
   - offline matrix schemas, deterministic float64 recurrence/report digests, package hashes, schedule, compile, shell, and diff checks passed
   - fresh exact vLLM chain installs the updated dual-mode score instrumentation and matches every locked postimage hash
+  - live pinned NVFP4 config and vLLM `Indexer` audit corrected indexer provenance from 64 to 32 TP-replicated heads and native head scale from `64^-0.5` to `32^-0.5`
+  - 32-head correction focused suite: 26 passed; full repository CPU suite: 387 passed, 2 skipped, 89 subtests passed
+  - 32-head correction package/schema/compile/shell/diff checks and fresh exact three-overlay vLLM bootstrap/postimage validation passed
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/

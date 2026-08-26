@@ -246,7 +246,7 @@ def compare_query_sums(
         "aggregation": {
             "main_per_query": "arithmetic_mean_across_all_64_main_attention_heads",
             "main_across_queries": "signed_sum_over_every_q1_q2_content_token_query_row",
-            "indexer_per_query": "native_learned_weighted_sum_across_64_indexer_heads",
+            "indexer_per_query": "native_learned_weighted_sum_across_32_indexer_heads",
             "indexer_across_queries": "signed_sum_over_the_same_q1_q2_content_token_query_rows",
             "main_distribution": "softmax_of_query_summed_main_raw_logits",
             "indexer_distribution": "softmax_of_query_summed_native_raw_indexer_scores",

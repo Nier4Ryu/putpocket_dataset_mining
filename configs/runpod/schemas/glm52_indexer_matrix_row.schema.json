@@ -45,9 +45,9 @@
       }
     },
     "mask": {"const": "strict_causal_key_position_lt_query_position"},
-    "head_aggregation_at_capture": {"const": "native_learned_weighted_sum_across_64_indexer_heads"},
+    "head_aggregation_at_capture": {"const": "native_learned_weighted_sum_across_32_indexer_heads"},
     "tp_semantics": {"const": "replicated_native_aggregate_consensus_required_offline"},
-    "indexer_head_count": {"const": 64},
+    "indexer_head_count": {"const": 32},
     "indexer_head_dim": {"const": 128},
     "propagation_window": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
     "row_chunk_index": {"type": "integer", "minimum": 0},

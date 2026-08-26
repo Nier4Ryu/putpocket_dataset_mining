@@ -277,7 +277,7 @@ def _load_config() -> dict[str, Any]:
             isinstance(value["row_chunk_size"], int)
             and 1 <= value["row_chunk_size"] <= 64
             and isinstance(value["hard_max_window_tokens"], int)
-            and 2 <= width <= value["hard_max_window_tokens"] <= 2048
+            and 2 <= width <= value["hard_max_window_tokens"] <= 2176
             and edge_count <= value["hard_max_total_edges_per_rank"],
             "MATRIX_CAPTURE_COST_CAP_EXCEEDED",
         )

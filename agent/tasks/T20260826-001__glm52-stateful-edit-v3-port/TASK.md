@@ -101,6 +101,7 @@ validation:
   - live harness preflight bound SWE-bench Pro outer commit `ca10a60a...` and its `mini-swe-agent` gitlink `d74716a...`; the scaffold path is submodule-qualified and hash-pinned
   - exact tokenizer preflight produced 2,105 prompt tokens, Q1 `[117,2069)`, and Q2 `[2088,2103)`; the corrected full candidate/propagation window is `[0,2103)` so the SYS edit at 114 and complete causal history are retained while only Q1/Q2 content rows seed the analyses
   - the reviewed 2,103-token window requires 8,841,012 matrix edge values/rank and 138,495,040 main-reference values/rank; bounded caps were raised to 2,176 tokens, 9,465,600 matrix values/rank, and 150,994,944 main-reference values/rank without truncation
+  - live wrapper audit corrected the installed default-OFF vLLM diagnostic module's independent matrix-window ceiling to the same 2,176-token fail-closed package boundary
   - live environment preflight bound the doctor's exact Python distribution check to the observed CUDA-qualified `torch==2.13.0+cu129` wheel
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
@@ -111,4 +112,4 @@ commits:
   - 2e3f4fb6899c81cfbdc43098dbaf5bdb1187aef1 (server-side true-partial-prefill implementation)
   - d84bc3c5cf988b54a80a472032da7e44b8abfeff (machine-loadable scenario catalog)
   - current RunPod doctor and score-diagnostic packaging commit containing this record
-final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-045500.md
+final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-045100.md

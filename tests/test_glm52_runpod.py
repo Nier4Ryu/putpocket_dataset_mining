@@ -149,6 +149,8 @@ def test_score_overlay_captures_full_reference_and_native_pre_topk_only() -> Non
     assert "candidate_positions" in hook and "candidate_token_ids" in hook
     assert 'QUERY_SUM_MODE = "query_range_attention_indexer_comparison"' in hook
     assert '"strict_causal_candidate_position_lt_query_position"' in hook
+    assert 'value["hard_max_window_tokens"] <= 2176' in hook
+    assert 'value["hard_max_window_tokens"] <= 2048' not in hook
     assert lock_query_sum_boundary()["older_sampled_mode_is_final"] is False
 
 

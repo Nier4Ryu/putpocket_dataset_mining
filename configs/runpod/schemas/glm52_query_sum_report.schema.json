@@ -19,8 +19,8 @@
         "aggregate_quantiles", "hypothesis_interpretation"
       ],
       "properties": {
-        "schema_version": {"const": 1},
-        "report_id": {"const": "glm52-all-q1-q2-query-sum-compare-v1"},
+        "schema_version": {"const": 2},
+        "report_id": {"const": "glm52-all-q1-q2-query-sum-compare-v2"},
         "status": {"const": "passed"},
         "scientific_result_policy": {"const": "report_only_no_similarity_threshold_failure"},
         "diagnostic_id": {"type": "string", "minLength": 1},
@@ -44,7 +44,9 @@
             "required": [
               "layer", "valid_candidate_token_count", "aggregation",
               "raw_statistics", "pearson_raw", "spearman_raw",
-              "cosine_zscore", "js_divergence_normalized", "topk"
+              "cosine_zscore", "js_divergence_normalized",
+              "js_divergence_native_softmax_diagnostic",
+              "normalization_diagnostics", "topk"
             ],
             "properties": {
               "layer": {"type": "integer", "minimum": 0},
@@ -55,6 +57,8 @@
               "spearman_raw": {"type": "number", "minimum": -1.000001, "maximum": 1.000001},
               "cosine_zscore": {"type": "number", "minimum": -1.000001, "maximum": 1.000001},
               "js_divergence_normalized": {"type": "number", "minimum": 0},
+              "js_divergence_native_softmax_diagnostic": {"type": "number", "minimum": 0},
+              "normalization_diagnostics": {"type": "object"},
               "topk": {"type": "array", "minItems": 1, "items": {"type": "object"}}
             },
             "additionalProperties": false

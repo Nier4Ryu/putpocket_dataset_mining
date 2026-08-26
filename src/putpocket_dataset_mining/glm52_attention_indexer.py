@@ -156,6 +156,57 @@ def topk_metrics(
     }
 
 
+def raw_rank_topk_metrics(
+    main_scores: Sequence[float], indexer_scores: Sequence[float], k: int
+) -> dict[str, float | int | str]:
+    """Compare raw descending orders without routing through lossy softmax."""
+
+    main = _finite(main_scores)
+    predicted = _finite(indexer_scores)
+    _require(len(main) == len(predicted) and 0 < k <= len(main), "TOPK_INPUT_INVALID")
+    main_order = descending_order(main)
+    predicted_order = descending_order(predicted)
+    main_top = main_order[:k]
+    predicted_top = predicted_order[:k]
+    overlap = len(set(main_top) & set(predicted_top))
+    relevance = [0.0] * len(main)
+    for rank, index in enumerate(main_order):
+        relevance[index] = float(len(main) - rank)
+
+    def dcg(order: Sequence[int]) -> float:
+        return sum(
+            relevance[index] / math.log2(rank + 2)
+            for rank, index in enumerate(order)
+        )
+
+    ideal = dcg(main_top)
+    return {
+        "k": k,
+        "overlap_count": overlap,
+        "overlap_fraction": overlap / k,
+        "recall": overlap / k,
+        "ndcg": dcg(predicted_top) / ideal if ideal > 0 else 0.0,
+        "ranking_basis": "raw_descending_pre_softmax",
+        "ndcg_relevance": "main_raw_descending_rank_n_to_1",
+    }
+
+
+def probability_diagnostics(values: Sequence[float]) -> dict[str, float | int]:
+    probability = _finite(values)
+    _require(
+        abs(sum(probability) - 1.0) <= 1e-8,
+        "PROBABILITY_DIAGNOSTIC_INPUT_NOT_NORMALIZED",
+    )
+    return {
+        "positive_support_count": sum(value > 0.0 for value in probability),
+        "underflow_zero_count": sum(value == 0.0 for value in probability),
+        "max_probability": max(probability),
+        "effective_support_inverse_simpson": 1.0 / sum(
+            value * value for value in probability
+        ),
+    }
+
+
 def raw_statistics(values: Sequence[float]) -> dict[str, float]:
     vector = sorted(_finite(values))
     return {
@@ -237,8 +288,10 @@ def compare_query_sums(
     main = _finite(main_raw_sum)
     indexer = _finite(indexer_raw_sum)
     _require(len(main) == len(indexer), "QUERY_SUM_LENGTH_MISMATCH")
-    main_probability = softmax(main)
-    indexer_probability = softmax(indexer)
+    main_native_probability = softmax(main)
+    indexer_native_probability = softmax(indexer)
+    main_probability = softmax(zscore(main))
+    indexer_probability = softmax(zscore(indexer))
     normalized_k = sorted({min(int(k), len(indexer)) for k in k_values if int(k) > 0})
     _require(bool(normalized_k), "TOPK_VALUES_EMPTY")
     return {
@@ -248,21 +301,34 @@ def compare_query_sums(
             "main_across_queries": "signed_sum_over_every_q1_q2_content_token_query_row",
             "indexer_per_query": "native_learned_weighted_sum_across_32_indexer_heads",
             "indexer_across_queries": "signed_sum_over_the_same_q1_q2_content_token_query_rows",
-            "main_distribution": "softmax_of_query_summed_main_raw_logits",
-            "indexer_distribution": "softmax_of_query_summed_native_raw_indexer_scores",
+            "main_distribution": "softmax_of_independently_population_zscored_query_summed_main_raw_logits",
+            "indexer_distribution": "softmax_of_independently_population_zscored_query_summed_native_raw_indexer_scores",
             "cosine_normalization": "independent_population_zscore_then_cosine",
+            "topk_ranking": "raw_descending_pre_softmax",
+            "ndcg_relevance": "main_raw_descending_rank_n_to_1",
+            "native_softmax": "diagnostic_only_not_used_for_topk_or_primary_js",
         },
         "raw_statistics": {"main": raw_statistics(main), "indexer": raw_statistics(indexer)},
         "pearson_raw": pearson(main, indexer),
         "spearman_raw": spearman(main, indexer),
         "cosine_zscore": cosine_after_zscore(main, indexer),
         "js_divergence_normalized": js_divergence(main_probability, indexer_probability),
-        "topk": [topk_metrics(main_probability, indexer, k) for k in normalized_k],
+        "js_divergence_native_softmax_diagnostic": js_divergence(
+            main_native_probability, indexer_native_probability
+        ),
+        "normalization_diagnostics": {
+            "primary_distribution": "independent_population_zscore_then_softmax",
+            "main_native_softmax": probability_diagnostics(main_native_probability),
+            "indexer_native_softmax": probability_diagnostics(indexer_native_probability),
+        },
+        "topk": [raw_rank_topk_metrics(main, indexer, k) for k in normalized_k],
         "vectors": {
             "main_raw_query_sum": main,
             "main_probability": main_probability,
             "indexer_raw_query_sum": indexer,
             "indexer_probability": indexer_probability,
+            "main_native_probability": main_native_probability,
+            "indexer_native_probability": indexer_native_probability,
         },
     }
 
@@ -553,7 +619,7 @@ def analyze_query_sum_capture(
         indexer_ranks = _average_ranks(vectors["indexer_raw_query_sum"])
         for index, position in enumerate(included):
             token_rows.append({
-                "schema_version": 1,
+                "schema_version": 2,
                 "layer": layer,
                 "candidate_position": position,
                 "candidate_token_id": prompt_ids[position],
@@ -577,7 +643,13 @@ def analyze_query_sum_capture(
     token_path.write_bytes(b"".join(canonical_json_bytes(row) for row in token_rows))
     per_query_path = output / "per-query-comparisons.json"
     per_query_path.write_bytes(canonical_json_bytes(per_query))
-    scalar_fields = ("pearson_raw", "spearman_raw", "cosine_zscore", "js_divergence_normalized")
+    scalar_fields = (
+        "pearson_raw",
+        "spearman_raw",
+        "cosine_zscore",
+        "js_divergence_normalized",
+        "js_divergence_native_softmax_diagnostic",
+    )
     aggregate = {
         field: {
             "min": min(float(item[field]) for item in layer_summaries),
@@ -589,8 +661,8 @@ def analyze_query_sum_capture(
     }
     diagnostic_id, instance_id, scenario_id = next(iter(identities))
     payload = {
-        "schema_version": 1,
-        "report_id": "glm52-all-q1-q2-query-sum-compare-v1",
+        "schema_version": 2,
+        "report_id": "glm52-all-q1-q2-query-sum-compare-v2",
         "status": "passed",
         "scientific_result_policy": "report_only_no_similarity_threshold_failure",
         "diagnostic_id": diagnostic_id,
@@ -612,6 +684,9 @@ def analyze_query_sum_capture(
         "hypothesis_interpretation": {
             "supporting_pattern": "consistently positive high rank/correlation and cosine, low normalized JS divergence, and strong top-k metrics across preregistered layers",
             "refuting_pattern": "weak or negative rank/correlation, high normalized JS divergence, and poor top-k metrics across layers",
+            "primary_distribution_normalization": "independent_population_zscore_then_softmax",
+            "topk_ranking": "raw_descending_pre_softmax",
+            "native_softmax_saturation_is_diagnostic_only": True,
             "threshold_preregistered": False,
             "dissimilarity_is_test_failure": False,
         },

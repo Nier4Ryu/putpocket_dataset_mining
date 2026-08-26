@@ -110,6 +110,11 @@ def test_package_lock_pins_order_apply_arguments_provenance_and_artifacts() -> N
     assert lock["query_sum_capture"]["candidate_history_scope"].startswith(
         "all frozen prompt positions [0,Q2_end)"
     )
+    assert lock["query_sum_capture"]["offline_analysis_version"] == 2
+    assert lock["query_sum_capture"]["topk_ranking"] == "raw_descending_pre_softmax"
+    assert lock["query_sum_capture"]["native_softmax_policy"].startswith(
+        "retain_as_saturation_diagnostic"
+    )
     assert lock["capture"]["scenario_id"] == "glm52-sys-policy-equal-replacement-v1"
     assert lock["probe_boundary"]["q2_present"] is False
     assert lock["analysis"]["dissimilarity_failure"] is False
@@ -286,6 +291,41 @@ def test_query_sum_metrics_preserve_signed_raw_sums() -> None:
     assert result["vectors"]["main_raw_query_sum"][0] == -3.0
     assert result["vectors"]["indexer_raw_query_sum"][0] == -6.0
     assert sum(result["vectors"]["main_probability"]) == pytest.approx(1.0)
+    assert result["aggregation"]["topk_ranking"] == "raw_descending_pre_softmax"
+    assert result["topk"][0]["ndcg_relevance"] == "main_raw_descending_rank_n_to_1"
+
+
+def test_query_sum_topk_does_not_rank_underflowed_native_softmax() -> None:
+    main = [float(index * 10_000) for index in range(10)]
+    indexer = [float(index * 20_000) for index in range(10)]
+    result = compare_query_sums(main, indexer, k_values=[5])
+    native = result["normalization_diagnostics"]
+    assert native["main_native_softmax"]["positive_support_count"] == 1
+    assert native["indexer_native_softmax"]["positive_support_count"] == 1
+    assert result["topk"] == [{
+        "k": 5,
+        "overlap_count": 5,
+        "overlap_fraction": 1.0,
+        "recall": 1.0,
+        "ndcg": 1.0,
+        "ranking_basis": "raw_descending_pre_softmax",
+        "ndcg_relevance": "main_raw_descending_rank_n_to_1",
+    }]
+    assert result["js_divergence_normalized"] == pytest.approx(0.0)
+    assert result["js_divergence_native_softmax_diagnostic"] == pytest.approx(0.0)
+
+
+def test_query_sum_primary_distribution_is_scale_independent() -> None:
+    main = [-3.0, 0.0, 2.0, 9.0]
+    indexer = [value * 1_000_000 for value in main]
+    result = compare_query_sums(main, indexer, k_values=[2])
+    assert result["js_divergence_normalized"] == pytest.approx(0.0)
+    assert result["vectors"]["main_probability"] == pytest.approx(
+        result["vectors"]["indexer_probability"]
+    )
+    assert result["normalization_diagnostics"]["primary_distribution"] == (
+        "independent_population_zscore_then_softmax"
+    )
 
 
 def test_all_q1_q2_rows_are_aligned_and_summed_per_layer(tmp_path: Path) -> None:

@@ -161,6 +161,14 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
         and query_sum_capture.get("hard_max_main_logit_values_per_rank") == 150994944
         and query_sum_capture.get("candidate_history_scope")
         == "all frozen prompt positions [0,Q2_end); seed rows are all and only Q1/Q2 content tokens"
+        and query_sum_capture.get("offline_analysis_version") == 2
+        and query_sum_capture.get("normalized_distribution")
+        == "independent_population_zscore_then_softmax_per_query_summed_vector"
+        and query_sum_capture.get("topk_ranking") == "raw_descending_pre_softmax"
+        and query_sum_capture.get("ndcg_relevance")
+        == "main_raw_descending_rank_n_to_1"
+        and query_sum_capture.get("native_softmax_policy")
+        == "retain_as_saturation_diagnostic_only_not_primary_js_or_topk"
         and query_sum_capture.get("older_sampled_mode_is_final") is False
         and query_sum_capture.get("default_off") is True,
         "RUNPOD_QUERY_SUM_CAPTURE_BOUNDARY_INVALID",

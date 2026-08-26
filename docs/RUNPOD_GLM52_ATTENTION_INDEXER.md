@@ -207,9 +207,16 @@ is used unchanged. `query-summed-token-scores.jsonl` preserves both raw sums,
 normalized distributions, ranks, and receiving-query counts. The report also
 includes raw statistics, Pearson, Spearman,
 z-score cosine, JS divergence between explicitly normalized distributions,
-and top-k overlap/recall/NDCG. Query-summed probability vectors are explicitly
-the softmax of each raw query-summed vector; no per-query vector is compared to
-a summed vector.
+and top-k overlap/recall/NDCG. Query summation can make native raw logits large
+enough that direct float64 softmax underflows almost every candidate to zero.
+The v2 offline analyzer therefore independently population-z-scores the two
+query-summed vectors before softmax for the primary JS/distribution fields.
+It preserves the direct native-softmax JS and effective-support counts only as
+an explicit saturation diagnostic. Top-k membership is ranked directly from
+the raw pre-softmax sums, so mathematically order-preserving softmax cannot
+lose the order through numerical ties; NDCG uses the main raw descending rank
+as nonnegative scale-independent relevance. No per-query vector is compared
+to a summed vector, and these offline transformations never affect inference.
 
 This first run has no preregistered similarity threshold. Capture, alignment,
 finite-value, schema, or digest errors fail the test; low similarity does not.

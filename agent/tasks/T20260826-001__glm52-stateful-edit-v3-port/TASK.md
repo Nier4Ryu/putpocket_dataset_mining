@@ -110,6 +110,8 @@ validation:
   - live query-sum attempt 4 loaded the exact NVFP4 model and generated one token but failed closed with `CAPTURE_FILES_MISSING`; audit proved `GlmMoeDsaForCausalLM` uses `DeepseekV2Model` while batch attestation was wired only to `Glm4MoeLiteModel`
   - the score overlay now wires fail-closed batch attestation into the actual DeepSeek/GLM DSA model path, pins its pre/postimage, and makes the doctor inspect that exact class before GPU capture
   - the DeepSeek/GLM hook correction passed 76 focused tests, the full `389 passed, 2 skipped, 89 subtests` pytest suite, 291 unittests, project hash/schema/compile/shell/diff checks, and a genuinely fresh exact three-overlay source-chain validation
+  - live query-sum attempt 5 reached the corrected model hook but vLLM's position-zero synthetic memory-profile batch failed the frozen-prompt count assertion before serving a request; the hook now ignores only nonmatching-count initialization/decode batches while exact-count position and token-digest mismatches remain fail-closed
+  - the profile-batch correction passed 61 focused tests plus project hashes/schema/compile/shell/diff checks, the full `391 passed, 2 skipped, 89 subtests` pytest suite, 291 unittests, and a brand-new exact three-overlay source-chain/postimage validation
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/

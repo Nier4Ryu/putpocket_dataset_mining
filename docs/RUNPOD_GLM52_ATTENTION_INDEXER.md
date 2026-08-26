@@ -107,6 +107,11 @@ the pre-existing GLM-lite path. When score capture is enabled, absence of
 `input_ids` now fails closed before either score hook can consume an
 unattested batch. The doctor inspects the actual DeepSeek/GLM class for this
 hook. Score capture remains default OFF and does not change inference choices.
+vLLM's position-zero synthetic memory-profile batches are disarmed when their
+flattened token count differs from the frozen prompt. Only an exact-count batch
+can arm capture; it must then have contiguous absolute positions and the exact
+token digest. A wrong real prompt therefore cannot produce evidence, and the
+capture/analyzer still fails closed when the required files are absent.
 
 The legacy patch is deliberately applied with the repository's existing GNU
 `patch` convention. Plain `git apply` is not equivalent for this generated

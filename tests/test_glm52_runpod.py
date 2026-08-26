@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 
@@ -163,6 +164,73 @@ def test_score_overlay_captures_full_reference_and_native_pre_topk_only() -> Non
         == "de3ba3d5e1ae23aadd71e7b44983db37664d301931ef192ce1e38b2ff8fc1afd"
     )
     assert lock_query_sum_boundary()["older_sampled_mode_is_final"] is False
+
+
+def _load_score_instrumentation():
+    path = ROOT / "instrumentation/vllm/glm52_attention_indexer_scores.py"
+    spec = importlib.util.spec_from_file_location("test_glm52_attention_indexer_scores", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _token_digest(values: list[int]) -> str:
+    return hashlib.sha256(json.dumps(values, separators=(",", ":")).encode("ascii")).hexdigest()
+
+
+def test_score_batch_attestation_ignores_profile_batch_then_arms_exact_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    hook = _load_score_instrumentation()
+    expected_ids = [10, 11, 12]
+    monkeypatch.setenv(hook.ENABLE_ENV, "1")
+    monkeypatch.setattr(
+        hook,
+        "_config",
+        {
+            "expected_prompt_token_count": len(expected_ids),
+            "expected_prompt_token_ids_sha256": _token_digest(expected_ids),
+            "capture_mode": hook.MATRIX_MODE,
+        },
+    )
+    monkeypatch.setattr(hook, "_batch", {"stale": True})
+
+    hook.maybe_set_score_diagnostic_batch(
+        hook.torch.tensor([91, 92]), hook.torch.tensor([0, 1])
+    )
+    assert hook._batch is None
+
+    hook.maybe_set_score_diagnostic_batch(
+        hook.torch.tensor(expected_ids), hook.torch.tensor([0, 1, 2])
+    )
+    assert hook._batch == {"token_ids": expected_ids, "positions": [0, 1, 2]}
+
+
+def test_score_batch_attestation_keeps_exact_prompt_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    hook = _load_score_instrumentation()
+    expected_ids = [10, 11, 12]
+    monkeypatch.setenv(hook.ENABLE_ENV, "1")
+    monkeypatch.setattr(
+        hook,
+        "_config",
+        {
+            "expected_prompt_token_count": len(expected_ids),
+            "expected_prompt_token_ids_sha256": _token_digest(expected_ids),
+            "capture_mode": hook.MATRIX_MODE,
+        },
+    )
+
+    with pytest.raises(hook.ScoreDiagnosticError, match="POSITIONS_NOT_CONTIGUOUS"):
+        hook.maybe_set_score_diagnostic_batch(
+            hook.torch.tensor(expected_ids), hook.torch.tensor([0, 2, 3])
+        )
+    with pytest.raises(hook.ScoreDiagnosticError, match="PROMPT_TOKEN_DIGEST_MISMATCH"):
+        hook.maybe_set_score_diagnostic_batch(
+            hook.torch.tensor([10, 11, 99]), hook.torch.tensor([0, 1, 2])
+        )
 
 
 def test_doctor_binds_matrix_capture_mode_constant_and_function_dispatch() -> None:

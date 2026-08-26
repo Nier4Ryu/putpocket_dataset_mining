@@ -338,7 +338,14 @@ def _write(record: Mapping[str, Any]) -> None:
 def maybe_set_score_diagnostic_batch(
     input_ids: torch.Tensor | None, positions: torch.Tensor
 ) -> None:
-    """Attest the one full ordinary-prefill batch; ignore later decode steps."""
+    """Attest the configured full prefill; ignore profiling and decode batches.
+
+    vLLM profiles available memory with a synthetic position-zero batch before
+    it accepts requests.  Such a batch cannot be the frozen diagnostic prompt
+    unless its flattened token count is exactly the configured count.  An
+    exact-count batch remains fail-closed on position or token-digest mismatch;
+    a nonmatching count is disarmed and later produces no capture evidence.
+    """
 
     global _batch
     if not enabled():
@@ -351,7 +358,10 @@ def maybe_set_score_diagnostic_batch(
     if not pos or pos[0] != 0:
         _batch = None
         return
-    _require(len(ids) == len(pos) == expected_count, "SCORE_DIAGNOSTIC_PREFILL_COUNT_MISMATCH")
+    _require(len(ids) == len(pos), "SCORE_DIAGNOSTIC_TOKEN_POSITION_SHAPE_MISMATCH")
+    if len(ids) != expected_count:
+        _batch = None
+        return
     _require(pos == list(range(expected_count)), "SCORE_DIAGNOSTIC_POSITIONS_NOT_CONTIGUOUS")
     _require(
         _token_digest(ids) == config["expected_prompt_token_ids_sha256"],

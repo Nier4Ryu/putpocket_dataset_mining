@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "document_kind": "stateful_edit_scenario",
+  "artifact_kind": "authoring_template",
+  "scenario_id": "glm52-sys-policy-equal-replacement-v1",
+  "title": "Recommended follow-up-policy equal-token SYS replacement",
+  "summary": "Use the existing evidenced rejected-to-accepted system-policy edit with frozen highest-importance-first downstream recompute budgets.",
+  "status": "recommended",
+  "recommendation_order": 1,
+  "tags": ["equal-length", "recommended-experiment", "replacement", "selector-sweep", "sys-only"],
+  "provenance": {
+    "authorship": {"scenario_definition": "project_authored", "stateful_episode_transformation": "project_authored", "system_edit": "project_authored", "benchmark_native_edit_trajectory": false, "statement": "SWE-bench Pro supplies the repository problem row, container mapping, and evaluator; PutPocket authors SYS_old/SYS_new, generates and executes A1, freezes Q2, and constructs the stateful cache-edit episode."},
+    "benchmark": {"family": "swe_bench_pro", "dataset_id": "ScaleAI/SWE-bench_Pro", "dataset_config": null, "dataset_config_status": "not_explicitly_named_by_repository_loader", "dataset_revision": "7ab5114912baf22bb098818e604c02fe7ad2c11f", "dataset_revision_status": "pinned", "split": "test", "dataset_source_url": "https://huggingface.co/datasets/ScaleAI/SWE-bench_Pro", "selection_id": "swebench_pro_smoke_one", "selection_rule": "instance_id_ascending_limit_1", "harness_repository": "https://github.com/scaleapi/SWE-bench_Pro-os.git", "harness_commit": "ca10a60a5fcae51e6948ffe1485d4153d421e6c5", "official_evaluator": "swe_bench_pro_eval.py"},
+    "instance": {"selection_kind": "exact_pinned_instance", "instance_id": "instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5", "repository_identifier": "ansible/ansible", "repository_source_url": null, "source_identifier": "ScaleAI/SWE-bench_Pro@7ab5114912baf22bb098818e604c02fe7ad2c11f:test:instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5", "row_sha256": "78ff3ac298f276dfafaa311c26b7ace35be7c52d9094b4a6f658de2e7b5e25d1", "problem_statement_sha256": "c85767edfc81daa9ac070eb923ad55ec021bb8f3e80c3b820526b54b3f62b524", "dockerhub_tag": "ansible.ansible-ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5", "parameterization": "fixed_benchmark_row_with_project_authored_stateful_edit_template"},
+    "native_benchmark_components": ["problem_statement_and_row_metadata", "repository_base_state_and_dataset_container_mapping", "official_swe_bench_pro_evaluator"],
+    "project_authored_adaptations": ["sys_old_and_sys_new_pair", "generate_a1_once_and_execute_frozen_tool_action", "freeze_q2_tool_observation_and_repository_state", "replay_a1_q2_exactly_across_methods_and_budgets", "token_alignment_mandatory_closure_and_selector_budgets", "donor_and_target_true_partial_prefill_server_manifests"],
+    "leakage_policy": {"outcome_independent": true, "freeze_before": "a2_generation_or_any_evaluator_outcome", "forbidden_inputs": ["gold_patch", "candidate_patch", "hidden_or_public_test_result", "official_resolved_boolean", "judge_output", "post_edit_model_output", "decode_length", "latency"], "fresh_state_per_method_budget": true},
+    "evidence_paths": ["configs/cluster/glm52_dsa_diagnostic.lock.json", "configs/cluster/glm52_forced_reuse_ablation.lock.json", "configs/cluster/selections/swebench_pro_smoke.yaml", "configs/cluster/swebench_pro_sources.lock.yaml", "scripts/cluster/run_glm52_forced_reuse_ablation.sh", "src/putpocket_dataset_mining/glm52_stateful_cli.py"]
+  },
+  "episode_contract": {"history_messages": ["sys", "q1", "a1"], "construction_order": ["sys_old_plus_q1_to_a1", "execute_frozen_a1", "freeze_q2", "apply_system_edit", "patch_frozen_history_cache", "prefill_q2_then_continue_a2"], "a1_generated_once": true, "a1_executed_before_q2": true, "q2_kind": "frozen_pre_edit_tool_observation", "q2_has_donor_kv": false, "q2_in_first_target_request": true, "exact_a1_q2_replay": true, "fresh_repository_per_method_budget": true, "no_outcome_leakage": true},
+  "edit_template": {
+    "operation_kind": "replacement",
+    "message_path": "sys",
+    "text_resolution": {"mode": "evidenced_existing_pair", "old_text": "Failure to follow these rules will cause your response to be rejected.", "new_text": "Failure to follow these rules will cause your response to be accepted.", "equal_token_count_required": true, "equal_token_count_proven": true, "resolution_gate": "Recreate the exact pinned serializer and require the full frozen histories to differ only at target position 114."},
+    "tokenization_evidence": {"source": "configs/cluster/glm52_forced_reuse_ablation.lock.json and glm52_stateful_cli.build_episode", "edit_positions": [114], "old_token_ids": [17526], "new_token_ids": [11660], "base_prompt_token_count": 2071, "full_history_requires_refreeze": true},
+    "position_resolution": "evidenced_existing_position",
+    "donor_positions": [114],
+    "target_positions": [114],
+    "interior_position_required": true,
+    "multiple_disjoint_spans": false,
+    "length_change": false,
+    "alignment_requirement": "same_length_same_position_outside_edit"
+  },
+  "selection_contract": {"semantic_quantity": "importance_for_recompute", "score_direction": "higher_score_first", "mandatory_set": "all_edit_targets_plus_declared_dependency_and_implementation_closure", "eligible_region": "aligned_frozen_history_positions_strictly_after_earliest_edit_and_before_h_minus_mandatory", "selection_rule": "selected_positions_are_exact_prefix_of_frozen_selection_order", "q2_excluded": true, "budget_mode": "selector_prefix_sweep", "minimum_selected_count": 1, "counts_resolved_at_freeze": true},
+  "server_constraints": {"backend_kind": "true_partial_prefill", "main_authoring_contract": "sys_only", "client_schema_compatibility": "supported_replacement_only", "target_request_requires_p_gt_h": true, "reject_zero_recompute": true, "reject_full_history_recompute": true, "mandatory_edit_closure": true, "q2_selector_disposition": "excluded_and_computed_normally_after_patch", "ordinary_full_prefill_control_required": true, "no_full_prefill_fallback": true, "shifted_reuse_policy": "not_applicable_positions_unchanged", "gpu_runtime_validated": false},
+  "readiness": {"directly_runnable": false, "requires_episode_freeze": true, "requires_tokenization_resolution": false, "requires_client_schema_extension": false, "blockers": ["importance-for-recompute provenance and budgets must replace the legacy reuse-suitability ranking", "frozen A1, Q2, H, closure, manifests, and GPU validation remain required"]},
+  "controls": [
+    {"control_kind": "ordinary_full_target_prefill", "required": true, "claim_boundary": "Full SYS_new accuracy reference without donor reuse."},
+    {"control_kind": "ordinary_old_system_continuation", "required": true, "claim_boundary": "Unedited trajectory reference."},
+    {"control_kind": "mandatory_only_true_partial", "required": true, "claim_boundary": "Separates edit closure from selector-chosen downstream recompute."},
+    {"control_kind": "matched_budget_frozen_random_selector", "required": false, "claim_boundary": "Outcome-independent matched-count selector control."},
+    {"control_kind": "legacy_accuracy_emulation", "required": false, "claim_boundary": "Accuracy emulation only; no compute-saving claim."}
+  ],
+  "claim_boundary": {"scientific_quality_claim_allowed": true, "rope_correct_claim_allowed": true, "compute_saving_claim_requires_gpu_validation": true, "allowed_after_gpu_validation": ["pinned equal-position true-partial cache experiment", "selector-prefix comparison under exact replay", "official single-instance resolved outcome per frozen budget"], "prohibited": ["reuse ranking described as importance for recompute", "full-dataset score from one instance", "speedup before measured GPU evidence"]},
+  "freeze_contract": {"template_is_runtime_manifest": false, "required_output_artifact_kinds": ["frozen_per_instance_episode", "donor_server_manifest", "target_server_manifest"], "schema_paths": {"frozen_episode": "configs/cluster/schemas/stateful_mid_trajectory_edit_scenario.schema.json", "server_manifest": "configs/cluster/schemas/vllm_true_partial_prefill_server_manifest.schema.json"}, "required_resolutions": ["generate and execute A1 once", "freeze exact Q2 and repository state", "capture outcome-independent importance-for-recompute evidence", "freeze selection order and budget prefixes", "emit complete alignment closure and digest-bound server manifests"]}
+}

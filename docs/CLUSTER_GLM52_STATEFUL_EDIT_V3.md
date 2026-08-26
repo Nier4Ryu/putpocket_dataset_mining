@@ -4,6 +4,9 @@ This chain evaluates a real edit event, not independent runs that start with the
 new system prompt. For authoring new model-neutral SWE-bench or SWE-bench Pro
 episodes, use the normative
 [`STATEFUL_MID_TRAJECTORY_EDIT_SCENARIO_CONTRACT.md`](STATEFUL_MID_TRAJECTORY_EDIT_SCENARIO_CONTRACT.md).
+The project-internal templates, exact benchmark provenance, loader API, and
+readiness classifications for the next experiment script are in
+[`STATEFUL_EDIT_SCENARIO_CATALOG.md`](STATEFUL_EDIT_SCENARIO_CATALOG.md).
 The GLM v3 experiment below predates that contract and is retained as a legacy
 accuracy-emulation reference.
 

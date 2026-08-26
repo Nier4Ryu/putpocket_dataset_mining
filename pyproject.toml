@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
   "datasets>=2.20",
+  "jsonschema>=4.23",
   "pyyaml>=6.0",
   "transformers>=4.43",
 ]
@@ -27,6 +28,7 @@ putpocket-cluster = "putpocket_dataset_mining.cluster_cli:main"
 putpocket-swebench-pro = "putpocket_dataset_mining.swebench_pro_cli:main"
 putpocket-glm52-sglang-gate = "putpocket_dataset_mining.glm52_sglang_gate_cli:main"
 putpocket-glm52-vllm-diagnostic = "putpocket_dataset_mining.glm52_vllm_diagnostic_cli:main"
+putpocket-stateful-edit-scenarios = "putpocket_dataset_mining.stateful_edit_scenarios_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -7,6 +7,9 @@ Machine-readable companions:
 
 - schema: `configs/cluster/schemas/stateful_mid_trajectory_edit_scenario.schema.json`
 - authoring example: `configs/cluster/stateful_mid_trajectory_edit_scenario.example.yaml`
+- project template catalog:
+  `configs/cluster/stateful_edit_scenarios/catalog.json`, documented in
+  `docs/STATEFUL_EDIT_SCENARIO_CATALOG.md`
 
 This contract turns a normally single-turn benchmark instance into a
 deterministic edit episode. It defines scientific state and accounting; it does
@@ -319,3 +322,8 @@ The committed YAML example is illustrative, uses small synthetic token
 coordinates, and intentionally contains no GLM-specific token or system-text
 constant. Copy it to a task-local scenario path, replace every placeholder with
 real pinned evidence, validate it, and freeze it before any scored run.
+
+Project catalog entries are also authoring templates, not frozen episodes or
+server manifests. Their loader validates provenance and readiness, but the
+experiment driver must still produce the two distinct frozen artifact kinds
+before execution.

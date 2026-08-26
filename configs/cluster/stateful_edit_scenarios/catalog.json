@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "document_kind": "scenario_catalog_index",
+  "catalog_id": "glm52-stateful-edit-next-experiments-v1",
+  "artifact_kind": "authoring_template_catalog",
+  "ordering": "scenario_id_ascending",
+  "scenario_schema": {
+    "path": "configs/cluster/schemas/stateful_edit_scenario_catalog.schema.json",
+    "sha256": "0fc5f57ff8dc76a4e4c385e2c77a10c2b9ed3ecf4b8b2935ee64bef424732f8d"
+  },
+  "scenario_directory": "scenarios",
+  "frozen_artifact_schemas": {
+    "frozen_episode": "configs/cluster/schemas/stateful_mid_trajectory_edit_scenario.schema.json",
+    "server_manifest": "configs/cluster/schemas/vllm_true_partial_prefill_server_manifest.schema.json"
+  },
+  "benchmark_provenance": {
+    "family": "swe_bench_pro",
+    "dataset_id": "ScaleAI/SWE-bench_Pro",
+    "dataset_config": null,
+    "dataset_config_status": "not_explicitly_named_by_repository_loader",
+    "dataset_revision": "7ab5114912baf22bb098818e604c02fe7ad2c11f",
+    "dataset_revision_status": "pinned",
+    "split": "test",
+    "dataset_source_url": "https://huggingface.co/datasets/ScaleAI/SWE-bench_Pro",
+    "selection_id": "swebench_pro_smoke_one",
+    "selection_rule": "instance_id_ascending_limit_1",
+    "harness_repository": "https://github.com/scaleapi/SWE-bench_Pro-os.git",
+    "harness_commit": "ca10a60a5fcae51e6948ffe1485d4153d421e6c5",
+    "official_evaluator": "swe_bench_pro_eval.py"
+  },
+  "entries": [
+    {
+      "scenario_id": "glm52-cache-block-boundary-replacement-v1",
+      "path": "scenarios/glm52-cache-block-boundary-replacement-v1.json",
+      "sha256": "2dc3febf554c9f5cb6a699c374ffe1713019126fdc14032a6f8cc883084fa560",
+      "title": "Equal-token SYS replacement cache-block-boundary escalation",
+      "status": "requires_freeze",
+      "artifact_kind": "authoring_template"
+    },
+    {
+      "scenario_id": "glm52-delete-shifted-rope-diagnostic-v1",
+      "path": "scenarios/glm52-delete-shifted-rope-diagnostic-v1.json",
+      "sha256": "bdd2e92c210745043d221b9e8fab851e0c899b5f7bd0f41db4acf5c2b5f01161",
+      "title": "SYS deletion with shifted stale-RoPE reuse diagnostic",
+      "status": "backend_diagnostic",
+      "artifact_kind": "authoring_template"
+    },
+    {
+      "scenario_id": "glm52-insert-shifted-rope-diagnostic-v1",
+      "path": "scenarios/glm52-insert-shifted-rope-diagnostic-v1.json",
+      "sha256": "4bbad1b3767ebb1897605f7a8e5b21b366c2c75ebbf989b51bac18e59ab9cb34",
+      "title": "SYS insertion with shifted stale-RoPE reuse diagnostic",
+      "status": "backend_diagnostic",
+      "artifact_kind": "authoring_template"
+    },
+    {
+      "scenario_id": "glm52-multi-disjoint-equal-replacement-v1",
+      "path": "scenarios/glm52-multi-disjoint-equal-replacement-v1.json",
+      "sha256": "73c1a8120e677f0123b61fe99542e879afb4a41b4526dbbb6a5433d96cd2b994",
+      "title": "Multiple disjoint equal-length SYS replacements",
+      "status": "blocked",
+      "artifact_kind": "authoring_template"
+    },
+    {
+      "scenario_id": "glm52-sys-interior-equal-replacement-smoke-v1",
+      "path": "scenarios/glm52-sys-interior-equal-replacement-smoke-v1.json",
+      "sha256": "91fb8bb9e355ac2e5296a61603772762a6cb37911e93a0395f3e8b29b930d087",
+      "title": "Minimal interior equal-token SYS replacement GPU smoke",
+      "status": "recommended",
+      "artifact_kind": "authoring_template"
+    },
+    {
+      "scenario_id": "glm52-sys-policy-equal-replacement-v1",
+      "path": "scenarios/glm52-sys-policy-equal-replacement-v1.json",
+      "sha256": "f1769f464befbe2482e200521b98ffd4a59044d8abad0f5bc0d946a9bc713484",
+      "title": "Recommended follow-up-policy equal-token SYS replacement",
+      "status": "recommended",
+      "artifact_kind": "authoring_template"
+    }
+  ]
+}

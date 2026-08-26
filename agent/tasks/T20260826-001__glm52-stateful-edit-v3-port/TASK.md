@@ -34,6 +34,12 @@ server follow-up objective:
   - allocate and patch target KV from copied donor rows plus exact sparse recompute rows
   - wire arbitrary target positions through the pinned GLM sparse indexer and FLASHMLA_SPARSE backend
   - preserve the legacy compute-then-overwrite path only as accuracy emulation
+catalog follow-up objective:
+  - save six provenance-complete, project-authored scenario templates for the next experiment driver
+  - expose a digest-pinned JSON index and Draft 2020-12 schema with safe list/load/filter/validate APIs
+  - preserve the exact ScaleAI/SWE-bench_Pro revision, smoke selection, and Ansible instance provenance
+  - distinguish benchmark-native repository/problem/evaluator inputs from project-authored A1/Q2/edit transformations
+  - keep every catalog entry non-runnable until a distinct frozen episode and donor/target server manifests exist
 registered next slice:
   - name: glm52-rope-aware-shifted-reuse
   - owner boundary: FLASHMLA_SPARSE main K-cache representation and DeepSeek V3.2 packed indexer representation
@@ -61,6 +67,9 @@ validation:
   - all patched vLLM files and the installed instrumentation module pass py_compile
   - patch, instrumentation, schema, and all seven vLLM pre/post source hashes verified against the lock
   - sparse token selection, exact physical slot mapping, post-patch H boundary, P > H requirement, and Q2 block-boundary extension have focused CPU/static evidence
+  - scenario catalog focused contract/server/loader suite: 25 passed
+  - scenario catalog full repository CPU suite: 363 passed, 89 subtests passed
+  - catalog schema, index, six scenario JSON files, exact SHA-256 bindings, CLI validate/list/show, Python compile, and git diff check passed
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/

@@ -1,0 +1,488 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/stateful-edit-scenario-catalog-v1.json",
+  "title": "PutPocket stateful edit scenario catalog documents",
+  "oneOf": [
+    {"$ref": "#/$defs/catalog"},
+    {"$ref": "#/$defs/scenario"}
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitSha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "repoPath": {"type": "string", "pattern": "^[A-Za-z0-9_.-][A-Za-z0-9_./-]*$"},
+    "stringList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "positionList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 0}
+    },
+    "tokenIdList": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "integer", "minimum": 0}
+    },
+    "benchmarkProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family",
+        "dataset_id",
+        "dataset_config",
+        "dataset_config_status",
+        "dataset_revision",
+        "dataset_revision_status",
+        "split",
+        "dataset_source_url",
+        "selection_id",
+        "selection_rule",
+        "harness_repository",
+        "harness_commit",
+        "official_evaluator"
+      ],
+      "properties": {
+        "family": {"const": "swe_bench_pro"},
+        "dataset_id": {"const": "ScaleAI/SWE-bench_Pro"},
+        "dataset_config": {"type": "null"},
+        "dataset_config_status": {"const": "not_explicitly_named_by_repository_loader"},
+        "dataset_revision": {"const": "7ab5114912baf22bb098818e604c02fe7ad2c11f"},
+        "dataset_revision_status": {"const": "pinned"},
+        "split": {"const": "test"},
+        "dataset_source_url": {"const": "https://huggingface.co/datasets/ScaleAI/SWE-bench_Pro"},
+        "selection_id": {"const": "swebench_pro_smoke_one"},
+        "selection_rule": {"const": "instance_id_ascending_limit_1"},
+        "harness_repository": {"const": "https://github.com/scaleapi/SWE-bench_Pro-os.git"},
+        "harness_commit": {"const": "ca10a60a5fcae51e6948ffe1485d4153d421e6c5"},
+        "official_evaluator": {"const": "swe_bench_pro_eval.py"}
+      }
+    },
+    "instanceProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selection_kind",
+        "instance_id",
+        "repository_identifier",
+        "repository_source_url",
+        "source_identifier",
+        "row_sha256",
+        "problem_statement_sha256",
+        "dockerhub_tag",
+        "parameterization"
+      ],
+      "properties": {
+        "selection_kind": {"const": "exact_pinned_instance"},
+        "instance_id": {"const": "instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5"},
+        "repository_identifier": {"const": "ansible/ansible"},
+        "repository_source_url": {"type": "null"},
+        "source_identifier": {"const": "ScaleAI/SWE-bench_Pro@7ab5114912baf22bb098818e604c02fe7ad2c11f:test:instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5"},
+        "row_sha256": {"const": "78ff3ac298f276dfafaa311c26b7ace35be7c52d9094b4a6f658de2e7b5e25d1"},
+        "problem_statement_sha256": {"const": "c85767edfc81daa9ac070eb923ad55ec021bb8f3e80c3b820526b54b3f62b524"},
+        "dockerhub_tag": {"const": "ansible.ansible-ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5"},
+        "parameterization": {"const": "fixed_benchmark_row_with_project_authored_stateful_edit_template"}
+      }
+    },
+    "authorship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_definition",
+        "stateful_episode_transformation",
+        "system_edit",
+        "benchmark_native_edit_trajectory",
+        "statement"
+      ],
+      "properties": {
+        "scenario_definition": {"const": "project_authored"},
+        "stateful_episode_transformation": {"const": "project_authored"},
+        "system_edit": {"const": "project_authored"},
+        "benchmark_native_edit_trajectory": {"const": false},
+        "statement": {
+          "const": "SWE-bench Pro supplies the repository problem row, container mapping, and evaluator; PutPocket authors SYS_old/SYS_new, generates and executes A1, freezes Q2, and constructs the stateful cache-edit episode."
+        }
+      }
+    },
+    "leakagePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome_independent", "freeze_before", "forbidden_inputs", "fresh_state_per_method_budget"],
+      "properties": {
+        "outcome_independent": {"const": true},
+        "freeze_before": {"const": "a2_generation_or_any_evaluator_outcome"},
+        "forbidden_inputs": {
+          "type": "array",
+          "const": [
+            "gold_patch",
+            "candidate_patch",
+            "hidden_or_public_test_result",
+            "official_resolved_boolean",
+            "judge_output",
+            "post_edit_model_output",
+            "decode_length",
+            "latency"
+          ]
+        },
+        "fresh_state_per_method_budget": {"const": true}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorship",
+        "benchmark",
+        "instance",
+        "native_benchmark_components",
+        "project_authored_adaptations",
+        "leakage_policy",
+        "evidence_paths"
+      ],
+      "properties": {
+        "authorship": {"$ref": "#/$defs/authorship"},
+        "benchmark": {"$ref": "#/$defs/benchmarkProvenance"},
+        "instance": {"$ref": "#/$defs/instanceProvenance"},
+        "native_benchmark_components": {
+          "type": "array",
+          "const": [
+            "problem_statement_and_row_metadata",
+            "repository_base_state_and_dataset_container_mapping",
+            "official_swe_bench_pro_evaluator"
+          ]
+        },
+        "project_authored_adaptations": {
+          "type": "array",
+          "const": [
+            "sys_old_and_sys_new_pair",
+            "generate_a1_once_and_execute_frozen_tool_action",
+            "freeze_q2_tool_observation_and_repository_state",
+            "replay_a1_q2_exactly_across_methods_and_budgets",
+            "token_alignment_mandatory_closure_and_selector_budgets",
+            "donor_and_target_true_partial_prefill_server_manifests"
+          ]
+        },
+        "leakage_policy": {"$ref": "#/$defs/leakagePolicy"},
+        "evidence_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/repoPath"}
+        }
+      }
+    },
+    "catalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenario_id", "path", "sha256", "title", "status", "artifact_kind"],
+      "properties": {
+        "scenario_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]+-v[0-9]+$"},
+        "path": {"$ref": "#/$defs/repoPath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "title": {"type": "string", "minLength": 1},
+        "status": {"enum": ["recommended", "requires_freeze", "blocked", "backend_diagnostic"]},
+        "artifact_kind": {"const": "authoring_template"}
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document_kind",
+        "catalog_id",
+        "artifact_kind",
+        "ordering",
+        "scenario_schema",
+        "scenario_directory",
+        "frozen_artifact_schemas",
+        "benchmark_provenance",
+        "entries"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "document_kind": {"const": "scenario_catalog_index"},
+        "catalog_id": {"const": "glm52-stateful-edit-next-experiments-v1"},
+        "artifact_kind": {"const": "authoring_template_catalog"},
+        "ordering": {"const": "scenario_id_ascending"},
+        "scenario_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": {"$ref": "#/$defs/repoPath"},
+            "sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "scenario_directory": {"const": "scenarios"},
+        "frozen_artifact_schemas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["frozen_episode", "server_manifest"],
+          "properties": {
+            "frozen_episode": {"const": "configs/cluster/schemas/stateful_mid_trajectory_edit_scenario.schema.json"},
+            "server_manifest": {"const": "configs/cluster/schemas/vllm_true_partial_prefill_server_manifest.schema.json"}
+          }
+        },
+        "benchmark_provenance": {"$ref": "#/$defs/benchmarkProvenance"},
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/catalogEntry"}
+        }
+      }
+    },
+    "tokenizationEvidence": {
+      "type": ["object", "null"],
+      "properties": {
+        "source": {"type": "string", "minLength": 1},
+        "edit_positions": {"$ref": "#/$defs/positionList"},
+        "old_token_ids": {"$ref": "#/$defs/tokenIdList"},
+        "new_token_ids": {"$ref": "#/$defs/tokenIdList"},
+        "base_prompt_token_count": {"type": "integer", "minimum": 1},
+        "full_history_requires_refreeze": {"const": true}
+      },
+      "required": ["source", "edit_positions", "old_token_ids", "new_token_ids", "base_prompt_token_count", "full_history_requires_refreeze"],
+      "additionalProperties": false
+    },
+    "textResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "old_text", "new_text", "equal_token_count_required", "equal_token_count_proven", "resolution_gate"],
+      "properties": {
+        "mode": {"enum": ["evidenced_existing_pair", "tokenization_time_resolution"]},
+        "old_text": {"type": ["string", "null"]},
+        "new_text": {"type": ["string", "null"]},
+        "equal_token_count_required": {"type": "boolean"},
+        "equal_token_count_proven": {"type": "boolean"},
+        "resolution_gate": {"type": "string", "minLength": 1}
+      }
+    },
+    "editTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation_kind",
+        "message_path",
+        "text_resolution",
+        "tokenization_evidence",
+        "position_resolution",
+        "donor_positions",
+        "target_positions",
+        "interior_position_required",
+        "multiple_disjoint_spans",
+        "length_change",
+        "alignment_requirement"
+      ],
+      "properties": {
+        "operation_kind": {"enum": ["replacement", "multi_disjoint_replacement", "insertion", "deletion"]},
+        "message_path": {"const": "sys"},
+        "text_resolution": {"$ref": "#/$defs/textResolution"},
+        "tokenization_evidence": {"$ref": "#/$defs/tokenizationEvidence"},
+        "position_resolution": {"enum": ["evidenced_existing_position", "resolve_at_freeze"]},
+        "donor_positions": {"type": ["array", "null"], "items": {"type": "integer", "minimum": 0}, "uniqueItems": true},
+        "target_positions": {"type": ["array", "null"], "items": {"type": "integer", "minimum": 0}, "uniqueItems": true},
+        "interior_position_required": {"type": "boolean"},
+        "multiple_disjoint_spans": {"type": "boolean"},
+        "length_change": {"type": "boolean"},
+        "alignment_requirement": {"enum": ["same_length_same_position_outside_edit", "explicit_total_target_to_donor_map"]}
+      }
+    },
+    "episodeContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "history_messages",
+        "construction_order",
+        "a1_generated_once",
+        "a1_executed_before_q2",
+        "q2_kind",
+        "q2_has_donor_kv",
+        "q2_in_first_target_request",
+        "exact_a1_q2_replay",
+        "fresh_repository_per_method_budget",
+        "no_outcome_leakage"
+      ],
+      "properties": {
+        "history_messages": {"const": ["sys", "q1", "a1"]},
+        "construction_order": {
+          "const": [
+            "sys_old_plus_q1_to_a1",
+            "execute_frozen_a1",
+            "freeze_q2",
+            "apply_system_edit",
+            "patch_frozen_history_cache",
+            "prefill_q2_then_continue_a2"
+          ]
+        },
+        "a1_generated_once": {"const": true},
+        "a1_executed_before_q2": {"const": true},
+        "q2_kind": {"const": "frozen_pre_edit_tool_observation"},
+        "q2_has_donor_kv": {"const": false},
+        "q2_in_first_target_request": {"const": true},
+        "exact_a1_q2_replay": {"const": true},
+        "fresh_repository_per_method_budget": {"const": true},
+        "no_outcome_leakage": {"const": true}
+      }
+    },
+    "selectionContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "semantic_quantity",
+        "score_direction",
+        "mandatory_set",
+        "eligible_region",
+        "selection_rule",
+        "q2_excluded",
+        "budget_mode",
+        "minimum_selected_count",
+        "counts_resolved_at_freeze"
+      ],
+      "properties": {
+        "semantic_quantity": {"const": "importance_for_recompute"},
+        "score_direction": {"const": "higher_score_first"},
+        "mandatory_set": {"const": "all_edit_targets_plus_declared_dependency_and_implementation_closure"},
+        "eligible_region": {"const": "aligned_frozen_history_positions_strictly_after_earliest_edit_and_before_h_minus_mandatory"},
+        "selection_rule": {"const": "selected_positions_are_exact_prefix_of_frozen_selection_order"},
+        "q2_excluded": {"const": true},
+        "budget_mode": {"enum": ["mandatory_only", "selector_prefix_sweep", "cache_block_boundary_probe", "backend_diagnostic"]},
+        "minimum_selected_count": {"type": "integer", "minimum": 0},
+        "counts_resolved_at_freeze": {"type": "boolean"}
+      }
+    },
+    "serverConstraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend_kind",
+        "main_authoring_contract",
+        "client_schema_compatibility",
+        "target_request_requires_p_gt_h",
+        "reject_zero_recompute",
+        "reject_full_history_recompute",
+        "mandatory_edit_closure",
+        "q2_selector_disposition",
+        "ordinary_full_prefill_control_required",
+        "no_full_prefill_fallback",
+        "shifted_reuse_policy",
+        "gpu_runtime_validated"
+      ],
+      "properties": {
+        "backend_kind": {"const": "true_partial_prefill"},
+        "main_authoring_contract": {"const": "sys_only"},
+        "client_schema_compatibility": {"enum": ["supported_replacement_only", "blocked_requires_extension"]},
+        "target_request_requires_p_gt_h": {"const": true},
+        "reject_zero_recompute": {"const": true},
+        "reject_full_history_recompute": {"const": true},
+        "mandatory_edit_closure": {"const": true},
+        "q2_selector_disposition": {"const": "excluded_and_computed_normally_after_patch"},
+        "ordinary_full_prefill_control_required": {"const": true},
+        "no_full_prefill_fallback": {"const": true},
+        "shifted_reuse_policy": {"enum": ["not_applicable_positions_unchanged", "preserve_donor_bytes_stale_rope_evidence_false"]},
+        "gpu_runtime_validated": {"const": false}
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["directly_runnable", "requires_episode_freeze", "requires_tokenization_resolution", "requires_client_schema_extension", "blockers"],
+      "properties": {
+        "directly_runnable": {"const": false},
+        "requires_episode_freeze": {"const": true},
+        "requires_tokenization_resolution": {"type": "boolean"},
+        "requires_client_schema_extension": {"type": "boolean"},
+        "blockers": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["control_kind", "required", "claim_boundary"],
+      "properties": {
+        "control_kind": {"enum": ["ordinary_full_target_prefill", "ordinary_old_system_continuation", "mandatory_only_true_partial", "legacy_accuracy_emulation", "matched_budget_frozen_random_selector"]},
+        "required": {"type": "boolean"},
+        "claim_boundary": {"type": "string", "minLength": 1}
+      }
+    },
+    "claimBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scientific_quality_claim_allowed", "rope_correct_claim_allowed", "compute_saving_claim_requires_gpu_validation", "allowed_after_gpu_validation", "prohibited"],
+      "properties": {
+        "scientific_quality_claim_allowed": {"type": "boolean"},
+        "rope_correct_claim_allowed": {"type": "boolean"},
+        "compute_saving_claim_requires_gpu_validation": {"const": true},
+        "allowed_after_gpu_validation": {"$ref": "#/$defs/stringList"},
+        "prohibited": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "freezeContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template_is_runtime_manifest", "required_output_artifact_kinds", "schema_paths", "required_resolutions"],
+      "properties": {
+        "template_is_runtime_manifest": {"const": false},
+        "required_output_artifact_kinds": {
+          "const": ["frozen_per_instance_episode", "donor_server_manifest", "target_server_manifest"]
+        },
+        "schema_paths": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["frozen_episode", "server_manifest"],
+          "properties": {
+            "frozen_episode": {"const": "configs/cluster/schemas/stateful_mid_trajectory_edit_scenario.schema.json"},
+            "server_manifest": {"const": "configs/cluster/schemas/vllm_true_partial_prefill_server_manifest.schema.json"}
+          }
+        },
+        "required_resolutions": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document_kind",
+        "artifact_kind",
+        "scenario_id",
+        "title",
+        "summary",
+        "status",
+        "recommendation_order",
+        "tags",
+        "provenance",
+        "episode_contract",
+        "edit_template",
+        "selection_contract",
+        "server_constraints",
+        "readiness",
+        "controls",
+        "claim_boundary",
+        "freeze_contract"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "document_kind": {"const": "stateful_edit_scenario"},
+        "artifact_kind": {"const": "authoring_template"},
+        "scenario_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]+-v[0-9]+$"},
+        "title": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "status": {"enum": ["recommended", "requires_freeze", "blocked", "backend_diagnostic"]},
+        "recommendation_order": {"type": ["integer", "null"], "minimum": 0},
+        "tags": {"$ref": "#/$defs/stringList"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "episode_contract": {"$ref": "#/$defs/episodeContract"},
+        "edit_template": {"$ref": "#/$defs/editTemplate"},
+        "selection_contract": {"$ref": "#/$defs/selectionContract"},
+        "server_constraints": {"$ref": "#/$defs/serverConstraints"},
+        "readiness": {"$ref": "#/$defs/readiness"},
+        "controls": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/control"}},
+        "claim_boundary": {"$ref": "#/$defs/claimBoundary"},
+        "freeze_contract": {"$ref": "#/$defs/freezeContract"}
+      }
+    }
+  }
+}

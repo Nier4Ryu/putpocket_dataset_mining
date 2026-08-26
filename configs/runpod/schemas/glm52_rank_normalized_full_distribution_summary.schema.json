@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.local/schemas/glm52_rank_normalized_full_distribution_summary.schema.json",
+  "title": "GLM rank-normalized complete-token distribution supplement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "report_kind", "payload", "payload_sha256"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "report_kind": {"const": "glm52_rank_normalized_full_distribution_supplement"},
+    "payload": {"$ref": "#/$defs/payload"},
+    "payload_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "safePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/safePath"},
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "pathDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/safePath"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "range": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": 0},
+        {"type": "integer", "minimum": 1}
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "levelSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "mass",
+        "entropy_nats",
+        "effective_support",
+        "nonzero_support",
+        "zero_count",
+        "maximum_probability",
+        "minimum_positive_probability",
+        "herfindahl_concentration",
+        "gini_concentration",
+        "sorted_point_count",
+        "sorted_cumulative_final_mass"
+      ],
+      "properties": {
+        "level": {"type": "integer", "minimum": 1, "maximum": 16},
+        "mass": {"type": "number", "minimum": 0.9999999999, "maximum": 1.0000000001},
+        "entropy_nats": {"type": "number", "minimum": 0},
+        "effective_support": {"type": "number", "minimum": 1},
+        "nonzero_support": {"type": "integer", "minimum": 1},
+        "zero_count": {"type": "integer", "minimum": 0},
+        "maximum_probability": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "minimum_positive_probability": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "herfindahl_concentration": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "gini_concentration": {"type": "number", "minimum": -1e-12, "maximum": 1.000000000001},
+        "sorted_point_count": {"type": "integer", "minimum": 1},
+        "sorted_cumulative_final_mass": {"type": "number", "minimum": 0.9999999999, "maximum": 1.0000000001}
+      }
+    },
+    "matrix": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 16,
+        "items": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "analysis_id",
+        "analysis_project_commit",
+        "source_project_commit",
+        "source_report_payload_sha256",
+        "input_attestation_artifact",
+        "implementation",
+        "primary_variant_id",
+        "token_universe",
+        "levels",
+        "formulas",
+        "scalar_summaries",
+        "jensen_shannon_distance",
+        "figures",
+        "claim_boundary"
+      ],
+      "properties": {
+        "status": {"const": "passed"},
+        "analysis_id": {"const": "putpocket_rank_normalized_full_distribution_v1"},
+        "analysis_project_commit": {"$ref": "#/$defs/commit"},
+        "source_project_commit": {"$ref": "#/$defs/commit"},
+        "source_report_payload_sha256": {"$ref": "#/$defs/sha256"},
+        "input_attestation_artifact": {"$ref": "#/$defs/file"},
+        "implementation": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/pathDigest"}
+        },
+        "primary_variant_id": {"const": "rank_dcg_k64"},
+        "token_universe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "window",
+            "token_count",
+            "positions_complete_and_ordered",
+            "token_identity_sha256",
+            "q1_ranges",
+            "q2_ranges",
+            "all_tokens_included",
+            "top_k_truncation"
+          ],
+          "properties": {
+            "window": {"$ref": "#/$defs/range"},
+            "token_count": {"type": "integer", "minimum": 1},
+            "positions_complete_and_ordered": {"const": true},
+            "token_identity_sha256": {"$ref": "#/$defs/sha256"},
+            "q1_ranges": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/range"}},
+            "q2_ranges": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/range"}},
+            "all_tokens_included": {"const": true},
+            "top_k_truncation": {"const": false}
+          }
+        },
+        "levels": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"type": "integer", "minimum": 1, "maximum": 16}
+        },
+        "formulas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "position_heatmap",
+            "position_heatmap_fixed_limits",
+            "sorted_curve",
+            "js_divergence",
+            "js_distance",
+            "entropy",
+            "effective_support",
+            "gini"
+          ],
+          "properties": {
+            "position_heatmap": {"type": "string", "minLength": 1},
+            "position_heatmap_fixed_limits": {
+              "type": "array",
+              "prefixItems": [{"type": "number", "maximum": -1}, {"const": 0}],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "sorted_curve": {"type": "string", "minLength": 1},
+            "js_divergence": {"type": "string", "minLength": 1},
+            "js_distance": {"type": "string", "minLength": 1},
+            "entropy": {"type": "string", "minLength": 1},
+            "effective_support": {"type": "string", "minLength": 1},
+            "gini": {"type": "string", "minLength": 1}
+          }
+        },
+        "scalar_summaries": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hop", "cumulative_equal_hop_mixture"],
+          "properties": {
+            "hop": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/levelSummary"}},
+            "cumulative_equal_hop_mixture": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/levelSummary"}}
+          }
+        },
+        "jensen_shannon_distance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hop", "cumulative_equal_hop_mixture"],
+          "properties": {
+            "hop": {"$ref": "#/$defs/matrix"},
+            "cumulative_equal_hop_mixture": {"$ref": "#/$defs/matrix"}
+          }
+        },
+        "figures": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/file"}
+        },
+        "claim_boundary": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

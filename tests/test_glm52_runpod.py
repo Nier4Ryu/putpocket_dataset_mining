@@ -126,6 +126,20 @@ def test_package_lock_pins_order_apply_arguments_provenance_and_artifacts() -> N
     assert lock["rank_normalized_multihop"]["rank_transition_k_sweep"] == [16, 64, 256]
     assert lock["rank_normalized_multihop"]["legacy_outputs_preserved_immutable"] is True
     assert lock["rank_normalized_multihop"]["offline_only_no_inference_decisions"] is True
+    full_distribution = lock["rank_normalized_multihop"][
+        "full_distribution_supplement"
+    ]
+    assert full_distribution["analysis_id"] == (
+        "putpocket_rank_normalized_full_distribution_v1"
+    )
+    assert full_distribution["primary_variant"] == "rank_dcg_k64"
+    assert full_distribution["views"] == [
+        "hop",
+        "cumulative_equal_hop_mixture",
+    ]
+    assert full_distribution["source_final_manifest_required"] is True
+    assert full_distribution["output_no_overwrite"] is True
+    assert full_distribution["offline_only_no_inference_decisions"] is True
     assert validate_project_artifacts(ROOT, lock)["status"] == "passed"
 
 

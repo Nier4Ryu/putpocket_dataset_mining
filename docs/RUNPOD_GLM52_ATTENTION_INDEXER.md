@@ -366,6 +366,56 @@ PYTHONPATH=src python scripts/analysis/plot_glm52_rank_normalized_multihop.py \
   --artifact-root "$MONTBLANC_EVIDENCE_ROOT/completion-audit-evidence-v1/rank-normalized-multihop-v1"
 ```
 
+### Complete-token distribution supplement
+
+The top-k stability plots do not describe the entire probability vector. The
+separate `putpocket_rank_normalized_full_distribution_v1` supplement consumes
+the checksum-valid v1 report and token JSONL, selects only primary
+`rank_dcg_k64`, and retains every absolute position in the declared window.
+For the accepted episode this is exactly 2,103 positions at each level 1–6;
+the loader rejects missing, reordered, negative, non-finite, or non-unit-mass
+vectors.
+
+The position heatmaps preserve token identity and absolute ordering. They show
+
+`C_L[i] = log10(max(p_L[i], 1e-12))`
+
+with a fixed `[-12,0]` color scale shared by every level and both hop-only and
+equal-hop cumulative views. Zero values use the display floor only; the source
+probabilities remain unchanged. Q1/Q2 ranges are shaded and bounded from the
+frozen episode metadata. The sorted curves instead order all N probabilities
+descending, breaking ties by lower absolute position, and plot all ranks
+`1..N` plus the complete cumulative mass. They compare distribution shape and
+concentration; sorted rank no longer preserves token identity.
+
+Jensen-Shannon matrices remain identity aligned over the same complete token
+universe. For normalized P and Q, `M=(P+Q)/2`,
+
+`JSD_2(P,Q)=0.5*KL_2(P||M)+0.5*KL_2(Q||M)`,
+
+and the displayed distance is `sqrt(JSD_2)`, bounded in `[0,1]`. The summary
+also records mass, natural-log entropy, effective support, nonzero support,
+maximum/minimum-positive probability, Herfindahl concentration, and Gini for
+each level. These scalars supplement rather than replace the complete views.
+
+Generate a distinct no-overwrite supplement without modifying v1:
+
+```bash
+PYTHONPATH=src python \
+  scripts/analysis/plot_glm52_rank_normalized_full_distribution.py \
+  --source-artifact-root \
+    "$MONTBLANC_EVIDENCE_ROOT/completion-audit-evidence-v1/rank-normalized-multihop-v1" \
+  --output-root \
+    "$MONTBLANC_EVIDENCE_ROOT/completion-audit-evidence-v1/rank-normalized-full-distribution-v1" \
+  --log-probability-floor 1e-12
+```
+
+The supplement verifies every entry in v1 `FINAL_SHA256SUMS`, writes a
+schema-valid input attestation and summary, emits six PNG/PDF figure pairs,
+and binds every output in its own `FINAL_SHA256SUMS`. It is CPU-offline-only:
+no signed recurrence, inference-time selector, vLLM request, or GPU rerun is
+involved.
+
 The scorer refuses a pre-existing output directory. Every episode, control,
 raw matrix, and legacy file must match the consolidated checksum manifest. It
 reuses fail-closed TP/completeness/token validation and writes a distinct input

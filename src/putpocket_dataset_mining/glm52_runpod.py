@@ -95,6 +95,25 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
         == "configs/runpod/schemas/glm52_rank_normalized_multihop_token_row.schema.json",
         "RUNPOD_RANK_MULTIHOP_INVALID",
     )
+    full_distribution = rank_normalized.get("full_distribution_supplement")
+    _require(
+        isinstance(full_distribution, Mapping)
+        and full_distribution.get("analysis_id")
+        == "putpocket_rank_normalized_full_distribution_v1"
+        and full_distribution.get("primary_variant") == "rank_dcg_k64"
+        and full_distribution.get("token_universe")
+        == "complete_identity_aligned_window_no_top_k_truncation"
+        and full_distribution.get("views")
+        == ["hop", "cumulative_equal_hop_mixture"]
+        and full_distribution.get("source_final_manifest_required") is True
+        and full_distribution.get("output_no_overwrite") is True
+        and full_distribution.get("offline_only_no_inference_decisions") is True
+        and full_distribution.get("input_attestation_schema")
+        == "configs/runpod/schemas/glm52_rank_normalized_full_distribution_input_attestation.schema.json"
+        and full_distribution.get("summary_schema")
+        == "configs/runpod/schemas/glm52_rank_normalized_full_distribution_summary.schema.json",
+        "RUNPOD_RANK_FULL_DISTRIBUTION_INVALID",
+    )
     _require(
         completion_audit.get("cache_origin_plot_script_sha256")
         == "e1f5cdd967a48514750d9c3074a8ca4a33cd217060e9a7b5cbadf9c0df03363f"

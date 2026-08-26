@@ -65,7 +65,8 @@
         "/workspace/artifacts/test2/capture/capture-rank-*.jsonl",
         "/workspace/artifacts/test2/report/attention-indexer-report.json",
         "/workspace/artifacts/test2/report/aligned-token-scores.jsonl",
-        "/workspace/artifacts/test2/SHA256SUMS"
+        "/workspace/artifacts/test2/SHA256SUMS",
+        "optional: /workspace/artifacts/test2/matrix/matrix-rank-*-chunk-*.jsonl"
       ],
       "artifact_retention": [
         "doctor dependency JSON",
@@ -73,7 +74,8 @@
         "all per-rank raw capture records",
         "token-aligned vectors",
         "aggregate report and SHA256SUMS",
-        "server/model load logs and HBM inventory"
+        "server/model load logs and HBM inventory",
+        "when explicitly requested: frozen matrix episode, per-rank chunked raw matrix, offline multihop report and token rows"
       ],
       "success_criteria": [
         "all configured layer/query/TP cells captured and aligned",
@@ -83,6 +85,31 @@
       ],
       "failure_policy": "fail on capture, alignment, finite-value, TP-consensus, schema, or digest errors; do not fail merely because the unknown scientific similarity is low",
       "estimated_duration": "30-90 minutes including one TP4 model load and bounded one-token ordinary-prefill probe"
+    }
+  ],
+  "postprocessors": [
+    {
+      "postprocessor_id": "glm52-raw-indexer-multihop-offline-v1",
+      "gpu_test_ordinal": 2,
+      "default_enabled": false,
+      "depends_on_artifact": "complete strict-causal raw indexer matrix plus frozen matrix-episode manifest",
+      "capture_command": "/workspace/Putpocket_env/bin/python -m putpocket_dataset_mining.glm52_runpod_cli capture-matrix --doctor-report /workspace/artifacts/test1/doctor.json --episode-manifest /workspace/artifacts/test2/frozen-matrix-episode.json --model-root /workspace/models/aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa --output-root /workspace/artifacts/test2/matrix",
+      "command": "/workspace/Putpocket_env/bin/python -m putpocket_dataset_mining.glm52_runpod_cli score-matrix --episode-manifest /workspace/artifacts/test2/frozen-matrix-episode.json --capture-root /workspace/artifacts/test2/matrix --output-root /workspace/artifacts/test2/multihop --q1-range START:END --q2-range START:END --window START:END --layers 0,22,46,74 --max-level 3",
+      "cost": "Capture storage and validation are O(layers * window_tokens^2); propagation is bounded by the same declared matrix.",
+      "hard_caps": {
+        "window_tokens": 512,
+        "raw_edge_values_per_rank": 523264,
+        "propagation_level": 16
+      },
+      "outputs": [
+        "/workspace/artifacts/test2/multihop/indexer-multihop-report.json",
+        "/workspace/artifacts/test2/multihop/indexer-multihop-token-scores.jsonl"
+      ],
+      "success_criteria": [
+        "every requested layer has one unique strict-causal row for every query in the declared window on every TP rank",
+        "the offline float64 recurrence, input hashes, per-hop contributions, cumulative scores, and exact unnormalized layer sums validate",
+        "no score threshold or inference decision is introduced"
+      ]
     }
   ]
 }

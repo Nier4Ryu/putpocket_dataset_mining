@@ -46,6 +46,11 @@ RunPod packaging follow-up objective:
   - capture aligned full-candidate main-attention reference logits and native pre-top-k indexer scores under a distinct default-OFF diagnostic
   - analyze raw, rank, normalized-distribution, and top-k metrics without an invented scientific pass threshold
   - preserve the exact SWE-bench Pro row provenance while labeling the SYS edit and probe as PutPocket-authored
+offline raw-indexer scoring follow-up objective:
+  - preserve the sampled attention/indexer comparison unchanged and add a separate bounded full-row native indexer matrix capture
+  - compute per-layer c_l,1=uA_l and c_l,n+1=c_l,nA_l in float64 with cumulative s_l,L and exact unnormalized layer sums
+  - bind explicit frozen Q1/Q2 ranges, complete strict-causal rows, TP consensus, input/output hashes, and benchmark/authorship provenance
+  - keep the scorer offline-only, default OFF, threshold-free, and outside vLLM inference decisions
 registered next slice:
   - name: glm52-rope-aware-shifted-reuse
   - owner boundary: FLASHMLA_SPARSE main K-cache representation and DeepSeek V3.2 packed indexer representation
@@ -80,6 +85,10 @@ validation:
   - RunPod full repository CPU suite: 371 passed, 89 subtests passed
   - fresh exact vLLM source bootstrap applied the legacy base with GNU patch, both overlays with git apply --unidiff-zero, and matched every phase/postimage hash
   - RunPod Python compile, JSON/schema validation, shell syntax, project-artifact hashes, and synthetic TP4 score/report evidence passed
+  - offline raw-indexer focused CPU suite: 24 passed
+  - offline raw-indexer full repository CPU suite: 387 passed, 89 subtests passed
+  - offline matrix schemas, deterministic float64 recurrence/report digests, package hashes, schedule, compile, shell, and diff checks passed
+  - fresh exact vLLM chain installs the updated dual-mode score instrumentation and matches every locked postimage hash
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/
@@ -89,4 +98,4 @@ commits:
   - 2e3f4fb6899c81cfbdc43098dbaf5bdb1187aef1 (server-side true-partial-prefill implementation)
   - d84bc3c5cf988b54a80a472032da7e44b8abfeff (machine-loadable scenario catalog)
   - current RunPod doctor and score-diagnostic packaging commit containing this record
-final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-115046.md
+final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-033431.md

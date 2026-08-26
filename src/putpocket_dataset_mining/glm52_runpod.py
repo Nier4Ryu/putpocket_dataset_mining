@@ -23,6 +23,10 @@ from .glm52_attention_indexer import (
     file_sha256,
     validate_report_digest,
 )
+from .glm52_indexer_propagation import (
+    load_matrix_episode_manifest,
+    score_matrix_capture,
+)
 
 
 PACKAGE_LOCK = REPO_ROOT / "configs/runpod/glm52_attention_indexer_package.lock.json"
@@ -65,9 +69,10 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
     vllm = lock.get("vllm")
     runtime = lock.get("runtime")
     capture = lock.get("capture")
+    matrix_capture = lock.get("matrix_capture")
     provenance = lock.get("benchmark_provenance")
     layout = lock.get("model_layout")
-    _require(all(isinstance(item, Mapping) for item in (vllm, runtime, capture, provenance, layout)), "RUNPOD_PACKAGE_SECTION_INVALID")
+    _require(all(isinstance(item, Mapping) for item in (vllm, runtime, capture, matrix_capture, provenance, layout)), "RUNPOD_PACKAGE_SECTION_INVALID")
     _require(vllm["commit"] == VLLM_COMMIT, "RUNPOD_VLLM_COMMIT_INVALID")
     patch_chain = vllm.get("patch_chain")
     _require(isinstance(patch_chain, list) and len(patch_chain) == 3, "RUNPOD_PATCH_CHAIN_INVALID")
@@ -126,6 +131,36 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
     _require(capture.get("instance_id") == INSTANCE_ID, "RUNPOD_INSTANCE_INVALID")
     _require(capture.get("probe_kind") == "ordinary_target_prefill_q1_boundary_no_q2", "RUNPOD_PROBE_KIND_INVALID")
     _require(
+        matrix_capture.get("capture_mode") == "strict_causal_indexer_matrix"
+        and matrix_capture.get("execution_scope")
+        == "optional_default_off_capture_within_test_2_not_a_third_gpu_test"
+        and matrix_capture.get("default_layers") == capture.get("layers")
+        and matrix_capture.get("default_window_tokens") == 256
+        and matrix_capture.get("hard_max_window_tokens") == 512
+        and matrix_capture.get("default_row_chunk_size") == 32
+        and matrix_capture.get("hard_max_total_edges_per_rank") == 523264
+        and matrix_capture.get("default_max_propagation_level") == 3
+        and matrix_capture.get("hard_max_propagation_level") == 16
+        and matrix_capture.get("sampled_capture_unchanged") is True
+        and matrix_capture.get("offline_only_no_inference_decisions") is True,
+        "RUNPOD_MATRIX_CAPTURE_BOUNDARY_INVALID",
+    )
+    _require(
+        [
+            matrix_capture.get("episode_schema"),
+            matrix_capture.get("row_schema"),
+            matrix_capture.get("report_schema"),
+            matrix_capture.get("token_row_schema"),
+        ]
+        == [
+            "configs/runpod/schemas/glm52_indexer_matrix_episode.schema.json",
+            "configs/runpod/schemas/glm52_indexer_matrix_row.schema.json",
+            "configs/runpod/schemas/glm52_indexer_multihop_report.schema.json",
+            "configs/runpod/schemas/glm52_indexer_multihop_token_row.schema.json",
+        ],
+        "RUNPOD_MATRIX_SCHEMA_PATHS_INVALID",
+    )
+    _require(
         provenance.get("dataset") == "ScaleAI/SWE-bench_Pro"
         and provenance.get("dataset_revision") == "7ab5114912baf22bb098818e604c02fe7ad2c11f",
         "RUNPOD_DATASET_PROVENANCE_INVALID",
@@ -147,6 +182,15 @@ def validate_schedule(path: str | Path = SCHEDULE) -> dict[str, Any]:
     _require([item["test_id"] for item in tests] == ["glm52-runpod-doctor-v1", "glm52-main-indexer-score-compare-v1"], "RUNPOD_TEST_ORDER_INVALID")
     _require(tests[1]["depends_on"] == [tests[0]["test_id"]], "RUNPOD_TEST_DEPENDENCY_INVALID")
     _require(tests[1]["dependency_evidence"] == "doctor.payload_sha256", "RUNPOD_TEST_EVIDENCE_DEPENDENCY_INVALID")
+    postprocessors = value["postprocessors"]
+    _require(
+        len(postprocessors) == 1
+        and postprocessors[0]["postprocessor_id"]
+        == "glm52-raw-indexer-multihop-offline-v1"
+        and postprocessors[0]["gpu_test_ordinal"] == 2
+        and postprocessors[0]["default_enabled"] is False,
+        "RUNPOD_POSTPROCESSOR_BOUNDARY_INVALID",
+    )
     return value
 
 
@@ -390,6 +434,11 @@ def _vllm_symbol_check() -> dict[str, Any]:
     }
     for owner, (symbol, needle) in required_source_symbols.items():
         _require(needle in inspect.getsource(symbol), f"DOCTOR_PATCHED_SYMBOL_MISSING:{owner}:{needle}")
+    _require(
+        "strict_causal_indexer_matrix"
+        in inspect.getsource(maybe_capture_indexer_native_logits),
+        "DOCTOR_MATRIX_CAPTURE_SYMBOL_MISSING",
+    )
     symbols = [
         sparse_attn_indexer,
         fp8_fp4_mqa_logits,
@@ -407,6 +456,7 @@ def _vllm_symbol_check() -> dict[str, Any]:
         "deepseek_v32_indexer": True,
         "symbols": [f"{item.__module__}.{item.__name__}" for item in symbols],
         "patched_boundaries": sorted(required_source_symbols),
+        "optional_strict_causal_indexer_matrix_capture": True,
     }
 
 
@@ -597,6 +647,135 @@ def build_instrumentation_config(probe: Mapping[str, Any], lock: Mapping[str, An
         "main_qk_nope_head_dim": lock["model_layout"]["qk_nope_head_dim"],
         "main_qk_rope_head_dim": lock["model_layout"]["qk_rope_head_dim"],
     }
+
+
+def build_matrix_instrumentation_config(
+    episode: Mapping[str, Any], lock: Mapping[str, Any]
+) -> dict[str, Any]:
+    package = lock.get("matrix_capture")
+    _require(isinstance(package, Mapping), "MATRIX_CAPTURE_PACKAGE_CONFIG_MISSING")
+    declared = episode["capture"]
+    window = episode["propagation_window"]
+    width = window[1] - window[0]
+    edges = width * (width - 1) // 2 * len(declared["layers"])
+    _require(
+        declared["mode"] == "strict_causal_indexer_matrix"
+        and declared["layers"] == package["default_layers"]
+        and declared["tensor_parallel_size"] == lock["runtime"]["tensor_parallel_size"]
+        and declared["hard_max_window_tokens"] == package["hard_max_window_tokens"]
+        and declared["hard_max_total_edges_per_rank"]
+        == package["hard_max_total_edges_per_rank"]
+        and width <= package["hard_max_window_tokens"]
+        and edges <= package["hard_max_total_edges_per_rank"],
+        "MATRIX_CAPTURE_PACKAGE_BOUNDARY_MISMATCH",
+    )
+    return {
+        "schema_version": 1,
+        "capture_mode": "strict_causal_indexer_matrix",
+        "diagnostic_id": package["diagnostic_id"],
+        "instance_id": episode["instance_id"],
+        "scenario_id": episode["scenario_id"],
+        "probe_kind": "frozen_episode_strict_causal_indexer_matrix",
+        "expected_prompt_token_count": episode["prompt"]["token_count"],
+        "expected_prompt_token_ids_sha256": episode["prompt"]["token_ids_sha256"],
+        "layers": declared["layers"],
+        "propagation_window": window,
+        "row_chunk_size": declared["row_chunk_size"],
+        "hard_max_window_tokens": declared["hard_max_window_tokens"],
+        "hard_max_total_edges_per_rank": declared["hard_max_total_edges_per_rank"],
+        "tensor_parallel_size": declared["tensor_parallel_size"],
+        "indexer_heads": lock["model_layout"]["indexer_heads"],
+        "indexer_head_dim": lock["model_layout"]["indexer_head_dim"],
+        "q2_in_probe": True,
+    }
+
+
+def capture_matrix_episode(
+    *,
+    doctor_report: str | Path,
+    episode_path: str | Path,
+    model_root: str | Path,
+    output_root: str | Path,
+    lock_path: str | Path = PACKAGE_LOCK,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    _, doctor_digest = load_successful_doctor(doctor_report)
+    lock = load_package_lock(lock_path)
+    episode = load_matrix_episode_manifest(episode_path)
+    config = build_matrix_instrumentation_config(episode, lock)
+    output = Path(output_root).resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    _require(
+        not any(output.glob("matrix-rank-*-chunk-*.jsonl"))
+        and not (output / "matrix-capture-run.json").exists(),
+        "MATRIX_CAPTURE_OUTPUT_NOT_EMPTY",
+    )
+    config_path = output / "matrix-instrumentation-config.json"
+    config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    width = config["propagation_window"][1] - config["propagation_window"][0]
+    edge_count = width * (width - 1) // 2 * len(config["layers"])
+    plan = {
+        "schema_version": 1,
+        "capture_mode": "strict_causal_indexer_matrix",
+        "status": "dry_run" if dry_run else "armed",
+        "doctor_payload_sha256": doctor_digest,
+        "episode_sha256": file_sha256(episode_path),
+        "model_root": str(Path(model_root).resolve()),
+        "prompt_token_count": episode["prompt"]["token_count"],
+        "propagation_window": config["propagation_window"],
+        "layers": config["layers"],
+        "edge_values_per_rank": edge_count,
+        "cost_class": "O(layers * window_tokens^2)",
+        "instrumentation_config": str(config_path),
+        "instrumentation_config_sha256": file_sha256(config_path),
+        "engine": lock["capture"]["engine_kwargs"],
+    }
+    if dry_run:
+        return plan
+    os.environ["PUTPOCKET_GLM52_SCORE_DIAGNOSTIC_ENABLE"] = "1"
+    os.environ["PUTPOCKET_GLM52_SCORE_DIAGNOSTIC_CONFIG"] = str(config_path)
+    os.environ["PUTPOCKET_GLM52_SCORE_DIAGNOSTIC_CONFIG_SHA256"] = file_sha256(config_path)
+    os.environ["PUTPOCKET_GLM52_SCORE_DIAGNOSTIC_OUTPUT_ROOT"] = str(output)
+    os.environ["PUTPOCKET_GLM52_SCORE_DIAGNOSTIC_RUN_ID"] = (
+        f"glm52-matrix-{doctor_digest[:12]}-{episode['prompt']['token_ids_sha256'][:12]}"
+    )
+    _require(not os.getenv("PUTPOCKET_VLLM_TRUE_PARTIAL_PREFILL_ENABLE"), "CAPTURE_TRUE_PARTIAL_MODE_MUST_BE_OFF")
+    _require(not os.getenv("PUTPOCKET_GLM52_FORCED_REUSE_CONTROL"), "CAPTURE_LEGACY_EMULATION_MODE_MUST_BE_OFF")
+    from vllm import LLM, SamplingParams
+    from vllm.inputs import TokensPrompt
+
+    engine = lock["capture"]["engine_kwargs"]
+    _require(episode["prompt"]["token_count"] <= engine["max_model_len"], "MATRIX_CAPTURE_PROMPT_TOO_LONG")
+    llm = LLM(
+        model=str(Path(model_root).resolve()),
+        tokenizer=str(Path(model_root).resolve()),
+        tensor_parallel_size=engine["tensor_parallel_size"],
+        dtype=engine["dtype"],
+        quantization=engine["quantization"],
+        block_size=engine["block_size"],
+        kv_cache_dtype=engine["kv_cache_dtype"],
+        max_model_len=engine["max_model_len"],
+        max_num_seqs=engine["max_num_seqs"],
+        enable_prefix_caching=False,
+        enable_chunked_prefill=False,
+        enforce_eager=True,
+        cpu_offload_gb=0,
+        trust_remote_code=False,
+        attention_config={"backend": "FLASHMLA_SPARSE", "sparse_mla_force_mqa": True},
+        compilation_config=0,
+        seed=0,
+    )
+    results = llm.generate(
+        [TokensPrompt(prompt_token_ids=episode["prompt"]["token_ids"])],
+        SamplingParams(temperature=0.0, max_tokens=1, seed=0),
+        use_tqdm=False,
+    )
+    _require(len(results) == 1 and results[0].outputs, "MATRIX_CAPTURE_MODEL_OUTPUT_MISSING")
+    plan.update(status="captured", generated_token_count=len(results[0].outputs[0].token_ids))
+    (output / "matrix-capture-run.json").write_text(
+        json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return plan
 
 
 def capture_probe(

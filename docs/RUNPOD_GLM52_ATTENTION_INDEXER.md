@@ -175,6 +175,74 @@ Consistently high positive rank/correlation and cosine, low JS divergence, and
 strong top-k recall/NDCG would support the distillation-similarity hypothesis.
 The opposite cross-layer/query pattern would refute it.
 
+## Optional offline raw-indexer multi-hop score
+
+The sampled Test 2 artifact is not a valid input for exact multi-hop scoring.
+It contains only four inclusive causal query rows. Exact propagation through a
+declared window needs every query/intermediate row and uses strict causality
+`k < q`; a missing row is not a zero row. The package therefore provides a
+separate default-OFF `strict_causal_indexer_matrix` mode. It is an optional
+capture/postprocessor within Test 2, not a third GPU test, and it does not
+change vLLM scheduling, selection, or inference.
+
+First freeze `frozen-matrix-episode.json` against
+`configs/runpod/schemas/glm52_indexer_matrix_episode.schema.json`. It must hold
+the exact full prompt token IDs and digest, the exact source frozen-episode
+manifest and digest, selected indexer layers, the propagation window, and
+disjoint half-open Q1 and Q2 token ranges. Q2 here is the frozen pre-edit tool
+observation serialized into the first post-edit request. SWE-bench Pro still
+supplies only the problem/repository/evaluator; the A1 execution, Q2 freeze,
+system edit, token ranges, matrix window, and score are PutPocket-authored and
+must be frozen without evaluator outcomes.
+
+The native hook records `fp8_fp4_mqa_logits` before top-k and normalization for
+every query `q` in the window, but writes only keys in `[window_start, q)`.
+Rows are chunked by query position into
+`matrix-rank-XX-chunk-YYYY.jsonl`. Each row retains layer, rank, query/key
+absolute positions and token IDs, native causal bounds, dtype, native scales,
+64-head learned aggregation provenance, raw signed values, and its digest.
+All TP replicas must agree under the manifest tolerance. The capture cost and
+artifact size are `O(layers * window_tokens^2)`: defaults are 256 tokens, 32
+rows per chunk, and layers 0/22/46/74; the hard limits are 512 tokens, 523264
+raw edge values per rank, and propagation level 16. Exceeding a cap fails
+before model execution.
+
+After Test 1 and after an operator has frozen the matrix episode, run the
+explicit optional path (replace the ranges with the exact manifest values):
+
+```bash
+./scripts/runpod/run_glm52_indexer_matrix_multihop.sh \
+  /workspace/models/aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa \
+  /workspace/artifacts/test1/doctor.json \
+  /workspace/artifacts/test2/frozen-matrix-episode.json \
+  /workspace/artifacts/test2 \
+  Q1_START:Q1_END Q2_START:Q2_END WINDOW_START:WINDOW_END \
+  0,22,46,74 3 /workspace/Putpocket_env/bin/python
+```
+
+The equivalent CLI is `capture-matrix` followed by `score-matrix`; use
+`capture-matrix --dry-run` to validate and inspect the bounded plan without
+loading the model. The scorer verifies that its explicit `--q1-range`,
+`--q2-range`, `--window`, and `--layers` agree with the frozen manifest.
+
+For each layer independently, its strict lower-triangular matrix is
+`A_l[q,k]`, and `u[q]=1` exactly for frozen Q1/Q2 tokens. Level 1 is
+`c_l,1 = u A_l`; level `n+1` is `c_l,n+1 = c_l,n A_l`; the reported level-L
+score is cumulative, `s_l,L = sum(c_l,n, n=1..L)`. Computation uses CPython
+IEEE-754 binary64 and fails on a non-finite product or sum. It does not
+normalize, clip, rectify, softmax, or discard negative values. Layers are
+never multiplied: every per-layer hop/final value is retained, plus the exact
+unnormalized layer sum. Query tokens remain in the output and are marked as
+Q1/Q2 seeds; downstream selectors may filter eligibility later.
+
+Retain `indexer-multihop-report.json` and
+`indexer-multihop-token-scores.jsonl`. The report binds every input file hash,
+episode/ranges/window/layers, recurrence/version, dtype policy, TP consensus,
+and token artifact hash. Each token row records token ID, segment membership,
+per-layer hop contributions, per-layer cumulative score, and the hop/final
+layer sums. This offline score has no threshold and must not be wired into a
+vLLM request or described as a runtime inference decision.
+
 ## Retain and do not claim
 
 Retain bootstrap/doctor JSON, exact commits, local model revision evidence,

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/glm52_indexer_matrix_row.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "diagnostic_id", "instance_id", "scenario_id", "probe_kind",
+    "q2_in_probe", "rank", "tensor_parallel_size", "layer", "query_position",
+    "query_token_id", "dtype", "record_kind", "capture_mode", "score_origin",
+    "kernel_native", "pre_top_k", "normalized", "reference_recomputed",
+    "padding_or_masked_values_included", "formula", "scale", "mask",
+    "head_aggregation_at_capture", "tp_semantics", "indexer_head_count",
+    "indexer_head_dim", "propagation_window", "row_chunk_index", "row_chunk_range",
+    "key_positions", "key_token_ids", "raw_scores", "native_valid_start",
+    "native_valid_end_exclusive", "record_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "diagnostic_id": {"type": "string", "minLength": 1},
+    "instance_id": {"type": "string", "minLength": 1},
+    "scenario_id": {"type": "string", "minLength": 1},
+    "probe_kind": {"const": "frozen_episode_strict_causal_indexer_matrix"},
+    "q2_in_probe": {"const": true},
+    "rank": {"type": "integer", "minimum": 0, "maximum": 3},
+    "tensor_parallel_size": {"const": 4},
+    "layer": {"type": "integer", "minimum": 0, "maximum": 77},
+    "query_position": {"type": "integer", "minimum": 0},
+    "query_token_id": {"type": "integer", "minimum": 0},
+    "dtype": {"const": "float32_capture_from_bfloat16_or_quantized_runtime_state"},
+    "record_kind": {"const": "indexer_native_strict_causal_matrix_row"},
+    "capture_mode": {"const": "strict_causal_indexer_matrix"},
+    "score_origin": {"const": "kernel_native_fp8_fp4_mqa_logits_before_top_k_per_row_prefill"},
+    "kernel_native": {"const": true},
+    "pre_top_k": {"const": true},
+    "normalized": {"const": false},
+    "reference_recomputed": {"const": false},
+    "padding_or_masked_values_included": {"const": false},
+    "formula": {"type": "string", "minLength": 1},
+    "scale": {
+      "type": "object", "additionalProperties": false,
+      "required": ["softmax_scale", "indexer_head_scale"],
+      "properties": {
+        "softmax_scale": {"type": "number"},
+        "indexer_head_scale": {"type": "number"}
+      }
+    },
+    "mask": {"const": "strict_causal_key_position_lt_query_position"},
+    "head_aggregation_at_capture": {"const": "native_learned_weighted_sum_across_64_indexer_heads"},
+    "tp_semantics": {"const": "replicated_native_aggregate_consensus_required_offline"},
+    "indexer_head_count": {"const": 64},
+    "indexer_head_dim": {"const": 128},
+    "propagation_window": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
+    "row_chunk_index": {"type": "integer", "minimum": 0},
+    "row_chunk_range": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
+    "key_positions": {"type": "array", "uniqueItems": true, "items": {"type": "integer", "minimum": 0}},
+    "key_token_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+    "raw_scores": {"type": "array", "items": {"type": "number"}},
+    "native_valid_start": {"const": 0},
+    "native_valid_end_exclusive": {"type": "integer", "minimum": 1},
+    "record_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

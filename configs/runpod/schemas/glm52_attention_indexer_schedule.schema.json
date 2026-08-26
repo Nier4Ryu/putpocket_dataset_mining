@@ -3,7 +3,7 @@
   "$id": "https://putpocket.invalid/schemas/glm52_attention_indexer_schedule.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "schedule_id", "execution_site", "ordered", "gpu_assumptions", "tests"],
+  "required": ["schema_version", "schedule_id", "execution_site", "ordered", "gpu_assumptions", "tests", "postprocessors"],
   "properties": {
     "schema_version": {"const": 1},
     "schedule_id": {"const": "glm52-indexer-distillation-runpod-v1"},
@@ -31,6 +31,28 @@
           "success_criteria": {"type": "array", "items": {"type": "string"}},
           "failure_policy": {"type": "string"},
           "estimated_duration": {"type": "string"}
+        }
+      }
+    },
+    "postprocessors": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["postprocessor_id", "gpu_test_ordinal", "default_enabled", "depends_on_artifact", "capture_command", "command", "cost", "hard_caps", "outputs", "success_criteria"],
+        "properties": {
+          "postprocessor_id": {"const": "glm52-raw-indexer-multihop-offline-v1"},
+          "gpu_test_ordinal": {"const": 2},
+          "default_enabled": {"const": false},
+          "depends_on_artifact": {"const": "complete strict-causal raw indexer matrix plus frozen matrix-episode manifest"},
+          "capture_command": {"type": "string", "minLength": 1},
+          "command": {"type": "string", "minLength": 1},
+          "cost": {"type": "string", "pattern": "O\\(layers \\* window_tokens\\^2\\)"},
+          "hard_caps": {"type": "object"},
+          "outputs": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+          "success_criteria": {"type": "array", "minItems": 1, "items": {"type": "string"}}
         }
       }
     }

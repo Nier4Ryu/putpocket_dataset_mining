@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/glm52_indexer_multihop_report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "report_kind", "payload", "payload_sha256"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "report_kind": {"const": "glm52_raw_indexer_multihop_offline"},
+    "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "recurrence", "float_policy", "episode", "inputs", "window", "layers", "q1_ranges", "q2_ranges", "max_level", "tp_max_abs_difference_observed", "per_layer_summary", "token_level_artifact", "scientific_result_policy"],
+      "properties": {
+        "status": {"const": "passed"},
+        "recurrence": {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "level_1", "additional_level", "reported", "cumulative_interpretation", "cross_layer_operation"],
+          "properties": {
+            "id": {"const": "putpocket_raw_indexer_strict_causal_multihop_v1"},
+            "level_1": {"const": "c_l,1 = u A_l"},
+            "additional_level": {"const": "c_l,n+1 = c_l,n A_l"},
+            "reported": {"const": "s_l,L = sum(c_l,n for n=1..L)"},
+            "cumulative_interpretation": {"const": true},
+            "cross_layer_operation": {"const": "exact_unnormalized_sum_only"}
+          }
+        },
+        "float_policy": {"type": "string", "minLength": 1},
+        "episode": {"type": "object"},
+        "inputs": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+        "window": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
+        "layers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 0}},
+        "q1_ranges": {"type": "array", "minItems": 1, "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}}},
+        "q2_ranges": {"type": "array", "minItems": 1, "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}}},
+        "max_level": {"type": "integer", "minimum": 1, "maximum": 16},
+        "tp_max_abs_difference_observed": {"type": "number", "minimum": 0},
+        "per_layer_summary": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+        "token_level_artifact": {
+          "type": "object", "additionalProperties": false,
+          "required": ["path", "record_count", "sha256", "schema_path", "schema_sha256"],
+          "properties": {
+            "path": {"const": "indexer-multihop-token-scores.jsonl"},
+            "record_count": {"type": "integer", "minimum": 1},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "schema_path": {"const": "configs/runpod/schemas/glm52_indexer_multihop_token_row.schema.json"},
+            "schema_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        },
+        "scientific_result_policy": {"const": "offline_score_only_no_threshold_no_inference_decision"}
+      }
+    }
+  }
+}

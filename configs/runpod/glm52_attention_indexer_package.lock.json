@@ -45,7 +45,7 @@
       {
         "source": "instrumentation/vllm/glm52_attention_indexer_scores.py",
         "destination": "vllm/model_executor/layers/glm52_attention_indexer_scores.py",
-        "sha256": "5c9f5d0d535c79b6077ba46f47ea7c33262296e98ea56eb337c989cae7b1677f"
+        "sha256": "7316df9934733276513a3800484915965c954946e153b3f1648e8a631862a866"
       }
     ],
     "source_hashes": {
@@ -94,7 +94,7 @@
       "post_score_diagnostic": {
         "vllm/model_executor/layers/attention/mla_attention.py": "3bcb96956a91a882f98c29cbf36ff8c4694b034c16406b79813847780bfe6b0f",
         "vllm/model_executor/layers/attention/sparse_mla_attention.py": "0e8f2fab3b3ab338083e885eed10fae30dabf5b32d530190aa5394bad9b83d56",
-        "vllm/model_executor/layers/glm52_attention_indexer_scores.py": "5c9f5d0d535c79b6077ba46f47ea7c33262296e98ea56eb337c989cae7b1677f",
+        "vllm/model_executor/layers/glm52_attention_indexer_scores.py": "7316df9934733276513a3800484915965c954946e153b3f1648e8a631862a866",
         "vllm/model_executor/layers/glm52_forced_edit_reuse.py": "d3bb32c706e902931c2a19948ed56ba9aac03a8fc86c591a7ebaba2fcdf65c1b",
         "vllm/model_executor/layers/mla.py": "32bfea3d09f3125e534c08203bbce9e0270280f88f6d8ae9a2918eb8418b1a8d",
         "vllm/model_executor/layers/sparse_attn_indexer.py": "f1bc32a20794089ee4f5689d28a00c3f3bcf8f2956b02dec6505305c7a9c9420",
@@ -206,6 +206,26 @@
       "seed": 0
     }
   },
+  "matrix_capture": {
+    "diagnostic_id": "glm52-native-indexer-strict-causal-matrix-v1",
+    "capture_mode": "strict_causal_indexer_matrix",
+    "execution_scope": "optional_default_off_capture_within_test_2_not_a_third_gpu_test",
+    "default_layers": [0, 22, 46, 74],
+    "default_window_tokens": 256,
+    "hard_max_window_tokens": 512,
+    "default_row_chunk_size": 32,
+    "hard_max_total_edges_per_rank": 523264,
+    "default_max_propagation_level": 3,
+    "hard_max_propagation_level": 16,
+    "cost_warning": "Artifact values and validation cost are O(layers * window_tokens^2); the capture must fail before model execution above either hard cap.",
+    "score_semantics": "native_signed_pre_top_k_pre_normalization_strictly_causal_k_lt_q",
+    "sampled_capture_unchanged": true,
+    "offline_only_no_inference_decisions": true,
+    "episode_schema": "configs/runpod/schemas/glm52_indexer_matrix_episode.schema.json",
+    "row_schema": "configs/runpod/schemas/glm52_indexer_matrix_row.schema.json",
+    "report_schema": "configs/runpod/schemas/glm52_indexer_multihop_report.schema.json",
+    "token_row_schema": "configs/runpod/schemas/glm52_indexer_multihop_token_row.schema.json"
+  },
   "probe_boundary": {
     "measured_segment": "ordinary SYS_new_plus_Q1 target prefill through query positions 114, 512, 1024, and 2070",
     "a1_generated_or_executed": false,
@@ -232,12 +252,16 @@
     {"path": "pyproject.toml", "sha256": "82e722bf2fd436f30ef0adabf86a8e0915aca4f993a99cff853c9480cbd8bc65"},
     {"path": "configs/cluster/stateful_edit_scenarios/catalog.json", "sha256": "064a38371a539fc5655060637cf21577a12a60f18ef3176a8477a8f34017b669"},
     {"path": "configs/cluster/stateful_edit_scenarios/scenarios/glm52-sys-policy-equal-replacement-v1.json", "sha256": "f1769f464befbe2482e200521b98ffd4a59044d8abad0f5bc0d946a9bc713484"},
-    {"path": "configs/runpod/glm52_attention_indexer_schedule.json", "sha256": "3781b832a0dcd345a8c6cbc5556bd1a1a8a97c7ec908ab2f31df560c243c2b13"},
+    {"path": "configs/runpod/glm52_attention_indexer_schedule.json", "sha256": "ea11322452b3424ce843dcb9e8ffd1be428f2b88ebde8ca070876ad16b0441ba"},
     {"path": "configs/runpod/schemas/glm52_attention_indexer_report.schema.json", "sha256": "483b81e7f8e3c702266d730f3a5617d1c888259e5d9d1fd99e81c41c78b7cab7"},
-    {"path": "configs/runpod/schemas/glm52_attention_indexer_schedule.schema.json", "sha256": "51b44f49fb728e01a4fe0d676d967bb85217b7f58744464ce3463fc58d492f75"},
+    {"path": "configs/runpod/schemas/glm52_attention_indexer_schedule.schema.json", "sha256": "4e7e997882ff86a79f881d5941312e5338b1028f9a7818fe9ae24bcffc38c20c"},
+    {"path": "configs/runpod/schemas/glm52_indexer_matrix_episode.schema.json", "sha256": "64446b86d90f7952456e83bc71775418c3609b2986abc4ee876b69d1dceb954c"},
+    {"path": "configs/runpod/schemas/glm52_indexer_matrix_row.schema.json", "sha256": "562d9e4eee2277188558ef19993b3cc0c0b80616a59be04c29437cfecc028ac4"},
+    {"path": "configs/runpod/schemas/glm52_indexer_multihop_report.schema.json", "sha256": "55c63c9bc4577a24c506c5088e6347a7a247e688f49019a6e326d6ff0f6c6d7b"},
+    {"path": "configs/runpod/schemas/glm52_indexer_multihop_token_row.schema.json", "sha256": "cf903e66764030e949ce7a5af960298997a7d7b9e63a105524558e8fa1fa0db5"},
     {"path": "configs/runpod/schemas/glm52_runpod_doctor.schema.json", "sha256": "324ef1edd0e7b3af78df5bab8e0010ef8d6559248e99a26c00b9792d2689a02a"},
-    {"path": "docs/RUNPOD_GLM52_ATTENTION_INDEXER.md", "sha256": "a98a28361b7a5b9fbc5eae4689ab1f9cd838a27f4a39870213cc6019486172bd"},
-    {"path": "instrumentation/vllm/glm52_attention_indexer_scores.py", "sha256": "5c9f5d0d535c79b6077ba46f47ea7c33262296e98ea56eb337c989cae7b1677f"},
+    {"path": "docs/RUNPOD_GLM52_ATTENTION_INDEXER.md", "sha256": "250fcfc1708c8d4da5c0b616234dbe27d22615498f85d240b43f5ac914c79685"},
+    {"path": "instrumentation/vllm/glm52_attention_indexer_scores.py", "sha256": "7316df9934733276513a3800484915965c954946e153b3f1648e8a631862a866"},
     {"path": "instrumentation/vllm/glm52_forced_edit_reuse.py", "sha256": "d3bb32c706e902931c2a19948ed56ba9aac03a8fc86c591a7ebaba2fcdf65c1b"},
     {"path": "instrumentation/vllm/putpocket_true_partial_prefill.py", "sha256": "dc14e1ccf08969ed684381128ad22360204b40075fc32c59979a26004ebb5f32"},
     {"path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_attention_indexer_score_diagnostic.patch", "sha256": "ce9f213b0db7ce9ec2cd81b06f5096a4755f7a890e905129cb93d52887109906"},
@@ -245,9 +269,11 @@
     {"path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/putpocket_true_partial_prefill.patch", "sha256": "78dc0b9a6cde73974e1522d9e7af0e17df26094ca17c0d82b641bcdfccf680ba"},
     {"path": "scripts/runpod/bootstrap_glm52_attention_indexer.sh", "sha256": "ec7fe6a759a8c20100c1b738ce9e68f886fc15c7de09227b1e99d0c97108ba97"},
     {"path": "scripts/runpod/run_glm52_attention_indexer_score_test.sh", "sha256": "2bbddd8f956d93c71bbb6e994ddf66a6390588d53c92cfcc8a91b1cf9dd2d055"},
+    {"path": "scripts/runpod/run_glm52_indexer_matrix_multihop.sh", "sha256": "2b54abd5074be116b4d7cd17c5b407998400b61cf1180f9e9d3ef632d91afcc5"},
     {"path": "scripts/runpod/run_glm52_runpod_doctor.sh", "sha256": "9c2f961455635a55076e3d7f3dc04634c11fdb0bd3568a2ba5c60ec9004274d2"},
     {"path": "src/putpocket_dataset_mining/glm52_attention_indexer.py", "sha256": "ad316dac88e7873c940d4d6f8ae82122c0125a44a763f8c08c7e39394ad1a1a9"},
-    {"path": "src/putpocket_dataset_mining/glm52_runpod.py", "sha256": "3ec151ab2ff5e115ca639c88cfb6edb49a04927ee9f0d7727805c840856f81f3"},
-    {"path": "src/putpocket_dataset_mining/glm52_runpod_cli.py", "sha256": "5226116e7a276b2edf227e136b0ba03918a82b1b4bbddc60718e447045a93182"}
+    {"path": "src/putpocket_dataset_mining/glm52_indexer_propagation.py", "sha256": "f7a8417a2e4687adc3f2168ce45e3127ad244cbd69ef34c5c339c3ec6bd6609b"},
+    {"path": "src/putpocket_dataset_mining/glm52_runpod.py", "sha256": "8c77552d1ea50fe8d108a9653d667b4d824e019fcb888ff0a71d12c0807e84ed"},
+    {"path": "src/putpocket_dataset_mining/glm52_runpod_cli.py", "sha256": "865472a133955b6d2c5b9c8eadec53cad88bc64ac2590706da9a82bacf0331b6"}
   ]
 }

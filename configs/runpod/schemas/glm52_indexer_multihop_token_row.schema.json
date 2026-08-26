@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/glm52_indexer_multihop_token_row.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "position", "token_id", "segment_membership", "seed_value", "per_layer", "layer_sum", "record_sha256"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "position": {"type": "integer", "minimum": 0},
+    "token_id": {"type": "integer", "minimum": 0},
+    "segment_membership": {
+      "type": "array", "maxItems": 2, "uniqueItems": true,
+      "items": {"enum": ["q1", "q2"]}
+    },
+    "seed_value": {"enum": [0.0, 1.0]},
+    "per_layer": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["layer", "hop_contributions", "cumulative_score"],
+        "properties": {
+          "layer": {"type": "integer", "minimum": 0, "maximum": 77},
+          "hop_contributions": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"type": "number"}},
+          "cumulative_score": {"type": "number"}
+        }
+      }
+    },
+    "layer_sum": {
+      "type": "object", "additionalProperties": false,
+      "required": ["hop_contributions", "cumulative_score"],
+      "properties": {
+        "hop_contributions": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"type": "number"}},
+        "cumulative_score": {"type": "number"}
+      }
+    },
+    "record_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

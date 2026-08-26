@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/glm52_indexer_matrix_episode.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "artifact_kind", "status", "episode_id", "scenario_id",
+    "instance_id", "benchmark_provenance", "source_frozen_episode_manifest",
+    "prompt", "segments", "propagation_window", "capture",
+    "outcome_independent", "authorship_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "artifact_kind": {"const": "frozen_indexer_matrix_episode"},
+    "status": {"const": "frozen_before_outcomes"},
+    "episode_id": {"type": "string", "minLength": 1},
+    "scenario_id": {"type": "string", "minLength": 1},
+    "instance_id": {"type": "string", "minLength": 1},
+    "benchmark_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataset", "dataset_revision", "split", "instance_id", "native_components", "project_authored_components", "outcome_data_used"],
+      "properties": {
+        "dataset": {"const": "ScaleAI/SWE-bench_Pro"},
+        "dataset_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "split": {"const": "test"},
+        "instance_id": {"type": "string", "minLength": 1},
+        "native_components": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "project_authored_components": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "outcome_data_used": {"const": false}
+      }
+    },
+    "source_frozen_episode_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "token_ids", "token_count", "token_ids_sha256", "serializer_id", "tokenizer_revision", "q2_included"],
+      "properties": {
+        "kind": {"const": "frozen_first_post_edit_request_or_frozen_ordinary_prefill_probe"},
+        "token_ids": {"type": "array", "minItems": 2, "items": {"type": "integer", "minimum": 0}},
+        "token_count": {"type": "integer", "minimum": 2},
+        "token_ids_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "serializer_id": {"type": "string", "minLength": 1},
+        "tokenizer_revision": {"type": "string", "minLength": 7},
+        "q2_included": {"const": true}
+      }
+    },
+    "segments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["q1_ranges", "q2_ranges", "q2_semantics"],
+      "properties": {
+        "q1_ranges": {"$ref": "#/$defs/ranges"},
+        "q2_ranges": {"$ref": "#/$defs/ranges"},
+        "q2_semantics": {"const": "frozen_pre_edit_tool_observation_in_first_post_edit_request"}
+      }
+    },
+    "propagation_window": {"$ref": "#/$defs/range"},
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "layers", "tensor_parallel_size", "row_chunk_size", "indexer_tp_max_abs_difference", "hard_max_window_tokens", "hard_max_total_edges_per_rank", "cost_warning"],
+      "properties": {
+        "mode": {"const": "strict_causal_indexer_matrix"},
+        "layers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 0, "maximum": 77}},
+        "tensor_parallel_size": {"const": 4},
+        "row_chunk_size": {"type": "integer", "minimum": 1, "maximum": 64},
+        "indexer_tp_max_abs_difference": {"type": "number", "minimum": 0},
+        "hard_max_window_tokens": {"type": "integer", "minimum": 2, "maximum": 512},
+        "hard_max_total_edges_per_rank": {"type": "integer", "minimum": 1},
+        "cost_warning": {"type": "string", "pattern": "O\\(layers \\* window_tokens\\^2\\)"}
+      }
+    },
+    "outcome_independent": {"const": true},
+    "authorship_boundary": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "range": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "prefixItems": [{"type": "integer", "minimum": 0}, {"type": "integer", "minimum": 1}]
+    },
+    "ranges": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/range"}}
+  }
+}

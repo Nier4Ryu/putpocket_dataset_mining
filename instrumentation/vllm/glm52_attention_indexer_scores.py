@@ -2,11 +2,10 @@
 """Default-off GLM-5.2 main-attention/indexer score capture.
 
 This file is installed into ``vllm.model_executor.layers`` by the RunPod
-package overlay.  It captures a bounded ordinary-prefill probe only.  Main MLA
-scores are a dense, mathematically faithful reference recomputation from the
-same post-RoPE Q and projected K state used by the layer.  Indexer scores are
-the native FP8/FP4 kernel output before top-k.  The two origins are deliberately
-kept distinct in every record.
+package overlay.  Its original sampled attention/indexer comparison remains
+unchanged.  A separate bounded matrix mode records every strictly causal raw
+indexer row in a declared window for offline propagation.  Both are default
+OFF and mutually exclusive with runtime cache-reuse modes.
 """
 
 from __future__ import annotations
@@ -30,6 +29,8 @@ TRUE_PARTIAL_ENV = "PUTPOCKET_VLLM_TRUE_PARTIAL_PREFILL_ENABLE"
 LEGACY_EMULATION_ENV = "PUTPOCKET_GLM52_FORCED_REUSE_CONTROL"
 _LAYER_RE = re.compile(r"(?:^|\.)layers\.(\d+)\.")
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
+SAMPLED_MODE = "sampled_attention_indexer_comparison"
+MATRIX_MODE = "strict_causal_indexer_matrix"
 
 _config: dict[str, Any] | None = None
 _batch: dict[str, Any] | None = None
@@ -91,7 +92,7 @@ def _load_config() -> dict[str, Any]:
     _require(_sha256(data) == raw_digest, "SCORE_DIAGNOSTIC_CONFIG_DIGEST_MISMATCH")
     value = json.loads(data)
     _require(isinstance(value, dict), "SCORE_DIAGNOSTIC_CONFIG_NOT_OBJECT")
-    required = {
+    sampled_required = {
         "schema_version",
         "diagnostic_id",
         "instance_id",
@@ -112,14 +113,38 @@ def _load_config() -> dict[str, Any]:
         "main_qk_nope_head_dim",
         "main_qk_rope_head_dim",
     }
-    _require(set(value) == required, "SCORE_DIAGNOSTIC_CONFIG_KEYS_INVALID")
+    matrix_required = {
+        "schema_version",
+        "capture_mode",
+        "diagnostic_id",
+        "instance_id",
+        "scenario_id",
+        "probe_kind",
+        "expected_prompt_token_count",
+        "expected_prompt_token_ids_sha256",
+        "layers",
+        "propagation_window",
+        "row_chunk_size",
+        "hard_max_window_tokens",
+        "hard_max_total_edges_per_rank",
+        "tensor_parallel_size",
+        "indexer_heads",
+        "indexer_head_dim",
+        "q2_in_probe",
+    }
+    capture_mode = value.get("capture_mode", SAMPLED_MODE)
+    if capture_mode == SAMPLED_MODE:
+        _require(
+            set(value) in (sampled_required, sampled_required | {"capture_mode"}),
+            "SCORE_DIAGNOSTIC_CONFIG_KEYS_INVALID",
+        )
+    else:
+        _require(
+            capture_mode == MATRIX_MODE and set(value) == matrix_required,
+            "SCORE_DIAGNOSTIC_CONFIG_KEYS_INVALID",
+        )
     _require(value["schema_version"] == 1, "SCORE_DIAGNOSTIC_SCHEMA_INVALID")
-    _require(
-        value["probe_kind"] == "ordinary_target_prefill_q1_boundary_no_q2",
-        "SCORE_DIAGNOSTIC_PROBE_KIND_INVALID",
-    )
     layers = value["layers"]
-    queries = value["query_positions"]
     _require(
         isinstance(layers, list)
         and layers
@@ -128,31 +153,65 @@ def _load_config() -> dict[str, Any]:
         "SCORE_DIAGNOSTIC_LAYERS_INVALID",
     )
     _require(
-        isinstance(queries, list)
-        and queries
-        and queries == sorted(set(queries))
-        and all(isinstance(item, int) and item >= 0 for item in queries),
-        "SCORE_DIAGNOSTIC_QUERIES_INVALID",
-    )
-    _require(
-        isinstance(value["expected_prompt_token_count"], int)
-        and value["expected_prompt_token_count"] > max(queries),
-        "SCORE_DIAGNOSTIC_PROMPT_COUNT_INVALID",
-    )
-    _require(
         isinstance(value["expected_prompt_token_ids_sha256"], str)
         and _SHA256_RE.fullmatch(value["expected_prompt_token_ids_sha256"]),
         "SCORE_DIAGNOSTIC_PROMPT_DIGEST_INVALID",
     )
     _require(
         value["tensor_parallel_size"] == 4
-        and value["global_main_attention_heads"] == 64
         and value["indexer_heads"] == 64
-        and value["indexer_head_dim"] == 128
-        and value["main_qk_nope_head_dim"] == 128
-        and value["main_qk_rope_head_dim"] == 64,
+        and value["indexer_head_dim"] == 128,
         "SCORE_DIAGNOSTIC_MODEL_LAYOUT_INVALID",
     )
+    if capture_mode == SAMPLED_MODE:
+        queries = value["query_positions"]
+        _require(
+            value["probe_kind"] == "ordinary_target_prefill_q1_boundary_no_q2",
+            "SCORE_DIAGNOSTIC_PROBE_KIND_INVALID",
+        )
+        _require(
+            isinstance(queries, list)
+            and queries
+            and queries == sorted(set(queries))
+            and all(isinstance(item, int) and item >= 0 for item in queries),
+            "SCORE_DIAGNOSTIC_QUERIES_INVALID",
+        )
+        _require(
+            isinstance(value["expected_prompt_token_count"], int)
+            and value["expected_prompt_token_count"] > max(queries),
+            "SCORE_DIAGNOSTIC_PROMPT_COUNT_INVALID",
+        )
+        _require(
+            value["global_main_attention_heads"] == 64
+            and value["main_qk_nope_head_dim"] == 128
+            and value["main_qk_rope_head_dim"] == 64,
+            "SCORE_DIAGNOSTIC_MAIN_LAYOUT_INVALID",
+        )
+    else:
+        window = value["propagation_window"]
+        _require(
+            isinstance(window, list)
+            and len(window) == 2
+            and all(isinstance(item, int) for item in window)
+            and isinstance(value["expected_prompt_token_count"], int)
+            and 0 <= window[0] < window[1] <= value["expected_prompt_token_count"],
+            "MATRIX_CAPTURE_WINDOW_INVALID",
+        )
+        width = window[1] - window[0]
+        edge_count = width * (width - 1) // 2 * len(layers)
+        _require(
+            value["probe_kind"] == "frozen_episode_strict_causal_indexer_matrix"
+            and value["q2_in_probe"] is True,
+            "MATRIX_CAPTURE_PROBE_BOUNDARY_INVALID",
+        )
+        _require(
+            isinstance(value["row_chunk_size"], int)
+            and 1 <= value["row_chunk_size"] <= 64
+            and isinstance(value["hard_max_window_tokens"], int)
+            and 2 <= width <= value["hard_max_window_tokens"] <= 512
+            and edge_count <= value["hard_max_total_edges_per_rank"],
+            "MATRIX_CAPTURE_COST_CAP_EXCEEDED",
+        )
     _config = value
     return value
 
@@ -176,7 +235,7 @@ def _layer_id(layer_name: str) -> int:
     return int(match.group(1))
 
 
-def _output_path() -> Path:
+def _output_path(record: Mapping[str, Any]) -> Path:
     raw_root = os.getenv(OUTPUT_ROOT_ENV)
     run_id = os.getenv(RUN_ID_ENV)
     _require(bool(raw_root) and bool(run_id), "SCORE_DIAGNOSTIC_OUTPUT_NOT_SET")
@@ -186,6 +245,11 @@ def _output_path() -> Path:
     )
     root = Path(str(raw_root))
     _require(root.is_absolute() and root.is_dir(), "SCORE_DIAGNOSTIC_OUTPUT_INVALID")
+    if record.get("capture_mode") == MATRIX_MODE:
+        return root / (
+            f"matrix-rank-{_rank():02d}-chunk-"
+            f"{int(record['row_chunk_index']):04d}.jsonl"
+        )
     return root / f"capture-rank-{_rank():02d}.jsonl"
 
 
@@ -193,7 +257,7 @@ def _write(record: Mapping[str, Any]) -> None:
     payload = dict(record)
     payload["record_sha256"] = _sha256(_canonical_bytes(payload))
     encoded = _canonical_bytes(payload)
-    path = _output_path()
+    path = _output_path(payload)
     descriptor = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
     try:
         written = os.write(descriptor, encoded)
@@ -223,11 +287,12 @@ def maybe_set_score_diagnostic_batch(
         _token_digest(ids) == config["expected_prompt_token_ids_sha256"],
         "SCORE_DIAGNOSTIC_PROMPT_TOKEN_DIGEST_MISMATCH",
     )
-    edit_position = int(config["expected_edit_position"])
-    _require(
-        ids[edit_position] == config["expected_target_token_id"],
-        "SCORE_DIAGNOSTIC_TARGET_EDIT_TOKEN_MISMATCH",
-    )
+    if config.get("capture_mode", SAMPLED_MODE) == SAMPLED_MODE:
+        edit_position = int(config["expected_edit_position"])
+        _require(
+            ids[edit_position] == config["expected_target_token_id"],
+            "SCORE_DIAGNOSTIC_TARGET_EDIT_TOKEN_MISMATCH",
+        )
     _seen.clear()
     _batch = {"token_ids": ids, "positions": pos}
 
@@ -242,7 +307,7 @@ def _base_record(layer: int, query_position: int) -> dict[str, Any]:
         "instance_id": config["instance_id"],
         "scenario_id": config["scenario_id"],
         "probe_kind": config["probe_kind"],
-        "q2_in_probe": False,
+        "q2_in_probe": bool(config.get("q2_in_probe", False)),
         "rank": _rank(),
         "tensor_parallel_size": config["tensor_parallel_size"],
         "layer": layer,
@@ -269,6 +334,8 @@ def maybe_capture_main_attention_reference(
     if not enabled() or _batch is None:
         return
     config = _load_config()
+    if config.get("capture_mode", SAMPLED_MODE) != SAMPLED_MODE:
+        return
     layer = _layer_id(layer_name)
     if layer not in config["layers"]:
         return
@@ -365,6 +432,64 @@ def maybe_capture_indexer_native_logits(
         logits.shape[0] == len(query_positions),
         "INDEXER_NATIVE_QUERY_SHAPE_MISMATCH",
     )
+    capture_mode = config.get("capture_mode", SAMPLED_MODE)
+    if capture_mode == MATRIX_MODE:
+        window_start, window_end = config["propagation_window"]
+        chunk_size = int(config["row_chunk_size"])
+        for query_position in query_positions:
+            if not window_start <= query_position < window_end:
+                continue
+            key = ("matrix", layer, query_position)
+            if key in _seen:
+                raise ScoreDiagnosticError("MATRIX_CAPTURE_DUPLICATE_ROW")
+            row = query_positions.index(query_position)
+            _require(row < len(starts) and row < len(ends), "INDEXER_NATIVE_BOUNDS_MISSING")
+            valid_start, valid_end = int(starts[row]), int(ends[row])
+            _require(
+                valid_start == 0 and valid_end == query_position + 1,
+                "INDEXER_NATIVE_CAUSAL_ALIGNMENT_UNSUPPORTED",
+            )
+            key_positions = list(range(window_start, query_position))
+            vector = (
+                logits[row, window_start:query_position]
+                .detach()
+                .to("cpu", dtype=torch.float32)
+                .tolist()
+            )
+            _require(len(vector) == len(key_positions), "MATRIX_CAPTURE_VECTOR_SHAPE_INVALID")
+            chunk_index = (query_position - window_start) // chunk_size
+            chunk_start = window_start + chunk_index * chunk_size
+            record = _base_record(layer, query_position)
+            record.update(
+                {
+                    "record_kind": "indexer_native_strict_causal_matrix_row",
+                    "capture_mode": MATRIX_MODE,
+                    "score_origin": "kernel_native_fp8_fp4_mqa_logits_before_top_k_per_row_prefill",
+                    "kernel_native": True,
+                    "pre_top_k": True,
+                    "normalized": False,
+                    "reference_recomputed": False,
+                    "padding_or_masked_values_included": False,
+                    "formula": "sum_h(weight_h*(128^-0.5)*(64^-0.5)*dot(fp8_q_h,quantized_k_with_scales))",
+                    "scale": {"softmax_scale": 128**-0.5, "indexer_head_scale": 64**-0.5},
+                    "mask": "strict_causal_key_position_lt_query_position",
+                    "head_aggregation_at_capture": "native_learned_weighted_sum_across_64_indexer_heads",
+                    "tp_semantics": "replicated_native_aggregate_consensus_required_offline",
+                    "indexer_head_count": config["indexer_heads"],
+                    "indexer_head_dim": config["indexer_head_dim"],
+                    "propagation_window": [window_start, window_end],
+                    "row_chunk_index": chunk_index,
+                    "row_chunk_range": [chunk_start, min(window_end, chunk_start + chunk_size)],
+                    "key_positions": key_positions,
+                    "key_token_ids": [_batch["token_ids"][item] for item in key_positions],
+                    "raw_scores": vector,
+                    "native_valid_start": valid_start,
+                    "native_valid_end_exclusive": valid_end,
+                }
+            )
+            _write(record)
+            _seen.add(key)
+        return
     candidate_start = int(config["candidate_start_position"])
     max_candidates = int(config["max_candidate_tokens"])
     for query_position in config["query_positions"]:

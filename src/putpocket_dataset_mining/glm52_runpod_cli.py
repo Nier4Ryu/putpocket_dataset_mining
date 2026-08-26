@@ -10,14 +10,37 @@ from .glm52_runpod import (
     PACKAGE_LOCK,
     SCHEDULE,
     analyze_probe,
+    capture_matrix_episode,
     capture_probe,
     load_package_lock,
     prepare_probe,
     run_doctor,
+    score_matrix_capture,
     validate_project_artifacts,
     validate_schedule,
     validate_vllm_tree,
 )
+
+
+def _range(value: str) -> list[int]:
+    try:
+        left, right = value.split(":", 1)
+        result = [int(left), int(right)]
+    except (ValueError, TypeError) as exc:
+        raise argparse.ArgumentTypeError("range must be START:END") from exc
+    if not 0 <= result[0] < result[1]:
+        raise argparse.ArgumentTypeError("range must satisfy 0 <= START < END")
+    return result
+
+
+def _layers(value: str) -> list[int]:
+    try:
+        result = [int(item) for item in value.split(",")]
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("layers must be comma-separated integers") from exc
+    if not result or result != sorted(set(result)) or min(result) < 0:
+        raise argparse.ArgumentTypeError("layers must be nonempty, sorted, and unique")
+    return result
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -64,6 +87,24 @@ def _parser() -> argparse.ArgumentParser:
     analyze.add_argument("--doctor-report", required=True)
     analyze.add_argument("--capture-root", required=True)
     analyze.add_argument("--output-root", required=True)
+
+    matrix_capture = sub.add_parser("capture-matrix")
+    matrix_capture.add_argument("--lock", default=str(PACKAGE_LOCK))
+    matrix_capture.add_argument("--doctor-report", required=True)
+    matrix_capture.add_argument("--episode-manifest", required=True)
+    matrix_capture.add_argument("--model-root", required=True)
+    matrix_capture.add_argument("--output-root", required=True)
+    matrix_capture.add_argument("--dry-run", action="store_true")
+
+    matrix_score = sub.add_parser("score-matrix")
+    matrix_score.add_argument("--episode-manifest", required=True)
+    matrix_score.add_argument("--capture-root", required=True)
+    matrix_score.add_argument("--output-root", required=True)
+    matrix_score.add_argument("--q1-range", type=_range, action="append", required=True)
+    matrix_score.add_argument("--q2-range", type=_range, action="append", required=True)
+    matrix_score.add_argument("--window", type=_range, required=True)
+    matrix_score.add_argument("--layers", type=_layers, required=True)
+    matrix_score.add_argument("--max-level", type=int, required=True)
     return parser
 
 
@@ -108,12 +149,32 @@ def main(argv: list[str] | None = None) -> int:
                 lock_path=args.lock,
                 dry_run=args.dry_run,
             )
-        else:
+        elif args.command == "analyze":
             result = analyze_probe(
                 doctor_report=args.doctor_report,
                 capture_root=args.capture_root,
                 output_root=args.output_root,
                 lock_path=args.lock,
+            )
+        elif args.command == "capture-matrix":
+            result = capture_matrix_episode(
+                doctor_report=args.doctor_report,
+                episode_path=args.episode_manifest,
+                model_root=args.model_root,
+                output_root=args.output_root,
+                lock_path=args.lock,
+                dry_run=args.dry_run,
+            )
+        else:
+            result = score_matrix_capture(
+                episode_path=args.episode_manifest,
+                capture_root=args.capture_root,
+                output_root=args.output_root,
+                q1_ranges=args.q1_range,
+                q2_ranges=args.q2_range,
+                layers=args.layers,
+                window=args.window,
+                max_level=args.max_level,
             )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

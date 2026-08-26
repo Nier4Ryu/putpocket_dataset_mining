@@ -6,6 +6,11 @@ is documented in
 Its first score probe is an ordinary `SYS_new + Q1` prefill tied to the
 recommended equal-position scenario; it does not include A1 or Q2 and must not
 be cited as a stateful continuation result.
+That RunPod package also has a separate optional, bounded full-row raw-indexer
+matrix capture and strictly offline multi-hop scorer. Unlike the original
+sampled comparison, its frozen input includes explicit Q1 and frozen-Q2 token
+ranges. It is not part of true-partial scheduling and cannot change runtime
+selection or inference.
 
 This chain evaluates a real edit event, not independent runs that start with the
 new system prompt. For authoring new model-neutral SWE-bench or SWE-bench Pro

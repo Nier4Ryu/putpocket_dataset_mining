@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/glm52_attention_indexer_report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["payload", "payload_sha256"],
+  "properties": {
+    "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "report_id", "status", "scientific_result_policy", "diagnostic_id", "doctor_payload_sha256", "benchmark_provenance", "instance_id", "scenario_id", "probe_boundary", "formula_and_origin", "capture_files", "token_level_artifact", "comparison_count", "comparisons", "aggregate_quantiles", "hypothesis_interpretation"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "report_id": {"const": "glm52-main-indexer-score-compare-v1"},
+        "status": {"const": "passed"},
+        "scientific_result_policy": {"const": "report_only_no_similarity_threshold_failure"},
+        "diagnostic_id": {"type": "string", "minLength": 1},
+        "doctor_payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "benchmark_provenance": {"type": "object"},
+        "instance_id": {"type": "string", "minLength": 1},
+        "scenario_id": {"const": "glm52-sys-policy-equal-replacement-v1"},
+        "probe_boundary": {"type": "object"},
+        "formula_and_origin": {"type": "object"},
+        "capture_files": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/fileEvidence"}},
+        "token_level_artifact": {"$ref": "#/$defs/fileEvidence"},
+        "comparison_count": {"type": "integer", "minimum": 1},
+        "comparisons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["layer", "query_position", "query_token_id", "candidate_start_position", "candidate_end_position_inclusive", "main_score_origin", "indexer_score_origin", "indexer_tp_max_abs_difference", "valid_token_count", "main_head_count", "aggregation", "raw_statistics", "pearson_raw", "spearman_raw", "cosine_zscore", "js_divergence_normalized", "topk"],
+            "properties": {
+              "layer": {"type": "integer", "minimum": 0},
+              "query_position": {"type": "integer", "minimum": 0},
+              "query_token_id": {"type": "integer", "minimum": 0},
+              "candidate_start_position": {"type": "integer", "minimum": 0},
+              "candidate_end_position_inclusive": {"type": "integer", "minimum": 0},
+              "main_score_origin": {"type": "string"},
+              "indexer_score_origin": {"type": "string"},
+              "indexer_tp_max_abs_difference": {"type": "number", "minimum": 0},
+              "valid_token_count": {"type": "integer", "minimum": 1},
+              "main_head_count": {"const": 64},
+              "aggregation": {"type": "object"},
+              "raw_statistics": {"type": "object"},
+              "pearson_raw": {"type": "number", "minimum": -1.000001, "maximum": 1.000001},
+              "spearman_raw": {"type": "number", "minimum": -1.000001, "maximum": 1.000001},
+              "cosine_zscore": {"type": "number", "minimum": -1.000001, "maximum": 1.000001},
+              "js_divergence_normalized": {"type": "number", "minimum": 0},
+              "topk": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+            },
+            "additionalProperties": false
+          }
+        },
+        "aggregate_quantiles": {"type": "object"},
+        "hypothesis_interpretation": {"type": "object"}
+      }
+    }
+  },
+  "$defs": {
+    "fileEvidence": {
+      "type": "object",
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "record_count": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    }
+  }
+}

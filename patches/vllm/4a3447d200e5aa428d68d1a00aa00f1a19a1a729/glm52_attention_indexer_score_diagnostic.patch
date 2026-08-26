@@ -1,0 +1,50 @@
+diff --git a/vllm/model_executor/layers/mla.py b/vllm/model_executor/layers/mla.py
+index 6c0e8e0..2392145 100644
+--- a/vllm/model_executor/layers/mla.py
++++ b/vllm/model_executor/layers/mla.py
+@@ -9,0 +10,3 @@ from vllm.model_executor.layers.attention import MLAAttention
++from vllm.model_executor.layers.glm52_attention_indexer_scores import (
++    maybe_capture_main_attention_reference,
++)
+@@ -210,0 +214,12 @@ class MultiHeadLatentAttentionWrapper(PluggableLayer):
++        maybe_capture_main_attention_reference(
++            layer_name=self.prefix,
++            positions=positions,
++            q=q,
++            kv_c_normed=kv_c_normed,
++            k_pe=k_pe,
++            kv_b_proj=self.kv_b_proj,
++            scale=self.mla_attn.scale,
++            qk_nope_head_dim=self.qk_nope_head_dim,
++            v_head_dim=self.v_head_dim,
++        )
++
+diff --git a/vllm/model_executor/layers/sparse_attn_indexer.py b/vllm/model_executor/layers/sparse_attn_indexer.py
+index a466ef7..ee21a95 100644
+--- a/vllm/model_executor/layers/sparse_attn_indexer.py
++++ b/vllm/model_executor/layers/sparse_attn_indexer.py
+@@ -19,0 +20,3 @@ from vllm.model_executor.layers.glm52_forced_edit_reuse import (
++from vllm.model_executor.layers.glm52_attention_indexer_scores import (
++    maybe_capture_indexer_native_logits,
++)
+@@ -522,0 +526,9 @@ def sparse_attn_indexer(
++                # Diagnostic capture is deliberately before top_k_per_row_prefill.
++                maybe_capture_indexer_native_logits(
++                    layer_name=str(k_cache_prefix),
++                    logits=logits,
++                    cu_seqlen_ks=cu_seqlen_ks,
++                    cu_seqlen_ke=cu_seqlen_ke,
++                    token_start=chunk.token_start,
++                    token_end=chunk.token_end,
++                )
+diff --git a/vllm/model_executor/models/glm4_moe_lite.py b/vllm/model_executor/models/glm4_moe_lite.py
+index 5d01665..117844b 100644
+--- a/vllm/model_executor/models/glm4_moe_lite.py
++++ b/vllm/model_executor/models/glm4_moe_lite.py
+@@ -53,0 +54,3 @@ from vllm.model_executor.layers.glm52_forced_edit_reuse import (
++from vllm.model_executor.layers.glm52_attention_indexer_scores import (
++    maybe_set_score_diagnostic_batch,
++)
+@@ -300,0 +304,2 @@ class Glm4MoeLiteModel(nn.Module):
++        if input_ids is not None:
++            maybe_set_score_diagnostic_batch(input_ids, positions)

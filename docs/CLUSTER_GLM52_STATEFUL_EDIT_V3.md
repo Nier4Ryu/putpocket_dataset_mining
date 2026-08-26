@@ -1,5 +1,12 @@
 # GLM-5.2 stateful mid-trajectory edit sweep (v3)
 
+The ordered RunPod environment-doctor and main-attention/indexer score package
+is documented in
+[`RUNPOD_GLM52_ATTENTION_INDEXER.md`](RUNPOD_GLM52_ATTENTION_INDEXER.md).
+Its first score probe is an ordinary `SYS_new + Q1` prefill tied to the
+recommended equal-position scenario; it does not include A1 or Q2 and must not
+be cited as a stateful continuation result.
+
 This chain evaluates a real edit event, not independent runs that start with the
 new system prompt. For authoring new model-neutral SWE-bench or SWE-bench Pro
 episodes, use the normative

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/glm52_attention_indexer_schedule.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "schedule_id", "execution_site", "ordered", "gpu_assumptions", "tests"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "schedule_id": {"const": "glm52-indexer-distillation-runpod-v1"},
+    "execution_site": {"const": "runpod_hopper"},
+    "ordered": {"const": true},
+    "gpu_assumptions": {"type": "object"},
+    "tests": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ordinal", "test_id", "depends_on", "dependency_evidence", "setup_command", "command", "inputs", "outputs", "artifact_retention", "success_criteria", "failure_policy", "estimated_duration"],
+        "properties": {
+          "ordinal": {"type": "integer", "minimum": 1, "maximum": 2},
+          "test_id": {"enum": ["glm52-runpod-doctor-v1", "glm52-main-indexer-score-compare-v1"]},
+          "depends_on": {"type": "array", "items": {"type": "string"}},
+          "dependency_evidence": {"type": ["string", "null"]},
+          "setup_command": {"type": "string", "minLength": 1},
+          "command": {"type": "string", "minLength": 1},
+          "inputs": {"type": "array", "items": {"type": "string"}},
+          "outputs": {"type": "array", "items": {"type": "string"}},
+          "artifact_retention": {"type": "array", "items": {"type": "string"}},
+          "success_criteria": {"type": "array", "items": {"type": "string"}},
+          "failure_policy": {"type": "string"},
+          "estimated_duration": {"type": "string"}
+        }
+      }
+    }
+  }
+}

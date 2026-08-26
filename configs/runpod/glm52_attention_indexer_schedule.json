@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "schedule_id": "glm52-indexer-distillation-runpod-v1",
+  "execution_site": "runpod_hopper",
+  "ordered": true,
+  "gpu_assumptions": {
+    "accelerator": "4x H200 141GB",
+    "tensor_parallel_size": 4,
+    "compute_capability": "9.0",
+    "minimum_free_memory_mib_per_gpu_before_load": 135000,
+    "base_image": "nvidia/cuda:13.0.3-devel-ubuntu22.04@sha256:3869b846a8cc495ce11c172d87cfc0da8874b910d14a9810bec6b6182e9ee9f8",
+    "python": "3.12",
+    "torch": "2.13.0",
+    "cuda": "13.0",
+    "no_gpu_work_on_montblanc": true
+  },
+  "tests": [
+    {
+      "ordinal": 1,
+      "test_id": "glm52-runpod-doctor-v1",
+      "depends_on": [],
+      "dependency_evidence": null,
+      "setup_command": "PYTHON_BIN=/workspace/Putpocket_env/bin/python ./scripts/runpod/bootstrap_glm52_attention_indexer.sh /workspace/vllm /workspace/artifacts/test1/bootstrap.json && uv pip install --python /workspace/Putpocket_env/bin/python --no-build-isolation --no-deps -e /workspace/vllm",
+      "command": "./scripts/runpod/run_glm52_runpod_doctor.sh /workspace/vllm /workspace/models/aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa $(git rev-parse HEAD) /workspace/artifacts/test1/doctor.json /workspace/Putpocket_env/bin/python",
+      "inputs": [
+        "exact checked-out PutPocket branch commit",
+        "clean vLLM checkout at 4a3447d200e5aa428d68d1a00aa00f1a19a1a729",
+        "local model snapshot at revision aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa with revision marker",
+        "four visible full H200 GPUs"
+      ],
+      "outputs": [
+        "/workspace/artifacts/test1/bootstrap.json",
+        "/workspace/artifacts/test1/doctor.json with payload_sha256"
+      ],
+      "artifact_retention": [
+        "bootstrap JSON",
+        "doctor JSON",
+        "editable-build log",
+        "exact project and vLLM commits"
+      ],
+      "success_criteria": [
+        "all structured doctor checks pass",
+        "all three overlays and instrumentation match exact postimage hashes",
+        "CUDA, BF16, TP4 H200 memory, NCCL, FLASHMLA_SPARSE, and DEEPSEEK_V32_INDEXER checks pass",
+        "true-partial, legacy emulation, and score diagnostic flags are default OFF"
+      ],
+      "failure_policy": "fail closed on any environment, source, patch, model, tokenizer, backend, distributed, or feature-default mismatch",
+      "estimated_duration": "15-45 minutes after a fresh pod opens, dominated by explicit vLLM source build/import JIT"
+    },
+    {
+      "ordinal": 2,
+      "test_id": "glm52-main-indexer-score-compare-v1",
+      "depends_on": ["glm52-runpod-doctor-v1"],
+      "dependency_evidence": "doctor.payload_sha256",
+      "setup_command": "git -C /workspace/SWE-bench_Pro-os rev-parse HEAD | grep -Fx ca10a60a5fcae51e6948ffe1485d4153d421e6c5 && test -f /workspace/artifacts/test1/doctor.json",
+      "command": "./scripts/runpod/run_glm52_attention_indexer_score_test.sh /workspace/models/aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa /workspace/SWE-bench_Pro-os /workspace/artifacts/test1/doctor.json /workspace/artifacts/test2 /workspace/Putpocket_env/bin/python",
+      "inputs": [
+        "successful immutable doctor payload digest",
+        "pinned ScaleAI/SWE-bench_Pro row and pinned SWE-bench Pro harness",
+        "PutPocket-authored glm52-sys-policy-equal-replacement-v1 target ordinary-prefill probe",
+        "local exact model snapshot and patched vLLM"
+      ],
+      "outputs": [
+        "/workspace/artifacts/test2/probe.json",
+        "/workspace/artifacts/test2/capture/capture-rank-*.jsonl",
+        "/workspace/artifacts/test2/report/attention-indexer-report.json",
+        "/workspace/artifacts/test2/report/aligned-token-scores.jsonl",
+        "/workspace/artifacts/test2/SHA256SUMS"
+      ],
+      "artifact_retention": [
+        "doctor dependency JSON",
+        "probe token IDs and digest without raw prompt text",
+        "all per-rank raw capture records",
+        "token-aligned vectors",
+        "aggregate report and SHA256SUMS",
+        "server/model load logs and HBM inventory"
+      ],
+      "success_criteria": [
+        "all configured layer/query/TP cells captured and aligned",
+        "main full-candidate reference logits and native pre-top-k indexer vectors are finite and causally coindexed",
+        "report and token-level artifacts validate against schemas and hashes",
+        "similarity result is reported without an unregistered pass threshold"
+      ],
+      "failure_policy": "fail on capture, alignment, finite-value, TP-consensus, schema, or digest errors; do not fail merely because the unknown scientific similarity is low",
+      "estimated_duration": "30-90 minutes including one TP4 model load and bounded one-token ordinary-prefill probe"
+    }
+  ]
+}

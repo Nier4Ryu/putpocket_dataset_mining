@@ -40,6 +40,12 @@ catalog follow-up objective:
   - preserve the exact ScaleAI/SWE-bench_Pro revision, smoke selection, and Ansible instance provenance
   - distinguish benchmark-native repository/problem/evaluator inputs from project-authored A1/Q2/edit transformations
   - keep every catalog entry non-runnable until a distinct frozen episode and donor/target server manifests exist
+RunPod packaging follow-up objective:
+  - publish only this isolated branch so a fresh RunPod can reproduce the pinned GLM/vLLM source chain
+  - provide an ordered, fail-closed JSON environment doctor before any GPU capture
+  - capture aligned full-candidate main-attention reference logits and native pre-top-k indexer scores under a distinct default-OFF diagnostic
+  - analyze raw, rank, normalized-distribution, and top-k metrics without an invented scientific pass threshold
+  - preserve the exact SWE-bench Pro row provenance while labeling the SYS edit and probe as PutPocket-authored
 registered next slice:
   - name: glm52-rope-aware-shifted-reuse
   - owner boundary: FLASHMLA_SPARSE main K-cache representation and DeepSeek V3.2 packed indexer representation
@@ -70,11 +76,17 @@ validation:
   - scenario catalog focused contract/server/loader suite: 25 passed
   - scenario catalog full repository CPU suite: 363 passed, 89 subtests passed
   - catalog schema, index, six scenario JSON files, exact SHA-256 bindings, CLI validate/list/show, Python compile, and git diff check passed
+  - RunPod focused package/true-partial/legacy/catalog CPU suite: 46 passed
+  - RunPod full repository CPU suite: 371 passed, 89 subtests passed
+  - fresh exact vLLM source bootstrap applied the legacy base with GNU patch, both overlays with git apply --unidiff-zero, and matched every phase/postimage hash
+  - RunPod Python compile, JSON/schema validation, shell syntax, project-artifact hashes, and synthetic TP4 score/report evidence passed
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/
 commits:
   - 9ced53fd605c0dd6c3c87f0e303e1fe6a256b3f2 (stateful v3 implementation)
   - b77c9514e296d711e249a1cb91adf2f2f2618d8b (model-neutral scenario contract follow-up)
-  - current server-side true-partial-prefill commit containing this record
-final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-005948.md
+  - 2e3f4fb6899c81cfbdc43098dbaf5bdb1187aef1 (server-side true-partial-prefill implementation)
+  - d84bc3c5cf988b54a80a472032da7e44b8abfeff (machine-loadable scenario catalog)
+  - current RunPod doctor and score-diagnostic packaging commit containing this record
+final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-115046.md

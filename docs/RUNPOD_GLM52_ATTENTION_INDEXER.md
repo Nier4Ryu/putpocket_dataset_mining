@@ -278,6 +278,13 @@ The equivalent CLI is `capture-matrix` followed by `score-matrix`; use
 loading the model. The scorer verifies that its explicit `--q1-range`,
 `--q2-range`, `--window`, and `--layers` agree with the frozen manifest.
 
+The following signed recurrence is retained as the original, auditable v1
+definition. It is no longer the recommended selector-relevance metric: native
+raw scores have both signs and unrelated layer scales, so repeated matrix
+products alternate sign, explode in magnitude, and cancel under summation.
+Those properties are evidence about the declared v1 formula, but they obscure
+the top-k relevance ordering that a selector needs.
+
 For each layer independently, its strict lower-triangular matrix is
 `A_l[q,k]`, and `u[q]=1` exactly for frozen Q1/Q2 tokens. Level 1 is
 `c_l,1 = u A_l`; level `n+1` is `c_l,n+1 = c_l,n A_l`; the reported level-L
@@ -295,6 +302,77 @@ and token artifact hash. Each token row records token ID, segment membership,
 per-layer hop contributions, per-layer cumulative score, and the hop/final
 layer sums. This offline score has no threshold and must not be wired into a
 vLLM request or described as a runtime inference decision.
+
+## Rank-normalized multihop selector-relevance analysis
+
+The v1 signed files above are immutable legacy inputs. The separate
+`putpocket_rank_normalized_indexer_multihop_v1` postprocessor uses the same
+complete native raw matrix, frozen token IDs, Q1/Q2 ranges, layers, causal
+orientation, and input hashes without rerunning a GPU or changing inference.
+
+For layer `l` and valid row `q`, rank all `k < q` by descending native raw
+indexer score, breaking an exact tie by lower absolute key position. For
+transition cutoff `K`, retain ranks `r <= min(K,q)` and define
+
+`T_l^K[q,k] = (1/log2(r_lq(k)+1)) / sum_{j:r_lq(j)<=K}(1/log2(r_lq(j)+1))`.
+
+Every valid layer row is nonnegative and has mass one. The analysis uses the
+uniform layer mean `T^K = mean_l(T_l^K)`, so no layer can dominate because of
+raw scale or sign. The seed `u` is a probability distribution uniform over all
+and only the frozen Q1 and Q2 content-token rows. With the original
+left-row-vector/backward-causal orientation:
+
+- `h_1 = normalize(u T^K)`;
+- `h_(n+1) = normalize(h_n T^K)`;
+- `g_L = (1/L) sum_{n=1..L} h_n`.
+
+`h_n` is the hop-only distribution. `g_L` is an explicitly labeled equal-hop
+mixture, not a raw cumulative sum. Each is normalized to mass one at every
+reported level. Because the transition is strictly causal, position zero has
+no outgoing row; mass reaching a terminal row is reported before remaining
+outgoing mass is normalized. The primary transition is DCG rank weighting at
+`K=64`, with sensitivity at `K=16` and `K=256`.
+
+The secondary `zscore_softmax_t1` transition independently population-z-scores
+every full valid causal row and applies temperature-1 softmax before the same
+layer averaging and propagation. It preserves within-row score-spacing
+information while remaining nonnegative and normalized; it is a sanity check,
+not the only answer.
+
+For hop-only and equal-hop views, the report records mass, natural-log entropy,
+effective support `exp(entropy)`, and stability against level 1 and the previous
+level. Primary metrics at `k={16,64,256}` are overlap, retention, Jaccard, and
+NDCG using baseline deterministic rank as graded relevance. Spearman is
+secondary and is computed only on the explicit union of the two top-k sets
+using their global deterministic ranks.
+
+Run the scorer and plotter from the committed isolated branch:
+
+```bash
+export MONTBLANC_EVIDENCE_ROOT=/path/to/runpod-d85582a-attempt7
+putpocket-glm52-rank-multihop \
+  --evidence-root "$MONTBLANC_EVIDENCE_ROOT" \
+  --checksum-manifest completion-audit-evidence-v1/COMPLETION_AUDIT_SHA256SUMS \
+  --episode extracted/artifacts/test2-d85582a-attempt7/frozen-matrix-episode.json \
+  --capture-root extracted/artifacts/test2-d85582a-attempt7/matrix \
+  --matrix-run extracted/artifacts/test2-d85582a-attempt7/matrix/matrix-capture-run.json \
+  --matrix-config extracted/artifacts/test2-d85582a-attempt7/matrix/matrix-instrumentation-config.json \
+  --legacy-report extracted/artifacts/test2-d85582a-attempt7/multihop/indexer-multihop-report.json \
+  --legacy-token-rows extracted/artifacts/test2-d85582a-attempt7/multihop/indexer-multihop-token-scores.jsonl \
+  --transition-k 16,64,256 --evaluation-k 16,64,256 --max-level 6 \
+  --softmax-temperature 1 \
+  --output-root "$MONTBLANC_EVIDENCE_ROOT/completion-audit-evidence-v1/rank-normalized-multihop-v1"
+PYTHONPATH=src python scripts/analysis/plot_glm52_rank_normalized_multihop.py \
+  --artifact-root "$MONTBLANC_EVIDENCE_ROOT/completion-audit-evidence-v1/rank-normalized-multihop-v1"
+```
+
+The scorer refuses a pre-existing output directory. Every episode, control,
+raw matrix, and legacy file must match the consolidated checksum manifest. It
+reuses fail-closed TP/completeness/token validation and writes a distinct input
+attestation, report, token JSONL, and checksums. The plotter accepts only that
+pristine checksum-valid output and adds four PNG/PDF pairs, a schema-valid
+summary, and final checksums. Neither tool overwrites or deletes signed v1
+artifacts.
 
 ## Retain and do not claim
 

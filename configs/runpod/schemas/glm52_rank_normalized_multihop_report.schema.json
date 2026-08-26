@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.local/schemas/glm52_rank_normalized_multihop_report.schema.json",
+  "title": "GLM rank-normalized native-indexer multihop report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "report_kind", "payload", "payload_sha256"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "report_kind": {"const": "glm52_rank_normalized_indexer_multihop_offline"},
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status", "project_commit", "recurrence", "transition_config",
+        "metric_policy", "episode", "capture", "legacy_signed_evidence",
+        "variant_results", "token_level_artifact", "scientific_result_policy"
+      ],
+      "properties": {
+        "status": {"const": "passed"},
+        "project_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "recurrence": {"type": "object", "minProperties": 10},
+        "transition_config": {
+          "type": "object", "additionalProperties": false,
+          "required": [
+            "primary_variant_id", "rank_transition_k_sweep",
+            "softmax_temperature", "evaluation_top_k", "max_level"
+          ],
+          "properties": {
+            "primary_variant_id": {"const": "rank_dcg_k64"},
+            "rank_transition_k_sweep": {
+              "type": "array", "const": [16, 64, 256]
+            },
+            "softmax_temperature": {"const": 1.0},
+            "evaluation_top_k": {"type": "array", "const": [16, 64, 256]},
+            "max_level": {"type": "integer", "minimum": 1, "maximum": 16}
+          }
+        },
+        "metric_policy": {"type": "object", "minProperties": 5},
+        "episode": {
+          "type": "object", "additionalProperties": false,
+          "required": [
+            "scenario_id", "instance_id", "benchmark_provenance", "window",
+            "q1_ranges", "q2_ranges", "seed_count", "layers"
+          ],
+          "properties": {
+            "scenario_id": {"type": "string", "minLength": 1},
+            "instance_id": {"type": "string", "minLength": 1},
+            "benchmark_provenance": {"type": "object"},
+            "window": {"$ref": "#/$defs/range"},
+            "q1_ranges": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/range"}},
+            "q2_ranges": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/range"}},
+            "seed_count": {"type": "integer", "minimum": 1},
+            "layers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 0}}
+          }
+        },
+        "capture": {
+          "type": "object", "additionalProperties": false,
+          "required": [
+            "score_origin", "strict_causal", "tp_max_abs_difference_observed",
+            "input_attestation_artifact"
+          ],
+          "properties": {
+            "score_origin": {"const": "kernel_native_fp8_fp4_mqa_logits_before_top_k_per_row_prefill"},
+            "strict_causal": {"const": true},
+            "tp_max_abs_difference_observed": {"type": "number", "minimum": 0},
+            "input_attestation_artifact": {"$ref": "#/$defs/file"}
+          }
+        },
+        "legacy_signed_evidence": {
+          "type": "object", "additionalProperties": false,
+          "required": ["preserved_immutable", "scientific_status", "report", "token_rows"],
+          "properties": {
+            "preserved_immutable": {"const": true},
+            "scientific_status": {"type": "string", "minLength": 1},
+            "report": {"$ref": "#/$defs/file"},
+            "token_rows": {"$ref": "#/$defs/file"}
+          }
+        },
+        "variant_results": {
+          "type": "array", "minItems": 4, "maxItems": 4,
+          "items": {"$ref": "#/$defs/variant"}
+        },
+        "token_level_artifact": {
+          "allOf": [
+            {"$ref": "#/$defs/file"},
+            {
+              "type": "object",
+              "required": ["record_count", "schema_path", "schema_sha256"],
+              "properties": {
+                "record_count": {"type": "integer", "minimum": 1},
+                "schema_path": {"const": "configs/runpod/schemas/glm52_rank_normalized_multihop_token_row.schema.json"},
+                "schema_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+              }
+            }
+          ]
+        },
+        "scientific_result_policy": {
+          "const": "offline_rank_relevance_analysis_only_no_threshold_no_inference_decision_no_stateful_quality_claim"
+        }
+      }
+    },
+    "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "range": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {"type": "integer", "minimum": 0}
+    },
+    "file": {
+      "type": "object",
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"},
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mass", "entropy_nats", "effective_support", "versus_level_1",
+        "versus_previous_level"
+      ],
+      "properties": {
+        "mass": {"type": "number", "minimum": 0.9999999999, "maximum": 1.0000000001},
+        "entropy_nats": {"type": "number", "minimum": 0},
+        "effective_support": {"type": "number", "minimum": 1},
+        "versus_level_1": {"$ref": "#/$defs/stability"},
+        "versus_previous_level": {
+          "oneOf": [{"type": "null"}, {"$ref": "#/$defs/stability"}]
+        }
+      }
+    },
+    "stability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["deterministic_tie_break", "secondary_rank_scope", "by_k"],
+      "properties": {
+        "deterministic_tie_break": {"type": "string", "minLength": 1},
+        "secondary_rank_scope": {"type": "string", "minLength": 1},
+        "by_k": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": [
+              "k", "overlap_count", "retention", "jaccard",
+              "ndcg_against_baseline_rank",
+              "secondary_spearman_on_topk_union", "topk_union_size"
+            ],
+            "properties": {
+              "k": {"enum": [16, 64, 256]},
+              "overlap_count": {"type": "integer", "minimum": 0},
+              "retention": {"type": "number", "minimum": 0, "maximum": 1},
+              "jaccard": {"type": "number", "minimum": 0, "maximum": 1},
+              "ndcg_against_baseline_rank": {"type": "number", "minimum": 0, "maximum": 1.0000000001},
+              "secondary_spearman_on_topk_union": {"type": "number", "minimum": -1.0000000001, "maximum": 1.0000000001},
+              "topk_union_size": {"type": "integer", "minimum": 1}
+            }
+          }
+        }
+      }
+    },
+    "variant": {
+      "type": "object", "additionalProperties": false,
+      "required": ["variant_id", "kind", "transition_k", "temperature", "level_results"],
+      "properties": {
+        "variant_id": {"enum": ["rank_dcg_k16", "rank_dcg_k64", "rank_dcg_k256", "zscore_softmax_t1"]},
+        "kind": {"enum": ["rank_dcg", "zscore_softmax"]},
+        "transition_k": {"oneOf": [{"type": "null"}, {"enum": [16, 64, 256]}]},
+        "temperature": {"oneOf": [{"type": "null"}, {"const": 1.0}]},
+        "level_results": {
+          "type": "array", "minItems": 1, "maxItems": 16,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": [
+              "level", "pre_normalization_outgoing_mass",
+              "terminal_mass_discarded_before_normalization", "hop",
+              "cumulative_equal_hop_mixture"
+            ],
+            "properties": {
+              "level": {"type": "integer", "minimum": 1, "maximum": 16},
+              "pre_normalization_outgoing_mass": {"type": "number", "minimum": 0, "maximum": 1.0000000001},
+              "terminal_mass_discarded_before_normalization": {"type": "number", "minimum": -1e-10, "maximum": 1},
+              "hop": {"$ref": "#/$defs/distribution"},
+              "cumulative_equal_hop_mixture": {"$ref": "#/$defs/distribution"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

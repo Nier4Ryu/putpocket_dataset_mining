@@ -122,6 +122,10 @@ def test_package_lock_pins_order_apply_arguments_provenance_and_artifacts() -> N
         "e1f5cdd967a48514750d9c3074a8ca4a33cd217060e9a7b5cbadf9c0df03363f"
     )
     assert lock["completion_audit"]["large_data_committed"] is False
+    assert lock["rank_normalized_multihop"]["primary_variant"] == "rank_dcg_k64"
+    assert lock["rank_normalized_multihop"]["rank_transition_k_sweep"] == [16, 64, 256]
+    assert lock["rank_normalized_multihop"]["legacy_outputs_preserved_immutable"] is True
+    assert lock["rank_normalized_multihop"]["offline_only_no_inference_decisions"] is True
     assert validate_project_artifacts(ROOT, lock)["status"] == "passed"
 
 

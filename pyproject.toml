@@ -31,6 +31,7 @@ putpocket-glm52-sglang-gate = "putpocket_dataset_mining.glm52_sglang_gate_cli:ma
 putpocket-glm52-vllm-diagnostic = "putpocket_dataset_mining.glm52_vllm_diagnostic_cli:main"
 putpocket-stateful-edit-scenarios = "putpocket_dataset_mining.stateful_edit_scenarios_cli:main"
 putpocket-glm52-runpod = "putpocket_dataset_mining.glm52_runpod_cli:main"
+putpocket-glm52-rank-multihop = "putpocket_dataset_mining.glm52_rank_normalized_propagation:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

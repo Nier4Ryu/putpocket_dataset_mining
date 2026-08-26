@@ -75,8 +75,26 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
     provenance = lock.get("benchmark_provenance")
     layout = lock.get("model_layout")
     completion_audit = lock.get("completion_audit")
+    rank_normalized = lock.get("rank_normalized_multihop")
     _require(all(isinstance(item, Mapping) for item in (vllm, runtime, capture, matrix_capture, query_sum_capture, provenance, layout)), "RUNPOD_PACKAGE_SECTION_INVALID")
     _require(isinstance(completion_audit, Mapping), "RUNPOD_COMPLETION_AUDIT_INVALID")
+    _require(isinstance(rank_normalized, Mapping), "RUNPOD_RANK_MULTIHOP_INVALID")
+    _require(
+        rank_normalized.get("recurrence_id")
+        == "putpocket_rank_normalized_indexer_multihop_v1"
+        and rank_normalized.get("legacy_signed_recurrence_id")
+        == "putpocket_raw_indexer_strict_causal_multihop_v1"
+        and rank_normalized.get("legacy_outputs_preserved_immutable") is True
+        and rank_normalized.get("offline_only_no_inference_decisions") is True
+        and rank_normalized.get("primary_variant") == "rank_dcg_k64"
+        and rank_normalized.get("rank_transition_k_sweep") == [16, 64, 256]
+        and rank_normalized.get("evaluation_top_k") == [16, 64, 256]
+        and rank_normalized.get("report_schema")
+        == "configs/runpod/schemas/glm52_rank_normalized_multihop_report.schema.json"
+        and rank_normalized.get("token_row_schema")
+        == "configs/runpod/schemas/glm52_rank_normalized_multihop_token_row.schema.json",
+        "RUNPOD_RANK_MULTIHOP_INVALID",
+    )
     _require(
         completion_audit.get("cache_origin_plot_script_sha256")
         == "e1f5cdd967a48514750d9c3074a8ca4a33cd217060e9a7b5cbadf9c0df03363f"

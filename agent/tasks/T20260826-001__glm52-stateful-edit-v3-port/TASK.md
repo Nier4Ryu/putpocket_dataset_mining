@@ -3,6 +3,7 @@
 task identity: T20260826-001__glm52-stateful-edit-v3-port
 objective: glm52-stateful-edit-v3-port
 status: complete
+benchmark evaluation status: not run; the completed RunPod score diagnostics are not a SWE-bench Pro task result or a stateful-cache quality evaluation
 base tip: b9d44af05a464993001ecaf19acc07f188f072a7
 branch: agent/T20260826-001__glm52-stateful-edit-v3-port
 worktree: /home/dyryu/putpocket_dataset_mining_worktrees/T20260826-001__glm52-stateful-edit-v3-port
@@ -114,6 +115,16 @@ validation:
   - the profile-batch correction passed 61 focused tests plus project hashes/schema/compile/shell/diff checks, the full `391 passed, 2 skipped, 89 subtests` pytest suite, 291 unittests, and a brand-new exact three-overlay source-chain/postimage validation
   - live query-sum attempt 6 passed engine startup and emitted every layer-0 native indexer row on all four ranks, then failed closed before main-reference output because the exact model uses a 192-dimensional non-RoPE main Q/K component while the package incorrectly declared 128; the corrected package distinguishes main Q/K 192+64 from the independent 128-dimensional indexer head and makes the doctor validate the exact main layout
   - the main-layout correction passed 61 focused tests plus package hashes/schema/compile/shell/diff checks, the full `391 passed, 2 skipped, 89 subtests` pytest suite, 291 unittests, and a brand-new exact three-overlay source-chain/postimage validation
+  - `REAL_EXECUTION_CONFIRMED`: RunPod attempt 7 passed the doctor and both ordered TP4 H200 diagnostics at science commit `d85582ad8d74f0280c6833cf0be19fe853d3f52f`; the doctor payload digest is `daba05d918deb69449d4a35d7a1c8fa6425d9739195d318ad9eb71def504489f`
+  - attempt 7 retained 1,967 Q1/Q2 query rows across layers 0/22/46/74 and all four ranks, plus 264 strict-causal matrix chunks containing 8,412 rows/rank and 8,841,012 native edge values/rank; TP consensus max absolute difference was zero
+  - exact signed float64 multihop recurrence passed independently per layer through level 6, retained every hop and cumulative value, and remained finite without clipping, normalization, or selector integration
+  - corrected offline query-sum report v2 commit `ccc5de08df139b9b5a81b87f6c6d3e995909c4a6` replaced saturated native-softmax top-k/JS interpretation with raw descending top-k and independently z-scored-softmax JS while retaining native-softmax support diagnostics
+  - analyzer correction focused suite: 32 passed; full repository CPU suite: 393 passed, 2 skipped, 89 subtests passed; 291 unittests passed; schema/JSON/compile/shell/diff/package checks passed
+  - authoritative v2 raw-capture replay passed with 1,967 seed rows, candidate window `[0,2103)`, report file SHA-256 `64937285cd24fe1a902879ce5abe3f176e8996d445d19451d633c7330021bf95`, and payload SHA-256 `38e1cb105e49074fa6daeb4b9ec108c4fc01d81d87005c35e0c61c549153181c`
+  - the immutable 276-file raw artifact manifest passed before transfer; the exact 4,898,098,644-byte RunPod bundle and Montblanc copy both hash to `855cf68457cd4540f06e3767d03c6e997362d1118b37ca90d0539a2b01889949`
+  - the corrected derived bundle transferred independently with matching SHA-256 `3cbff97a76ce530c88401dc7e50427b7cb7f3a651896ec3ae73a977c50fbe405`; all seven internal hashes, the v2 schema/payload digest, and the consolidated Montblanc manifest passed
+  - five required plots were generated as PNG and PDF only from transferred evidence, visually inspected, and verified against `PLOT_SHA256SUMS`; plot summary SHA-256 is `89b04faf72c63d35dd2193c6c15b4cc127df4729b883f5f9a3a14ddce00e1ff8`
+  - the frozen input is explicitly a deterministic benchmark-derived two-query score probe with project-authored bridge/Q2, not an executed A1-to-tool-observation episode; no stateful-cache, benchmark-outcome, task-quality, or native-FP4-compute claim is allowed
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/
@@ -122,5 +133,7 @@ commits:
   - b77c9514e296d711e249a1cb91adf2f2f2618d8b (model-neutral scenario contract follow-up)
   - 2e3f4fb6899c81cfbdc43098dbaf5bdb1187aef1 (server-side true-partial-prefill implementation)
   - d84bc3c5cf988b54a80a472032da7e44b8abfeff (machine-loadable scenario catalog)
-  - current RunPod doctor and score-diagnostic packaging commit containing this record
-final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-072700.md
+  - d85582ad8d74f0280c6833cf0be19fe853d3f52f (RunPod integration fixes and exact live science package)
+  - ccc5de08df139b9b5a81b87f6c6d3e995909c4a6 (offline query-sum saturation correction)
+  - current evidence-only RunPod execution handoff commit containing this record
+final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-102925.md

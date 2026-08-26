@@ -53,6 +53,12 @@ RunPod execution follow-up objective:
   - freeze a deterministic two-query benchmark-derived fallback because no executed A1 artifact exists; prohibit stateful/cache-quality claims
   - execute the query-sum comparison and strict-causal matrix recurrence through level 6, retain raw evidence, transfer it to Montblanc, and plot only from copied artifacts
   - bind the score package to the audited NVFP4 model layout: 64 global main-attention heads and 32 TP-replicated Lightning indexer heads, with native indexer head scale `32^-0.5`
+completion-audit follow-up objective:
+  - commit every reusable execution-time implementation that was previously present only in the Montblanc artifact cache
+  - preserve accepted RunPod originals while transferring only missing identity, retry, and root-cause evidence
+  - build a deterministic remote-relative Montblanc inventory with SHA-256 verification and explicit reproducible-infrastructure exclusions
+  - reproduce the accepted plots from checksum-attested raw reports using the committed generalized plotter
+  - audit local and GitHub branch equality without merging, force-pushing, or changing canonical/DSV4 state
 offline raw-indexer scoring follow-up objective:
   - preserve the sampled attention/indexer comparison unchanged and add a separate bounded full-row native indexer matrix capture
   - compute per-layer c_l,1=uA_l and c_l,n+1=c_l,nA_l in float64 with cumulative s_l,L and exact unnormalized layer sums
@@ -125,6 +131,13 @@ validation:
   - the corrected derived bundle transferred independently with matching SHA-256 `3cbff97a76ce530c88401dc7e50427b7cb7f3a651896ec3ae73a977c50fbe405`; all seven internal hashes, the v2 schema/payload digest, and the consolidated Montblanc manifest passed
   - five required plots were generated as PNG and PDF only from transferred evidence, visually inspected, and verified against `PLOT_SHA256SUMS`; plot summary SHA-256 is `89b04faf72c63d35dd2193c6c15b4cc127df4729b883f5f9a3a14ddce00e1ff8`
   - the frozen input is explicitly a deterministic benchmark-derived two-query score probe with project-authored bridge/Q2, not an executed A1-to-tool-observation episode; no stateful-cache, benchmark-outcome, task-quality, or native-FP4-compute claim is allowed
+  - completion audit found one reusable cache-only implementation, `plot_glm52_score_evidence.py` SHA-256 `e1f5cdd967a48514750d9c3074a8ca4a33cd217060e9a7b5cbadf9c0df03363f`; commit `770ff33` saves a checksum-attested, path-independent implementation plus schema, tests, and pinned plotting dependencies
+  - two host-bound transfer prototypes, SHA-256 `42b26b61940fb6ed5aec2d384890387416567f9e04c1dc2df12ce214270a5ad7` and `26387857faf6225b76bafac58d55f7b5e0ef6cfe33efcc35682318b93dbdce70`, were generalized into a no-overwrite, size/SHA-256-verified framed transfer helper without committing an address, credential, or host path
+  - the completion delta retained 92 missing remote-relative files (21,494,149 bytes) covering environment/model/source identity, build/doctor setup, immutable tokenizer/config evidence, and essential failed-attempt root-cause logs; its 3,284,795-byte archive hashes to `4cb095d4ba6e21fb9ba062f875015ee4ea307fc48d105a55a193f6230fb8b411`
+  - the completion delta excludes the already-local accepted 13 GB raw tree and four 62.8 MB failed attempt-6 rank partials; all selected remote source hashes and the local archive hash passed, and RunPod originals were preserved
+  - repository-reproduced plots passed all 11 `PLOT_SHA256SUMS` entries from the corrected v2 query-sum and accepted level-6 multihop inputs; the new plot summary SHA-256 is `8fbfa44b96c2a0982052b8b75e208a4001dca4fd499955f26d454074070e737c`
+  - the consolidated Montblanc inventory covers 453 files and 18,009,870,455 bytes with payload SHA-256 `30da1f00612d5e937da315dbf6f7b0aaad44f5378e0b8fe672a8d759b9fdd839`; its JSON file hashes to `5749dca569b59e3f4d9b913166e9887eb2fcffc20a535da1ebce0c42c5f39a31` and `COMPLETION_AUDIT_SHA256SUMS` hashes to `cd823013a9f88de113f1a9053fa665bae261daf90567adfce60783834248f3a4`
+  - completion-audit focused suite: 37 passed; full repository CPU suite: 398 passed, 2 skipped, 89 subtests passed; Python compile, JSON Schema, shell syntax, package hashes, secret/large-file scope, and cumulative git diff checks passed
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/
@@ -135,5 +148,6 @@ commits:
   - d84bc3c5cf988b54a80a472032da7e44b8abfeff (machine-loadable scenario catalog)
   - d85582ad8d74f0280c6833cf0be19fe853d3f52f (RunPod integration fixes and exact live science package)
   - ccc5de08df139b9b5a81b87f6c6d3e995909c4a6 (offline query-sum saturation correction)
+  - 770ff33 (completion-audit reproducibility implementation)
   - current evidence-only RunPod execution handoff commit containing this record
-final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-102925.md
+final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-202728.md

@@ -130,4 +130,3 @@ def test_spec_loader_rejects_missing_exclusion_contract(tmp_path: Path) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
     with pytest.raises(ConfigError, match="EVIDENCE_SPEC_EXCLUSIONS_INVALID"):
         load_spec(path)
-

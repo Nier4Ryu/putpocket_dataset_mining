@@ -64,6 +64,12 @@ offline raw-indexer scoring follow-up objective:
   - compute per-layer c_l,1=uA_l and c_l,n+1=c_l,nA_l in float64 with cumulative s_l,L and exact unnormalized layer sums
   - bind explicit frozen Q1/Q2 ranges, complete strict-causal rows, TP consensus, input/output hashes, and benchmark/authorship provenance
   - keep the scorer offline-only, default OFF, threshold-free, and outside vLLM inference decisions
+rank-normalized multihop scientific-correction objective:
+  - preserve the signed recurrence and its artifacts as immutable legacy evidence while rejecting it as a selector-relevance metric because sign cancellation and scale explosion obscure ranks
+  - transform every layer/causal row to a nonnegative normalized transition, average normalized layers, and propagate the all-Q1/Q2 seed distribution with explicit backward-causal orientation
+  - make top-K DCG rank weights at K 64 primary, sweep K 16/64/256, and retain population-z-score softmax at temperature 1 as a scale-sensitive nonnegative sanity variant
+  - normalize every hop and report a separate equal-hop cumulative mixture, entropy/effective support, top-K stability against level 1 and the previous level, token rows, input attestations, and checksum-bound plots
+  - keep the correction CPU-offline-only and out of vLLM scheduling, inference decisions, selector integration, and stateful-cache claims
 registered next slice:
   - name: glm52-rope-aware-shifted-reuse
   - owner boundary: FLASHMLA_SPARSE main K-cache representation and DeepSeek V3.2 packed indexer representation
@@ -138,6 +144,12 @@ validation:
   - repository-reproduced plots passed all 11 `PLOT_SHA256SUMS` entries from the corrected v2 query-sum and accepted level-6 multihop inputs; the new plot summary SHA-256 is `8fbfa44b96c2a0982052b8b75e208a4001dca4fd499955f26d454074070e737c`
   - the consolidated Montblanc inventory covers 453 files and 18,009,870,455 bytes with payload SHA-256 `30da1f00612d5e937da315dbf6f7b0aaad44f5378e0b8fe672a8d759b9fdd839`; its JSON file hashes to `5749dca569b59e3f4d9b913166e9887eb2fcffc20a535da1ebce0c42c5f39a31` and `COMPLETION_AUDIT_SHA256SUMS` hashes to `cd823013a9f88de113f1a9053fa665bae261daf90567adfce60783834248f3a4`
   - completion-audit focused suite: 37 passed; full repository CPU suite: 398 passed, 2 skipped, 89 subtests passed; Python compile, JSON Schema, shell syntax, package hashes, secret/large-file scope, and cumulative git diff checks passed
+  - rank-normalized correction focused scientific/package suite: 43 passed; full repository CPU suite: 407 passed, 2 skipped, 89 subtests passed
+  - rank-normalized source/report/token/plot schemas, Python compile, package artifact hashes, git diff checks, secret/large-file scope, and synthetic orientation/tie/normalization/regression tests passed
+  - accepted-data CPU replay used the complete checksum-attested `[0,2103)` matrix, layers 0/22/46/74, and exactly 1,967 Q1/Q2 seed positions; every hop and equal-hop cumulative distribution through level 6 had mass 1 within `1e-10`
+  - primary `rank_dcg_k64` level-6 top-64 retention/Jaccard was `0.328125/0.196262` versus level 1 and `0.96875/0.939394` versus level 5 for hop-only; equal-hop cumulative was `0.5/0.333333` versus level 1 and `0.953125/0.910448` versus level 5
+  - K 16/64/256 and z-score-softmax sensitivity all showed the same qualitative result: progressive drift from level 1, high adjacent-level stability, and stronger level-1 retention for the cumulative mixture than the hop-only distribution
+  - the new 14-file, 8,847,690-byte artifact passed both checksum manifests; report payload SHA-256 is `63c65db17ff8e8190d8791d0b1160929081316c5d72a919bbea606808d8d8780`, report SHA-256 is `cc00b6f41e79873b2258cdb17bb3bb5e86324799762c6953db373e8a3c992bfe`, and `FINAL_SHA256SUMS` SHA-256 is `1a9e367ef7a6732f7980a16ffc8d52e51cea4a937877b567c71e280987d4be8f`
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/
@@ -149,5 +161,6 @@ commits:
   - d85582ad8d74f0280c6833cf0be19fe853d3f52f (RunPod integration fixes and exact live science package)
   - ccc5de08df139b9b5a81b87f6c6d3e995909c4a6 (offline query-sum saturation correction)
   - 770ff33 (completion-audit reproducibility implementation)
+  - 401f8a4f7dd12bd7c85f4129f09c570399eded1b (rank-normalized multihop implementation, schemas, plots, docs, and tests)
   - current evidence-only RunPod execution handoff commit containing this record
-final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-202728.md
+final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-215354.md

@@ -170,6 +170,12 @@ content ranges:
   heads are concatenated to all 64 heads; replicated indexer vectors must agree
   exactly across TP ranks.
 
+The candidate window is the complete frozen prompt prefix `[0, Q2_end)`, not
+`[Q1_start, Q2_end)`. This includes the SYS edit and every causal candidate
+available to Q1/Q2. Seed/query rows remain all and only the explicit Q1 and Q2
+content-token ranges; system, assistant, and tool rows are candidates but are
+never silently added to the seed.
+
 The report retains every per-query raw row, then independently for each layer
 computes a signed sum over exactly the same Q1/Q2 rows for each candidate
 position. Main heads are first averaged per query; the native indexer aggregate
@@ -213,11 +219,14 @@ every query `q` in the window, but writes only keys in `[window_start, q)`.
 Rows are chunked by query position into
 `matrix-rank-XX-chunk-YYYY.jsonl`. Each row retains layer, rank, query/key
 absolute positions and token IDs, native causal bounds, dtype, native scales,
-64-head learned aggregation provenance, raw signed values, and its digest.
+32-head learned aggregation provenance, raw signed values, and its digest.
 All TP replicas must agree under the manifest tolerance. The capture cost and
 artifact size are `O(layers * window_tokens^2)`: defaults are 256 tokens, 32
-rows per chunk, and layers 0/22/46/74; the reviewed hard limits are 2048 tokens, 8384512
-raw edge values per rank, and propagation level 16. Exceeding a cap fails
+rows per chunk, and layers 0/22/46/74; the reviewed hard limits are 2176 tokens,
+9465600 raw edge values per rank, and propagation level 16. The exact frozen
+2,103-token probe uses 8,841,012 raw edge values and 138,495,040 main-reference
+logit values per rank (about 554 MB of float32 values before JSON encoding).
+Exceeding a cap fails
 before model execution.
 
 After Test 1 and after an operator has frozen the matrix episode, run the

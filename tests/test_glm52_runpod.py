@@ -22,6 +22,7 @@ from putpocket_dataset_mining.glm52_runpod import (
     REPORT_SCHEMA,
     SCHEDULE,
     capture_probe,
+    final_probe_candidate_window,
     load_package_lock,
     load_successful_doctor,
     validate_project_artifacts,
@@ -97,10 +98,27 @@ def test_package_lock_pins_order_apply_arguments_provenance_and_artifacts() -> N
     assert lock["benchmark_provenance"]["mini_swe_submodule_commit"] == "d74716a3c8104a113f77cc9ab94cf407ecdcf1e9"
     assert lock["benchmark_provenance"]["mini_swe_scaffold"].startswith("mini-swe-agent/")
     assert lock["environment"]["python_distributions"]["torch"] == "2.13.0+cu129"
+    assert lock["matrix_capture"]["hard_max_window_tokens"] == 2176
+    assert lock["matrix_capture"]["hard_max_total_edges_per_rank"] == 9465600
+    assert lock["query_sum_capture"]["hard_max_candidate_tokens"] == 2176
+    assert lock["query_sum_capture"]["hard_max_main_logit_values_per_rank"] == 150994944
+    assert lock["query_sum_capture"]["candidate_history_scope"].startswith(
+        "all frozen prompt positions [0,Q2_end)"
+    )
     assert lock["capture"]["scenario_id"] == "glm52-sys-policy-equal-replacement-v1"
     assert lock["probe_boundary"]["q2_present"] is False
     assert lock["analysis"]["dissimilarity_failure"] is False
     assert validate_project_artifacts(ROOT, lock)["status"] == "passed"
+
+
+def test_final_probe_uses_complete_frozen_prefix_and_reviewed_cost_caps() -> None:
+    window = final_probe_candidate_window([117, 2069], [2088, 2103])
+    assert window == [0, 2103]
+    assert 114 in range(*window)
+    assert 2103 * 2102 // 2 * 4 == 8841012
+    assert (sum(range(117, 2069)) + sum(range(2088, 2103))) * 16 * 4 == 138495040
+    with pytest.raises(ConfigError, match="FINAL_PROBE_QUERY_RANGES_INVALID"):
+        final_probe_candidate_window([117, 2069], [2068, 2103])
 
 
 def test_bootstrap_is_fail_fast_and_uses_exact_patch_modes() -> None:

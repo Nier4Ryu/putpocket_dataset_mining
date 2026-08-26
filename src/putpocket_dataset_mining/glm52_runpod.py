@@ -138,9 +138,9 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
         == "optional_default_off_capture_within_test_2_not_a_third_gpu_test"
         and matrix_capture.get("default_layers") == capture.get("layers")
         and matrix_capture.get("default_window_tokens") == 256
-        and matrix_capture.get("hard_max_window_tokens") == 2048
+        and matrix_capture.get("hard_max_window_tokens") == 2176
         and matrix_capture.get("default_row_chunk_size") == 32
-        and matrix_capture.get("hard_max_total_edges_per_rank") == 8384512
+        and matrix_capture.get("hard_max_total_edges_per_rank") == 9465600
         and matrix_capture.get("default_max_propagation_level") == 3
         and matrix_capture.get("hard_max_propagation_level") == 16
         and matrix_capture.get("sampled_capture_unchanged") is True
@@ -152,8 +152,10 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
         and query_sum_capture.get("probe_kind") == "benchmark_derived_two_query_q1_q2_score_probe"
         and query_sum_capture.get("layers") == capture.get("layers")
         and query_sum_capture.get("hard_max_query_tokens") == 2048
-        and query_sum_capture.get("hard_max_candidate_tokens") == 2048
-        and query_sum_capture.get("hard_max_main_logit_values_per_rank") == 134217728
+        and query_sum_capture.get("hard_max_candidate_tokens") == 2176
+        and query_sum_capture.get("hard_max_main_logit_values_per_rank") == 150994944
+        and query_sum_capture.get("candidate_history_scope")
+        == "all frozen prompt positions [0,Q2_end); seed rows are all and only Q1/Q2 content tokens"
         and query_sum_capture.get("older_sampled_mode_is_final") is False
         and query_sum_capture.get("default_off") is True,
         "RUNPOD_QUERY_SUM_CAPTURE_BOUNDARY_INVALID",
@@ -676,6 +678,21 @@ def _content_token_range(
     return [positions[0], positions[-1] + 1]
 
 
+def final_probe_candidate_window(
+    q1_range: Sequence[int],
+    q2_range: Sequence[int],
+) -> list[int]:
+    """Return the complete frozen candidate prefix for the two-query probe."""
+
+    _require(
+        len(q1_range) == 2
+        and len(q2_range) == 2
+        and 0 <= q1_range[0] < q1_range[1] <= q2_range[0] < q2_range[1],
+        "FINAL_PROBE_QUERY_RANGES_INVALID",
+    )
+    return [0, q2_range[1]]
+
+
 def prepare_final_two_query_probe(
     *,
     model_root: str | Path,
@@ -729,7 +746,10 @@ def prepare_final_two_query_probe(
     target_ids = list(old_ids)
     target_ids[edit["position"]] = edit["new_token_id"]
     target_digest = hashlib.sha256(json.dumps(target_ids, separators=(",", ":")).encode("ascii")).hexdigest()
-    window = [q1_range[0], q2_range[1]]
+    # Candidate history starts at absolute position zero so the score probe
+    # includes the edited SYS row and the complete causal history of every
+    # Q1/Q2 seed row. Only seed membership is restricted to Q1/Q2.
+    window = final_probe_candidate_window(q1_range, q2_range)
     width = window[1] - window[0]
     query_count = (q1_range[1] - q1_range[0]) + (q2_range[1] - q2_range[0])
     declared = lock["query_sum_capture"]

@@ -10,7 +10,7 @@
     "minimum_free_memory_mib_per_gpu_before_load": 135000,
     "base_image": "audited RunPod Ubuntu 22.04 host with CUDA 12.9; no container image substituted",
     "python": "3.12",
-    "torch": "2.13.0",
+    "torch": "2.13.0+cu129",
     "cuda": "12.9",
     "no_gpu_work_on_montblanc": true
   },
@@ -99,8 +99,8 @@
       "command": "/workspace/Putpocket_env/bin/python -m putpocket_dataset_mining.glm52_runpod_cli score-matrix --episode-manifest /workspace/artifacts/test2/frozen-matrix-episode.json --capture-root /workspace/artifacts/test2/matrix --output-root /workspace/artifacts/test2/multihop --q1-range FROZEN_START:END --q2-range FROZEN_START:END --window FROZEN_START:END --layers 0,22,46,74 --max-level 6",
       "cost": "Capture storage and validation are O(layers * window_tokens^2); propagation is bounded by the same declared matrix.",
       "hard_caps": {
-        "window_tokens": 2048,
-        "raw_edge_values_per_rank": 8384512,
+        "window_tokens": 2176,
+        "raw_edge_values_per_rank": 9465600,
         "propagation_level": 16
       },
       "outputs": [

@@ -23,13 +23,14 @@ evaluator. It does not supply the stateful edit trajectory. PutPocket authors
 the `SYS_old`/`SYS_new` replacement, A1-execute-Q2 episode contract, and this
 score diagnostic.
 
-The first score run uses the recommended
-`glm52-sys-policy-equal-replacement-v1` edit but deliberately measures a
-bounded ordinary target prefill: `SYS_new + Q1`, with token 114 changed from
-17526 to 11660 and absolute positions unchanged. It is not a frozen A1/Q2
-stateful quality run. A1 is neither generated nor executed, Q2 is absent, and
-no Q2 token is claimed as donor reuse. This boundary avoids stale-RoPE
-confounding while testing the indexer-distillation hypothesis.
+The final score run uses the recommended equal-position edit, but no executed
+A1 artifact exists. It therefore freezes a deterministic benchmark-derived
+two-query diagnostic: pinned public Q1, a preregistered project-authored
+assistant bridge, and a preregistered project-authored Q2. Every Q1/Q2 content
+token is a score query. This is not an A1-execute-tool-observation episode and
+supports no stateful cache or task-quality claim. The equal-position edit
+avoids stale-RoPE confounding. The older four-row `SYS_new + Q1` sampled mode
+remains available for debugging and is explicitly non-final.
 
 ## Exact source and setup contract
 
@@ -44,8 +45,8 @@ git switch --track -c agent/T20260826-001__glm52-stateful-edit-v3-port \
 export PUTPOCKET_EXPECTED_PROJECT_COMMIT=$(git rev-parse HEAD)
 ```
 
-Run in the pinned CUDA image recorded in the schedule. The GLM package uses
-Python 3.12, torch 2.13.0 with CUDA 13.0, and vLLM commit
+The audited RunPod host uses Ubuntu 22.04, CUDA toolkit 12.9, Python 3.12, and
+torch 2.13.0 from the `cu129` wheel index. The exact vLLM commit is
 `4a3447d200e5aa428d68d1a00aa00f1a19a1a729`. It intentionally does not use the
 general `runpod-dev` vLLM 0.26 lock, whose vLLM and torch pins differ.
 
@@ -113,7 +114,7 @@ requested evidence JSON.
 ```
 
 It fails closed on project branch/commit, vLLM commit/postimages, patch and
-instrumentation hashes, Python/dependency imports, the CUDA 13.0 `nvcc`
+instrumentation hashes, Python/dependency imports, the CUDA 12.9 `nvcc`
 toolchain, local-only tokenizer load,
 model architecture/config boundaries, four visible full H200 GPUs, BF16,
 memory, NCCL and peer access, FLASHMLA_SPARSE, DEEPSEEK_V32_INDEXER, required
@@ -137,20 +138,23 @@ dependency token.
   /workspace/Putpocket_env/bin/python
 ```
 
-`prepare-probe` loads only the pinned dataset revision, checks the exact row and
-scaffold hashes, recreates the evidenced 2071-token serialized prompt, applies
-the equal-position target edit, and saves token IDs and digests without raw
-prompt text or evaluator outcomes. The model runs one ordinary prefill plus one
+`prepare-final-probe` loads only the pinned dataset revision, checks the exact
+row and scaffold hashes, serializes the public Q1 plus the preregistered bridge
+and Q2, resolves exact half-open Q1/Q2 content-token ranges with tokenizer
+offsets, applies the equal-position target edit, estimates bounded storage,
+and freezes prompt text, token IDs, ranges, provenance, and digests before any
+model capture or evaluator outcome. The model runs one ordinary prefill plus one
 generated token with TP4, BF16 KV, block size 64, FLASHMLA_SPARSE,
 `sparse_mla_force_mqa=true`, eager mode, no prefix cache, and no chunked
 prefill. The true-partial and legacy emulation controls must be OFF.
 
-For layers 0, 22, 46, and 74 and query positions 114, 512, 1024, and 2070:
+For layers 0, 22, 46, and 74 and **every** token row in the frozen Q1 and Q2
+content ranges:
 
 - Main attention is reference-recomputed from the exact post-RoPE Q and the
   model's own projected K state as
   `scale * ((q_nope dot k_nope) + (q_rope dot k_rope))` for every causal
-  candidate and every main head. It is mathematically faithful full-candidate
+  strictly earlier candidate in the frozen window and every main head. It is mathematically faithful full-candidate
   diagnostic scoring, not a production-kernel return and not a post-top-k
   sparse substitute.
 - The Lightning/DeepSeek V3.2 indexer vector is the kernel-native
@@ -161,13 +165,16 @@ For layers 0, 22, 46, and 74 and query positions 114, 512, 1024, and 2070:
   heads are concatenated to all 64 heads; replicated indexer vectors must agree
   exactly across TP ranks.
 
-The report retains raw per-rank capture vectors and a flattened
-`aligned-token-scores.jsonl`. It reports raw statistics, Pearson, Spearman,
+The report retains every per-query raw row, then independently for each layer
+computes a signed sum over exactly the same Q1/Q2 rows for each candidate
+position. Main heads are first averaged per query; the native indexer aggregate
+is used unchanged. `query-summed-token-scores.jsonl` preserves both raw sums,
+normalized distributions, ranks, and receiving-query counts. The report also
+includes raw statistics, Pearson, Spearman,
 z-score cosine, JS divergence between explicitly normalized distributions,
-and top-k overlap/recall/NDCG. Main raw aggregation is the mean of per-head
-logits; main probabilities are the mean of per-head softmax distributions.
-Indexer probabilities are the softmax of its already aggregated native raw
-vector.
+and top-k overlap/recall/NDCG. Query-summed probability vectors are explicitly
+the softmax of each raw query-summed vector; no per-query vector is compared to
+a summed vector.
 
 This first run has no preregistered similarity threshold. Capture, alignment,
 finite-value, schema, or digest errors fail the test; low similarity does not.
@@ -175,25 +182,26 @@ Consistently high positive rank/correlation and cosine, low JS divergence, and
 strong top-k recall/NDCG would support the distillation-similarity hypothesis.
 The opposite cross-layer/query pattern would refute it.
 
-## Optional offline raw-indexer multi-hop score
+## Offline raw-indexer multi-hop score within Test 2
 
-The sampled Test 2 artifact is not a valid input for exact multi-hop scoring.
+Neither the older sampled artifact nor the all-query artifact is a valid input
+for exact multi-hop scoring.
 It contains only four inclusive causal query rows. Exact propagation through a
 declared window needs every query/intermediate row and uses strict causality
 `k < q`; a missing row is not a zero row. The package therefore provides a
-separate default-OFF `strict_causal_indexer_matrix` mode. It is an optional
-capture/postprocessor within Test 2, not a third GPU test, and it does not
+separate default-OFF `strict_causal_indexer_matrix` mode. The final wrapper
+executes it after query-sum capture over the identical prompt/window/layers.
+It is a postprocessor within Test 2, not a third GPU test, and it does not
 change vLLM scheduling, selection, or inference.
 
 First freeze `frozen-matrix-episode.json` against
 `configs/runpod/schemas/glm52_indexer_matrix_episode.schema.json`. It must hold
 the exact full prompt token IDs and digest, the exact source frozen-episode
 manifest and digest, selected indexer layers, the propagation window, and
-disjoint half-open Q1 and Q2 token ranges. Q2 here is the frozen pre-edit tool
-observation serialized into the first post-edit request. SWE-bench Pro still
-supplies only the problem/repository/evaluator; the A1 execution, Q2 freeze,
-system edit, token ranges, matrix window, and score are PutPocket-authored and
-must be frozen without evaluator outcomes.
+disjoint half-open Q1 and Q2 token ranges. In a true episode Q2 is the frozen
+pre-edit tool observation; in this explicitly non-stateful fallback it is the
+preregistered follow-up user query. The manifest records which semantic is
+used. SWE-bench Pro still supplies only the problem/repository/evaluator.
 
 The native hook records `fp8_fp4_mqa_logits` before top-k and normalization for
 every query `q` in the window, but writes only keys in `[window_start, q)`.
@@ -203,7 +211,7 @@ absolute positions and token IDs, native causal bounds, dtype, native scales,
 64-head learned aggregation provenance, raw signed values, and its digest.
 All TP replicas must agree under the manifest tolerance. The capture cost and
 artifact size are `O(layers * window_tokens^2)`: defaults are 256 tokens, 32
-rows per chunk, and layers 0/22/46/74; the hard limits are 512 tokens, 523264
+rows per chunk, and layers 0/22/46/74; the reviewed hard limits are 2048 tokens, 8384512
 raw edge values per rank, and propagation level 16. Exceeding a cap fails
 before model execution.
 
@@ -217,7 +225,7 @@ explicit optional path (replace the ranges with the exact manifest values):
   /workspace/artifacts/test2/frozen-matrix-episode.json \
   /workspace/artifacts/test2 \
   Q1_START:Q1_END Q2_START:Q2_END WINDOW_START:WINDOW_END \
-  0,22,46,74 3 /workspace/Putpocket_env/bin/python
+  0,22,46,74 6 /workspace/Putpocket_env/bin/python
 ```
 
 The equivalent CLI is `capture-matrix` followed by `score-matrix`; use
@@ -250,8 +258,7 @@ probe JSON, all per-rank capture JSONL, the token-level JSONL, final report,
 logs/HBM inventory, and `SHA256SUMS`. Do not retain or upload weights, caches,
 credentials, or unrelated workspace contents.
 
-Until RunPod executes these commands, GPU capture validity, model load, native
-kernel availability, TP consensus, runtime memory headroom, and the scientific
-similarity result remain unvalidated. This diagnostic does not itself validate
+The final all-query and matrix modes fail closed at their declared caps. This
+diagnostic does not itself validate
 true-partial KV byte preservation, Q2 continuation, stateful task quality, or
 latency/compute savings.

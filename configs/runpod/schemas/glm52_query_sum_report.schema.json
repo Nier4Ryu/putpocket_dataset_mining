@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/glm52_query_sum_report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["payload", "payload_sha256"],
+  "properties": {
+    "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "report_id", "status", "scientific_result_policy",
+        "diagnostic_id", "doctor_payload_sha256", "benchmark_provenance",
+        "instance_id", "scenario_id", "probe_boundary",
+        "prompt_token_ids_sha256", "q1_ranges", "q2_ranges",
+        "query_token_count", "candidate_window", "capture_files",
+        "per_query_artifact", "token_level_artifact", "layers",
+        "aggregate_quantiles", "hypothesis_interpretation"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "report_id": {"const": "glm52-all-q1-q2-query-sum-compare-v1"},
+        "status": {"const": "passed"},
+        "scientific_result_policy": {"const": "report_only_no_similarity_threshold_failure"},
+        "diagnostic_id": {"type": "string", "minLength": 1},
+        "doctor_payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "benchmark_provenance": {"type": "object"},
+        "instance_id": {"type": "string", "minLength": 1},
+        "scenario_id": {"const": "glm52-sys-policy-equal-replacement-v1"},
+        "probe_boundary": {"type": "object"},
+        "prompt_token_ids_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "q1_ranges": {"$ref": "#/$defs/ranges"},
+        "q2_ranges": {"$ref": "#/$defs/ranges"},
+        "query_token_count": {"type": "integer", "minimum": 2},
+        "candidate_window": {"$ref": "#/$defs/range"},
+        "capture_files": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/fileEvidence"}},
+        "per_query_artifact": {"$ref": "#/$defs/fileEvidence"},
+        "token_level_artifact": {"$ref": "#/$defs/fileEvidence"},
+        "layers": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "layer", "valid_candidate_token_count", "aggregation",
+              "raw_statistics", "pearson_raw", "spearman_raw",
+              "cosine_zscore", "js_divergence_normalized", "topk"
+            ],
+            "properties": {
+              "layer": {"type": "integer", "minimum": 0},
+              "valid_candidate_token_count": {"type": "integer", "minimum": 1},
+              "aggregation": {"type": "object"},
+              "raw_statistics": {"type": "object"},
+              "pearson_raw": {"type": "number", "minimum": -1.000001, "maximum": 1.000001},
+              "spearman_raw": {"type": "number", "minimum": -1.000001, "maximum": 1.000001},
+              "cosine_zscore": {"type": "number", "minimum": -1.000001, "maximum": 1.000001},
+              "js_divergence_normalized": {"type": "number", "minimum": 0},
+              "topk": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+            },
+            "additionalProperties": false
+          }
+        },
+        "aggregate_quantiles": {"type": "object"},
+        "hypothesis_interpretation": {"type": "object"}
+      }
+    }
+  },
+  "$defs": {
+    "range": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "prefixItems": [{"type": "integer", "minimum": 0}, {"type": "integer", "minimum": 1}]
+    },
+    "ranges": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/range"}},
+    "fileEvidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "record_count": {"type": "integer", "minimum": 1},
+        "bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -3,10 +3,12 @@
 The ordered RunPod environment-doctor and main-attention/indexer score package
 is documented in
 [`RUNPOD_GLM52_ATTENTION_INDEXER.md`](RUNPOD_GLM52_ATTENTION_INDEXER.md).
-Its first score probe is an ordinary `SYS_new + Q1` prefill tied to the
-recommended equal-position scenario; it does not include A1 or Q2 and must not
-be cited as a stateful continuation result.
-That RunPod package also has a separate optional, bounded full-row raw-indexer
+Its final score probe is a deterministic benchmark-derived Q1 plus
+project-authored bridge and Q2, tied to the recommended equal-position
+scenario. It captures every Q1/Q2 content-token query row but has no executed
+A1 or tool-observation Q2 and must not be cited as a stateful continuation
+result. The older four-row `SYS_new + Q1` mode is retained only as a non-final
+sampled diagnostic. That package also has a separate bounded full-row raw-indexer
 matrix capture and strictly offline multi-hop scorer. Unlike the original
 sampled comparison, its frozen input includes explicit Q1 and frozen-Q2 token
 ranges. It is not part of true-partial scheduling and cannot change runtime

@@ -8,10 +8,10 @@
     "tensor_parallel_size": 4,
     "compute_capability": "9.0",
     "minimum_free_memory_mib_per_gpu_before_load": 135000,
-    "base_image": "nvidia/cuda:13.0.3-devel-ubuntu22.04@sha256:3869b846a8cc495ce11c172d87cfc0da8874b910d14a9810bec6b6182e9ee9f8",
+    "base_image": "audited RunPod Ubuntu 22.04 host with CUDA 12.9; no container image substituted",
     "python": "3.12",
     "torch": "2.13.0",
-    "cuda": "13.0",
+    "cuda": "12.9",
     "no_gpu_work_on_montblanc": true
   },
   "tests": [
@@ -57,34 +57,36 @@
       "inputs": [
         "successful immutable doctor payload digest",
         "pinned ScaleAI/SWE-bench_Pro row and pinned SWE-bench Pro harness",
-        "PutPocket-authored glm52-sys-policy-equal-replacement-v1 target ordinary-prefill probe",
+        "PutPocket-authored glm52-sys-policy-equal-replacement-v1 deterministic two-query diagnostic probe",
         "local exact model snapshot and patched vLLM"
       ],
       "outputs": [
-        "/workspace/artifacts/test2/probe.json",
-        "/workspace/artifacts/test2/capture/capture-rank-*.jsonl",
-        "/workspace/artifacts/test2/report/attention-indexer-report.json",
-        "/workspace/artifacts/test2/report/aligned-token-scores.jsonl",
+        "/workspace/artifacts/test2/frozen-two-query-probe.json",
+        "/workspace/artifacts/test2/query-sum-capture/capture-rank-*.jsonl",
+        "/workspace/artifacts/test2/query-sum-report/query-sum-attention-indexer-report.json",
+        "/workspace/artifacts/test2/query-sum-report/query-summed-token-scores.jsonl",
+        "/workspace/artifacts/test2/matrix/matrix-rank-*-chunk-*.jsonl",
+        "/workspace/artifacts/test2/multihop/indexer-multihop-report.json",
         "/workspace/artifacts/test2/SHA256SUMS",
         "optional: /workspace/artifacts/test2/matrix/matrix-rank-*-chunk-*.jsonl"
       ],
       "artifact_retention": [
         "doctor dependency JSON",
-        "probe token IDs and digest without raw prompt text",
-        "all per-rank raw capture records",
-        "token-aligned vectors",
+        "immutable serialized prompt, token IDs, Q1/Q2 ranges, provenance, and no-outcome attestation",
+        "all per-rank raw per-query capture records for every Q1/Q2 content-token row",
+        "token-aligned query-summed vectors plus per-query rows",
         "aggregate report and SHA256SUMS",
         "server/model load logs and HBM inventory",
         "when explicitly requested: frozen matrix episode, per-rank chunked raw matrix, offline multihop report and token rows"
       ],
       "success_criteria": [
-        "all configured layer/query/TP cells captured and aligned",
+        "all Q1/Q2 content-token layer/query/TP cells captured and aligned",
         "main full-candidate reference logits and native pre-top-k indexer vectors are finite and causally coindexed",
         "report and token-level artifacts validate against schemas and hashes",
         "similarity result is reported without an unregistered pass threshold"
       ],
       "failure_policy": "fail on capture, alignment, finite-value, TP-consensus, schema, or digest errors; do not fail merely because the unknown scientific similarity is low",
-      "estimated_duration": "30-90 minutes including one TP4 model load and bounded one-token ordinary-prefill probe"
+      "estimated_duration": "60-180 minutes including two TP4 model loads, bounded all-query reference capture, and bounded strict-causal matrix capture"
     }
   ],
   "postprocessors": [
@@ -93,12 +95,12 @@
       "gpu_test_ordinal": 2,
       "default_enabled": false,
       "depends_on_artifact": "complete strict-causal raw indexer matrix plus frozen matrix-episode manifest",
-      "capture_command": "/workspace/Putpocket_env/bin/python -m putpocket_dataset_mining.glm52_runpod_cli capture-matrix --doctor-report /workspace/artifacts/test1/doctor.json --episode-manifest /workspace/artifacts/test2/frozen-matrix-episode.json --model-root /workspace/models/aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa --output-root /workspace/artifacts/test2/matrix",
-      "command": "/workspace/Putpocket_env/bin/python -m putpocket_dataset_mining.glm52_runpod_cli score-matrix --episode-manifest /workspace/artifacts/test2/frozen-matrix-episode.json --capture-root /workspace/artifacts/test2/matrix --output-root /workspace/artifacts/test2/multihop --q1-range START:END --q2-range START:END --window START:END --layers 0,22,46,74 --max-level 3",
+      "capture_command": "executed by scripts/runpod/run_glm52_attention_indexer_score_test.sh after the all-Q1/Q2 query-sum capture, using the same frozen prompt/window/layers",
+      "command": "/workspace/Putpocket_env/bin/python -m putpocket_dataset_mining.glm52_runpod_cli score-matrix --episode-manifest /workspace/artifacts/test2/frozen-matrix-episode.json --capture-root /workspace/artifacts/test2/matrix --output-root /workspace/artifacts/test2/multihop --q1-range FROZEN_START:END --q2-range FROZEN_START:END --window FROZEN_START:END --layers 0,22,46,74 --max-level 6",
       "cost": "Capture storage and validation are O(layers * window_tokens^2); propagation is bounded by the same declared matrix.",
       "hard_caps": {
-        "window_tokens": 512,
-        "raw_edge_values_per_rank": 523264,
+        "window_tokens": 2048,
+        "raw_edge_values_per_rank": 8384512,
         "propagation_level": 16
       },
       "outputs": [

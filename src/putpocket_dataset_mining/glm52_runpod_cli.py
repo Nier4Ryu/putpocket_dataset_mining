@@ -10,10 +10,13 @@ from .glm52_runpod import (
     PACKAGE_LOCK,
     SCHEDULE,
     analyze_probe,
+    analyze_query_sum_probe,
     capture_matrix_episode,
     capture_probe,
+    capture_query_sum_probe,
     load_package_lock,
     prepare_probe,
+    prepare_final_two_query_probe,
     run_doctor,
     score_matrix_capture,
     validate_project_artifacts,
@@ -74,6 +77,13 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--harness-root", required=True)
     prepare.add_argument("--output", required=True)
 
+    final_prepare = sub.add_parser("prepare-final-probe")
+    final_prepare.add_argument("--lock", default=str(PACKAGE_LOCK))
+    final_prepare.add_argument("--model-root", required=True)
+    final_prepare.add_argument("--harness-root", required=True)
+    final_prepare.add_argument("--output", required=True)
+    final_prepare.add_argument("--matrix-output", required=True)
+
     capture = sub.add_parser("capture")
     capture.add_argument("--lock", default=str(PACKAGE_LOCK))
     capture.add_argument("--doctor-report", required=True)
@@ -87,6 +97,21 @@ def _parser() -> argparse.ArgumentParser:
     analyze.add_argument("--doctor-report", required=True)
     analyze.add_argument("--capture-root", required=True)
     analyze.add_argument("--output-root", required=True)
+
+    query_capture = sub.add_parser("capture-query-sum")
+    query_capture.add_argument("--lock", default=str(PACKAGE_LOCK))
+    query_capture.add_argument("--doctor-report", required=True)
+    query_capture.add_argument("--probe", required=True)
+    query_capture.add_argument("--model-root", required=True)
+    query_capture.add_argument("--output-root", required=True)
+    query_capture.add_argument("--dry-run", action="store_true")
+
+    query_analyze = sub.add_parser("analyze-query-sum")
+    query_analyze.add_argument("--lock", default=str(PACKAGE_LOCK))
+    query_analyze.add_argument("--doctor-report", required=True)
+    query_analyze.add_argument("--probe", required=True)
+    query_analyze.add_argument("--capture-root", required=True)
+    query_analyze.add_argument("--output-root", required=True)
 
     matrix_capture = sub.add_parser("capture-matrix")
     matrix_capture.add_argument("--lock", default=str(PACKAGE_LOCK))
@@ -140,6 +165,14 @@ def main(argv: list[str] | None = None) -> int:
                 output=args.output,
                 lock_path=args.lock,
             )
+        elif args.command == "prepare-final-probe":
+            result = prepare_final_two_query_probe(
+                model_root=args.model_root,
+                harness_root=args.harness_root,
+                output=args.output,
+                matrix_output=args.matrix_output,
+                lock_path=args.lock,
+            )
         elif args.command == "capture":
             result = capture_probe(
                 doctor_report=args.doctor_report,
@@ -152,6 +185,23 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "analyze":
             result = analyze_probe(
                 doctor_report=args.doctor_report,
+                capture_root=args.capture_root,
+                output_root=args.output_root,
+                lock_path=args.lock,
+            )
+        elif args.command == "capture-query-sum":
+            result = capture_query_sum_probe(
+                doctor_report=args.doctor_report,
+                probe_path=args.probe,
+                model_root=args.model_root,
+                output_root=args.output_root,
+                lock_path=args.lock,
+                dry_run=args.dry_run,
+            )
+        elif args.command == "analyze-query-sum":
+            result = analyze_query_sum_probe(
+                doctor_report=args.doctor_report,
+                probe_path=args.probe,
                 capture_root=args.capture_root,
                 output_root=args.output_root,
                 lock_path=args.lock,

@@ -60,7 +60,12 @@
       "properties": {
         "q1_ranges": {"$ref": "#/$defs/ranges"},
         "q2_ranges": {"$ref": "#/$defs/ranges"},
-        "q2_semantics": {"const": "frozen_pre_edit_tool_observation_in_first_post_edit_request"}
+        "q2_semantics": {
+          "enum": [
+            "frozen_pre_edit_tool_observation_in_first_post_edit_request",
+            "project_authored_preregistered_followup_query_in_non_stateful_probe"
+          ]
+        }
       }
     },
     "propagation_window": {"$ref": "#/$defs/range"},
@@ -74,7 +79,7 @@
         "tensor_parallel_size": {"const": 4},
         "row_chunk_size": {"type": "integer", "minimum": 1, "maximum": 64},
         "indexer_tp_max_abs_difference": {"type": "number", "minimum": 0},
-        "hard_max_window_tokens": {"type": "integer", "minimum": 2, "maximum": 512},
+        "hard_max_window_tokens": {"type": "integer", "minimum": 2, "maximum": 2048},
         "hard_max_total_edges_per_rank": {"type": "integer", "minimum": 1},
         "cost_warning": {"type": "string", "pattern": "O\\(layers \\* window_tokens\\^2\\)"}
       }

@@ -46,6 +46,11 @@ RunPod packaging follow-up objective:
   - capture aligned full-candidate main-attention reference logits and native pre-top-k indexer scores under a distinct default-OFF diagnostic
   - analyze raw, rank, normalized-distribution, and top-k metrics without an invented scientific pass threshold
   - preserve the exact SWE-bench Pro row provenance while labeling the SYS edit and probe as PutPocket-authored
+RunPod execution follow-up objective:
+  - audit and use the dedicated 4xH200 RunPod from a unique persistent task root
+  - replace the non-final four-row probe with a bounded all-Q1/Q2 content-token query-range capture and like-for-like query-sum report
+  - freeze a deterministic two-query benchmark-derived fallback because no executed A1 artifact exists; prohibit stateful/cache-quality claims
+  - execute the query-sum comparison and strict-causal matrix recurrence through level 6, retain raw evidence, transfer it to Montblanc, and plot only from copied artifacts
 offline raw-indexer scoring follow-up objective:
   - preserve the sampled attention/indexer comparison unchanged and add a separate bounded full-row native indexer matrix capture
   - compute per-layer c_l,1=uA_l and c_l,n+1=c_l,nA_l in float64 with cumulative s_l,L and exact unnormalized layer sums

@@ -10,8 +10,10 @@ import pytest
 from putpocket_dataset_mining.errors import ConfigError
 from putpocket_dataset_mining.glm52_attention_indexer import (
     analyze_capture,
+    analyze_query_sum_capture,
     canonical_json_bytes,
     compare_aligned_scores,
+    compare_query_sums,
     js_divergence,
 )
 from putpocket_dataset_mining.glm52_runpod import (
@@ -109,6 +111,10 @@ def test_bootstrap_is_fail_fast_and_uses_exact_patch_modes() -> None:
     assert "|| true" not in script
     for path in PATCH_ROOT.glob("*.patch"):
         assert not any(line.endswith(" ") or line.endswith("\t") for line in path.read_text(encoding="utf-8").splitlines())
+    wrapper = (ROOT / "scripts/runpod/run_glm52_attention_indexer_score_test.sh").read_text(encoding="utf-8")
+    assert "prepare-final-probe" in wrapper
+    assert "capture-query-sum" in wrapper and "analyze-query-sum" in wrapper
+    assert "capture-matrix" in wrapper and "--max-level 6" in wrapper
 
 
 def test_score_overlay_captures_full_reference_and_native_pre_topk_only() -> None:
@@ -120,6 +126,13 @@ def test_score_overlay_captures_full_reference_and_native_pre_topk_only() -> Non
     assert 'score_origin": "reference_recomputed_from_exact_post_rope_q_and_model_projected_k"' in hook
     assert 'score_origin": "kernel_native_fp8_fp4_mqa_logits_before_top_k_per_row_prefill"' in hook
     assert "candidate_positions" in hook and "candidate_token_ids" in hook
+    assert 'QUERY_SUM_MODE = "query_range_attention_indexer_comparison"' in hook
+    assert '"strict_causal_candidate_position_lt_query_position"' in hook
+    assert lock_query_sum_boundary()["older_sampled_mode_is_final"] is False
+
+
+def lock_query_sum_boundary() -> dict[str, object]:
+    return load_package_lock()["query_sum_capture"]
 
 
 def test_raw_rank_and_normalized_distribution_metrics_are_distinct() -> None:
@@ -136,6 +149,68 @@ def test_raw_rank_and_normalized_distribution_metrics_are_distinct() -> None:
     assert reversed_result["spearman_raw"] == pytest.approx(-1.0)
     with pytest.raises(ConfigError, match="ALIGNED_SCORE_LENGTH_MISMATCH"):
         compare_aligned_scores([[1.0, 2.0], [1.0]], [1.0, 2.0], k_values=[1])
+
+
+def test_query_sum_metrics_preserve_signed_raw_sums() -> None:
+    result = compare_query_sums([-3.0, 1.0, 5.0], [-6.0, 2.0, 10.0], k_values=[1, 2])
+    assert result["pearson_raw"] == pytest.approx(1.0)
+    assert result["spearman_raw"] == pytest.approx(1.0)
+    assert result["vectors"]["main_raw_query_sum"][0] == -3.0
+    assert result["vectors"]["indexer_raw_query_sum"][0] == -6.0
+    assert sum(result["vectors"]["main_probability"]) == pytest.approx(1.0)
+
+
+def test_all_q1_q2_rows_are_aligned_and_summed_per_layer(tmp_path: Path) -> None:
+    lock = copy.deepcopy(load_package_lock())
+    lock["query_sum_capture"]["layers"] = [0]
+    lock["analysis"]["topk_values"] = [1, 2]
+    prompt_ids = [10, 11, 12, 13, 14, 15]
+    probe = {
+        "prompt": {"token_ids": prompt_ids, "token_ids_sha256": "b" * 64},
+        "segments": {"q1_ranges": [[2, 4]], "q2_ranges": [[5, 6]]},
+        "propagation_window": [0, 6],
+        "claim_boundary": {"real_a1_generated_or_executed": False},
+    }
+    capture = tmp_path / "capture"
+    capture.mkdir()
+    for rank in range(4):
+        records = []
+        for query in (2, 3, 5):
+            positions = list(range(query))
+            common = {
+                "probe_kind": "benchmark_derived_two_query_q1_q2_score_probe",
+                "q2_in_probe": True,
+                "rank": rank,
+                "tensor_parallel_size": 4,
+                "layer": 0,
+                "query_position": query,
+                "query_token_id": prompt_ids[query],
+                "candidate_positions": positions,
+                "candidate_token_ids": prompt_ids[:query],
+            }
+            main = [[float(query + position) for position in positions] for _ in range(16)]
+            indexer = [float(2 * (query + position)) for position in positions]
+            records.extend([
+                _capture_record(**common, record_kind="main_attention_reference", score_origin="reference", raw_logits_by_local_head=main),
+                _capture_record(**common, record_kind="indexer_native_pre_topk", score_origin="native", raw_logits=indexer),
+            ])
+        (capture / f"capture-rank-{rank:02d}.jsonl").write_bytes(
+            b"".join(canonical_json_bytes(record) for record in records)
+        )
+    report = analyze_query_sum_capture(
+        capture, tmp_path / "report", lock, probe,
+        doctor_payload_sha256="a" * 64,
+    )
+    schema = ROOT / lock["query_sum_capture"]["report_schema"]
+    validate_schema(report, schema)
+    payload = report["payload"]
+    assert payload["query_token_count"] == 3
+    assert payload["layers"][0]["pearson_raw"] == pytest.approx(1.0)
+    rows = [json.loads(line) for line in (tmp_path / "report/query-summed-token-scores.jsonl").read_text().splitlines()]
+    assert rows[0]["receiving_query_row_count"] == 3
+    assert next(row for row in rows if row["candidate_position"] == 2)["seed_membership"] == "q1"
+    per_query = json.loads((tmp_path / "report/per-query-comparisons.json").read_text())
+    assert next(row for row in per_query if row["query_position"] == 5)["segment_membership"] == "q2"
 
 
 def test_synthetic_tp_capture_analyzes_and_validates_schema(tmp_path: Path) -> None:

@@ -226,6 +226,47 @@ def compare_aligned_scores(
     }
 
 
+def compare_query_sums(
+    main_raw_sum: Sequence[float],
+    indexer_raw_sum: Sequence[float],
+    *,
+    k_values: Sequence[int],
+) -> dict[str, Any]:
+    """Compare like-for-like sums over the same declared query-token rows."""
+
+    main = _finite(main_raw_sum)
+    indexer = _finite(indexer_raw_sum)
+    _require(len(main) == len(indexer), "QUERY_SUM_LENGTH_MISMATCH")
+    main_probability = softmax(main)
+    indexer_probability = softmax(indexer)
+    normalized_k = sorted({min(int(k), len(indexer)) for k in k_values if int(k) > 0})
+    _require(bool(normalized_k), "TOPK_VALUES_EMPTY")
+    return {
+        "valid_candidate_token_count": len(main),
+        "aggregation": {
+            "main_per_query": "arithmetic_mean_across_all_64_main_attention_heads",
+            "main_across_queries": "signed_sum_over_every_q1_q2_content_token_query_row",
+            "indexer_per_query": "native_learned_weighted_sum_across_64_indexer_heads",
+            "indexer_across_queries": "signed_sum_over_the_same_q1_q2_content_token_query_rows",
+            "main_distribution": "softmax_of_query_summed_main_raw_logits",
+            "indexer_distribution": "softmax_of_query_summed_native_raw_indexer_scores",
+            "cosine_normalization": "independent_population_zscore_then_cosine",
+        },
+        "raw_statistics": {"main": raw_statistics(main), "indexer": raw_statistics(indexer)},
+        "pearson_raw": pearson(main, indexer),
+        "spearman_raw": spearman(main, indexer),
+        "cosine_zscore": cosine_after_zscore(main, indexer),
+        "js_divergence_normalized": js_divergence(main_probability, indexer_probability),
+        "topk": [topk_metrics(main_probability, indexer, k) for k in normalized_k],
+        "vectors": {
+            "main_raw_query_sum": main,
+            "main_probability": main_probability,
+            "indexer_raw_query_sum": indexer,
+            "indexer_probability": indexer_probability,
+        },
+    }
+
+
 def _validate_record_digest(record: Mapping[str, Any]) -> dict[str, Any]:
     value = dict(record)
     observed = value.pop("record_sha256", None)
@@ -410,6 +451,173 @@ def analyze_capture(
     }
     report_path = output / "attention-indexer-report.json"
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return report
+
+
+def analyze_query_sum_capture(
+    capture_root: str | Path,
+    output_root: str | Path,
+    config: Mapping[str, Any],
+    probe: Mapping[str, Any],
+    *,
+    doctor_payload_sha256: str,
+) -> dict[str, Any]:
+    """Validate all Q1/Q2 rows and compare their aligned signed query sums."""
+
+    records, source_files = load_capture_records(capture_root)
+    declared = config["query_sum_capture"]
+    expected_ranks = set(range(int(config["runtime"]["tensor_parallel_size"])))
+    expected_layers = set(declared["layers"])
+    q1_ranges = probe["segments"]["q1_ranges"]
+    q2_ranges = probe["segments"]["q2_ranges"]
+    expected_queries = {
+        position
+        for start, end in [*q1_ranges, *q2_ranges]
+        for position in range(start, end)
+    }
+    grouped: dict[tuple[int, int], dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
+    identities: set[tuple[str, str, str]] = set()
+    for record in records:
+        kind = record.get("record_kind")
+        _require(kind in {"main_attention_reference", "indexer_native_pre_topk"}, "CAPTURE_RECORD_KIND_INVALID")
+        layer, query, rank = record.get("layer"), record.get("query_position"), record.get("rank")
+        _require(layer in expected_layers and query in expected_queries and rank in expected_ranks, "CAPTURE_COVERAGE_CELL_INVALID")
+        _require(record.get("probe_kind") == "benchmark_derived_two_query_q1_q2_score_probe", "QUERY_SUM_PROBE_KIND_INVALID")
+        _require(record.get("q2_in_probe") is True, "QUERY_SUM_Q2_MISSING")
+        grouped[(int(layer), int(query))][str(kind)].append(record)
+        identities.add((str(record.get("diagnostic_id")), str(record.get("instance_id")), str(record.get("scenario_id"))))
+    _require(len(identities) == 1, "CAPTURE_IDENTITY_DISAGREEMENT")
+    expected_cells = {(layer, query) for layer in expected_layers for query in expected_queries}
+    _require(set(grouped) == expected_cells, "CAPTURE_CELL_COVERAGE_INCOMPLETE")
+
+    prompt_ids = probe["prompt"]["token_ids"]
+    window_start, window_end = probe["propagation_window"]
+    per_query: list[dict[str, Any]] = []
+    layer_vectors: dict[int, dict[int, list[float]]] = {
+        layer: {position: [0.0, 0.0, 0.0] for position in range(window_start, window_end)}
+        for layer in expected_layers
+    }
+    for layer, query in sorted(grouped):
+        group = grouped[(layer, query)]
+        main_records = sorted(group["main_attention_reference"], key=lambda item: item["rank"])
+        indexer_records = sorted(group["indexer_native_pre_topk"], key=lambda item: item["rank"])
+        _require(
+            {item["rank"] for item in main_records} == expected_ranks
+            and {item["rank"] for item in indexer_records} == expected_ranks,
+            "CAPTURE_TP_COVERAGE_INCOMPLETE",
+        )
+        expected_positions = list(range(window_start, query))
+        expected_tokens = [prompt_ids[position] for position in expected_positions]
+        for item in [*main_records, *indexer_records]:
+            _require(
+                item["query_token_id"] == prompt_ids[query]
+                and item["candidate_positions"] == expected_positions
+                and item["candidate_token_ids"] == expected_tokens,
+                "CAPTURE_TOKEN_ALIGNMENT_MISMATCH",
+            )
+        indexer_reference = _finite(indexer_records[0]["raw_logits"])
+        max_tp_difference = max(
+            abs(left - right)
+            for item in indexer_records[1:]
+            for left, right in zip(indexer_reference, _finite(item["raw_logits"]), strict=True)
+        ) if len(indexer_records) > 1 else 0.0
+        _require(max_tp_difference <= float(declared["indexer_tp_max_abs_difference"]), "INDEXER_TP_REPLICA_DISAGREEMENT")
+        main_heads = [head for item in main_records for head in item["raw_logits_by_local_head"]]
+        _require(len(main_heads) == config["model_layout"]["main_attention_heads"], "MAIN_GLOBAL_HEAD_COVERAGE_INVALID")
+        metrics = compare_aligned_scores(main_heads, indexer_reference, k_values=config["analysis"]["topk_values"])
+        vectors = metrics.pop("vectors")
+        per_query.append({
+            "layer": layer,
+            "query_position": query,
+            "query_token_id": prompt_ids[query],
+            "segment_membership": "q1" if any(start <= query < end for start, end in q1_ranges) else "q2",
+            "indexer_tp_max_abs_difference": max_tp_difference,
+            **metrics,
+        })
+        for index, position in enumerate(expected_positions):
+            accumulator = layer_vectors[layer][position]
+            accumulator[0] += vectors["main_raw_mean"][index]
+            accumulator[1] += vectors["indexer_raw"][index]
+            accumulator[2] += 1.0
+
+    layer_summaries: list[dict[str, Any]] = []
+    token_rows: list[dict[str, Any]] = []
+    for layer in sorted(layer_vectors):
+        included = [position for position, values in layer_vectors[layer].items() if values[2] > 0]
+        main_sum = [layer_vectors[layer][position][0] for position in included]
+        indexer_sum = [layer_vectors[layer][position][1] for position in included]
+        metrics = compare_query_sums(main_sum, indexer_sum, k_values=config["analysis"]["topk_values"])
+        vectors = metrics.pop("vectors")
+        layer_summaries.append({"layer": layer, **metrics})
+        main_ranks = _average_ranks(vectors["main_raw_query_sum"])
+        indexer_ranks = _average_ranks(vectors["indexer_raw_query_sum"])
+        for index, position in enumerate(included):
+            token_rows.append({
+                "schema_version": 1,
+                "layer": layer,
+                "candidate_position": position,
+                "candidate_token_id": prompt_ids[position],
+                "seed_membership": (
+                    "q1" if any(start <= position < end for start, end in q1_ranges)
+                    else "q2" if any(start <= position < end for start, end in q2_ranges)
+                    else "none"
+                ),
+                "receiving_query_row_count": int(layer_vectors[layer][position][2]),
+                "main_raw_query_sum": vectors["main_raw_query_sum"][index],
+                "main_probability": vectors["main_probability"][index],
+                "main_rank_ascending": main_ranks[index],
+                "indexer_raw_query_sum": vectors["indexer_raw_query_sum"][index],
+                "indexer_probability": vectors["indexer_probability"][index],
+                "indexer_rank_ascending": indexer_ranks[index],
+            })
+
+    output = Path(output_root)
+    output.mkdir(parents=True, exist_ok=True)
+    token_path = output / "query-summed-token-scores.jsonl"
+    token_path.write_bytes(b"".join(canonical_json_bytes(row) for row in token_rows))
+    per_query_path = output / "per-query-comparisons.json"
+    per_query_path.write_bytes(canonical_json_bytes(per_query))
+    scalar_fields = ("pearson_raw", "spearman_raw", "cosine_zscore", "js_divergence_normalized")
+    aggregate = {
+        field: {
+            "min": min(float(item[field]) for item in layer_summaries),
+            "median": percentile(sorted(float(item[field]) for item in layer_summaries), 0.5),
+            "max": max(float(item[field]) for item in layer_summaries),
+            "mean": statistics.fmean(float(item[field]) for item in layer_summaries),
+        }
+        for field in scalar_fields
+    }
+    diagnostic_id, instance_id, scenario_id = next(iter(identities))
+    payload = {
+        "schema_version": 1,
+        "report_id": "glm52-all-q1-q2-query-sum-compare-v1",
+        "status": "passed",
+        "scientific_result_policy": "report_only_no_similarity_threshold_failure",
+        "diagnostic_id": diagnostic_id,
+        "doctor_payload_sha256": doctor_payload_sha256,
+        "benchmark_provenance": config["benchmark_provenance"],
+        "instance_id": instance_id,
+        "scenario_id": scenario_id,
+        "probe_boundary": probe["claim_boundary"],
+        "prompt_token_ids_sha256": probe["prompt"]["token_ids_sha256"],
+        "q1_ranges": q1_ranges,
+        "q2_ranges": q2_ranges,
+        "query_token_count": len(expected_queries),
+        "candidate_window": [window_start, window_end],
+        "capture_files": source_files,
+        "per_query_artifact": {"path": per_query_path.name, "record_count": len(per_query), "bytes": per_query_path.stat().st_size, "sha256": file_sha256(per_query_path)},
+        "token_level_artifact": {"path": token_path.name, "record_count": len(token_rows), "bytes": token_path.stat().st_size, "sha256": file_sha256(token_path)},
+        "layers": layer_summaries,
+        "aggregate_quantiles": aggregate,
+        "hypothesis_interpretation": {
+            "supporting_pattern": "consistently positive high rank/correlation and cosine, low normalized JS divergence, and strong top-k metrics across preregistered layers",
+            "refuting_pattern": "weak or negative rank/correlation, high normalized JS divergence, and poor top-k metrics across layers",
+            "threshold_preregistered": False,
+            "dissimilarity_is_test_failure": False,
+        },
+    }
+    report = {"payload": payload, "payload_sha256": hashlib.sha256(canonical_json_bytes(payload, newline=False)).hexdigest()}
+    (output / "query-sum-attention-indexer-report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return report
 
 

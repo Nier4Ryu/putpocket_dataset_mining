@@ -19,6 +19,7 @@ from .constants import REPO_ROOT
 from .errors import ConfigError
 from .glm52_attention_indexer import (
     analyze_capture,
+    analyze_query_sum_capture,
     canonical_json_bytes,
     file_sha256,
     validate_report_digest,
@@ -70,9 +71,10 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
     runtime = lock.get("runtime")
     capture = lock.get("capture")
     matrix_capture = lock.get("matrix_capture")
+    query_sum_capture = lock.get("query_sum_capture")
     provenance = lock.get("benchmark_provenance")
     layout = lock.get("model_layout")
-    _require(all(isinstance(item, Mapping) for item in (vllm, runtime, capture, matrix_capture, provenance, layout)), "RUNPOD_PACKAGE_SECTION_INVALID")
+    _require(all(isinstance(item, Mapping) for item in (vllm, runtime, capture, matrix_capture, query_sum_capture, provenance, layout)), "RUNPOD_PACKAGE_SECTION_INVALID")
     _require(vllm["commit"] == VLLM_COMMIT, "RUNPOD_VLLM_COMMIT_INVALID")
     patch_chain = vllm.get("patch_chain")
     _require(isinstance(patch_chain, list) and len(patch_chain) == 3, "RUNPOD_PATCH_CHAIN_INVALID")
@@ -136,14 +138,25 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
         == "optional_default_off_capture_within_test_2_not_a_third_gpu_test"
         and matrix_capture.get("default_layers") == capture.get("layers")
         and matrix_capture.get("default_window_tokens") == 256
-        and matrix_capture.get("hard_max_window_tokens") == 512
+        and matrix_capture.get("hard_max_window_tokens") == 2048
         and matrix_capture.get("default_row_chunk_size") == 32
-        and matrix_capture.get("hard_max_total_edges_per_rank") == 523264
+        and matrix_capture.get("hard_max_total_edges_per_rank") == 8384512
         and matrix_capture.get("default_max_propagation_level") == 3
         and matrix_capture.get("hard_max_propagation_level") == 16
         and matrix_capture.get("sampled_capture_unchanged") is True
         and matrix_capture.get("offline_only_no_inference_decisions") is True,
         "RUNPOD_MATRIX_CAPTURE_BOUNDARY_INVALID",
+    )
+    _require(
+        query_sum_capture.get("capture_mode") == "query_range_attention_indexer_comparison"
+        and query_sum_capture.get("probe_kind") == "benchmark_derived_two_query_q1_q2_score_probe"
+        and query_sum_capture.get("layers") == capture.get("layers")
+        and query_sum_capture.get("hard_max_query_tokens") == 2048
+        and query_sum_capture.get("hard_max_candidate_tokens") == 2048
+        and query_sum_capture.get("hard_max_main_logit_values_per_rank") == 134217728
+        and query_sum_capture.get("older_sampled_mode_is_final") is False
+        and query_sum_capture.get("default_off") is True,
+        "RUNPOD_QUERY_SUM_CAPTURE_BOUNDARY_INVALID",
     )
     _require(
         [
@@ -623,6 +636,200 @@ def prepare_probe(
     return payload
 
 
+def _content_token_range(
+    serialized: str,
+    content: str,
+    offsets: Sequence[Sequence[int]],
+) -> list[int]:
+    start = serialized.rfind(content)
+    _require(start >= 0 and serialized.find(content, start + 1) < 0, "FINAL_PROBE_CONTENT_NOT_UNIQUELY_LOCATED_FROM_END")
+    end = start + len(content)
+    positions = [index for index, pair in enumerate(offsets) if pair[1] > start and pair[0] < end]
+    _require(positions and positions == list(range(positions[0], positions[-1] + 1)), "FINAL_PROBE_CONTENT_TOKEN_RANGE_NONCONTIGUOUS")
+    return [positions[0], positions[-1] + 1]
+
+
+def prepare_final_two_query_probe(
+    *,
+    model_root: str | Path,
+    harness_root: str | Path,
+    output: str | Path,
+    matrix_output: str | Path,
+    lock_path: str | Path = PACKAGE_LOCK,
+) -> dict[str, Any]:
+    """Freeze an outcome-independent two-query probe when no executed A1 exists."""
+
+    lock = load_package_lock(lock_path)
+    model = Path(model_root).resolve()
+    harness = Path(harness_root).resolve()
+    _model_config_check(model, lock)
+    _require(_command(["git", "rev-parse", "HEAD"], harness) == lock["benchmark_provenance"]["harness_commit"], "PROBE_HARNESS_COMMIT_MISMATCH")
+    scaffold = harness / lock["benchmark_provenance"]["mini_swe_scaffold"]
+    _require(file_sha256(scaffold) == lock["benchmark_provenance"]["mini_swe_scaffold_sha256"], "PROBE_SCAFFOLD_DIGEST_MISMATCH")
+    from datasets import load_dataset
+    from jinja2 import StrictUndefined, Template
+    from transformers import AutoTokenizer
+    import yaml
+
+    rows = load_dataset(
+        lock["benchmark_provenance"]["dataset"],
+        revision=lock["benchmark_provenance"]["dataset_revision"],
+        split=lock["benchmark_provenance"]["split"],
+    )
+    matches = [dict(row) for row in rows if row.get("instance_id") == INSTANCE_ID]
+    _require(len(matches) == 1, "PROBE_INSTANCE_CARDINALITY_MISMATCH")
+    row = matches[0]
+    canonical = json.dumps(row, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+    _require(hashlib.sha256(canonical).hexdigest() == lock["benchmark_provenance"]["row_sha256"], "PROBE_DATASET_ROW_DIGEST_MISMATCH")
+    agent = yaml.safe_load(scaffold.read_text(encoding="utf-8"))["agent"]
+    q1 = Template(agent["instance_template"], undefined=StrictUndefined).render(task=row["problem_statement"])
+    q2 = lock["query_sum_capture"]["project_authored_q2_text"]
+    bridge = lock["query_sum_capture"]["project_authored_assistant_bridge_text"]
+    messages = [
+        {"role": "system", "content": Template(agent["system_template"], undefined=StrictUndefined).render(task=row["problem_statement"])},
+        {"role": "user", "content": q1},
+        {"role": "assistant", "content": bridge},
+        {"role": "user", "content": q2},
+    ]
+    tokenizer = AutoTokenizer.from_pretrained(model, local_files_only=True, trust_remote_code=False)
+    serialized = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    old_ids = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_dict=False)
+    encoded = tokenizer(serialized, add_special_tokens=False, return_offsets_mapping=True)
+    _require(isinstance(old_ids, list) and encoded["input_ids"] == old_ids, "FINAL_PROBE_SERIALIZATION_OFFSET_TOKEN_MISMATCH")
+    q1_range = _content_token_range(serialized, q1, encoded["offset_mapping"])
+    q2_range = _content_token_range(serialized, q2, encoded["offset_mapping"])
+    _require(q1_range[1] <= q2_range[0], "FINAL_PROBE_QUERY_RANGES_OVERLAP")
+    edit = lock["capture"]["equal_position_edit"]
+    _require(old_ids[edit["position"]] == edit["old_token_id"], "PROBE_OLD_EDIT_TOKEN_MISMATCH")
+    target_ids = list(old_ids)
+    target_ids[edit["position"]] = edit["new_token_id"]
+    target_digest = hashlib.sha256(json.dumps(target_ids, separators=(",", ":")).encode("ascii")).hexdigest()
+    window = [q1_range[0], q2_range[1]]
+    width = window[1] - window[0]
+    query_count = (q1_range[1] - q1_range[0]) + (q2_range[1] - q2_range[0])
+    declared = lock["query_sum_capture"]
+    matrix = lock["matrix_capture"]
+    matrix_edges = width * (width - 1) // 2 * len(declared["layers"])
+    local_heads = lock["model_layout"]["main_attention_heads"] // lock["runtime"]["tensor_parallel_size"]
+    main_values = sum(
+        position - window[0]
+        for start, end in (q1_range, q2_range)
+        for position in range(start, end)
+    ) * local_heads * len(declared["layers"])
+    _require(
+        query_count <= declared["hard_max_query_tokens"]
+        and width <= declared["hard_max_candidate_tokens"]
+        and main_values <= declared["hard_max_main_logit_values_per_rank"]
+        and width <= matrix["hard_max_window_tokens"]
+        and matrix_edges <= matrix["hard_max_total_edges_per_rank"],
+        "FINAL_PROBE_COST_CAP_EXCEEDED",
+    )
+    target_decoded = tokenizer.decode(target_ids, skip_special_tokens=False, clean_up_tokenization_spaces=False)
+    payload = {
+        "schema_version": 1,
+        "artifact_kind": "frozen_benchmark_derived_two_query_probe",
+        "status": "frozen_before_model_capture_or_evaluator_outcome",
+        "episode_id": "glm52-swebench-pro-two-query-equal-sys-probe-v1",
+        "scenario_id": SCENARIO_ID,
+        "instance_id": INSTANCE_ID,
+        "benchmark_provenance": lock["benchmark_provenance"],
+        "prompt": {
+            "token_ids": target_ids,
+            "token_count": len(target_ids),
+            "token_ids_sha256": target_digest,
+            "baseline_token_ids_sha256": hashlib.sha256(json.dumps(old_ids, separators=(",", ":")).encode("ascii")).hexdigest(),
+            "serialized_old_prompt": serialized,
+            "serialized_old_prompt_sha256": hashlib.sha256(serialized.encode()).hexdigest(),
+            "target_decoded_prompt": target_decoded,
+            "target_decoded_prompt_sha256": hashlib.sha256(target_decoded.encode()).hexdigest(),
+            "serializer_id": "nvidia/GLM-5.2-NVFP4:chat_template.jinja:add_generation_prompt=true",
+            "tokenizer_revision": MODEL_REVISION,
+        },
+        "segments": {
+            "q1_ranges": [q1_range],
+            "q2_ranges": [q2_range],
+            "membership_semantics": "content_tokens_overlapping_the_exact_user_message_content_character_span",
+            "system_assistant_tool_tokens_are_seed_members": False,
+        },
+        "propagation_window": window,
+        "equal_position_system_edit": edit,
+        "cost_estimate": {
+            "window_tokens": width,
+            "q1_q2_query_tokens": query_count,
+            "matrix_edge_values_per_rank": matrix_edges,
+            "main_reference_logit_values_per_rank": main_values,
+            "complexity": "O(layers * window_tokens^2)",
+        },
+        "leakage_policy": {
+            "outcome_independent": True,
+            "gold_patch_used": False,
+            "evaluator_outcome_used": False,
+            "q2_preregistered_sha256": hashlib.sha256(q2.encode()).hexdigest(),
+            "assistant_bridge_preregistered_sha256": hashlib.sha256(bridge.encode()).hexdigest(),
+        },
+        "claim_boundary": {
+            "real_a1_generated_or_executed": False,
+            "q2_is_tool_observation": False,
+            "stateful_cache_or_quality_claim_allowed": False,
+            "probe_kind": "deterministic_two_query_benchmark_derived_score_diagnostic_only",
+            "equal_position_edit_avoids_stale_rope_confound": True,
+        },
+    }
+    target = Path(output)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    matrix_payload = {
+        "schema_version": 1,
+        "artifact_kind": "frozen_indexer_matrix_episode",
+        "status": "frozen_before_outcomes",
+        "episode_id": payload["episode_id"],
+        "scenario_id": SCENARIO_ID,
+        "instance_id": INSTANCE_ID,
+        "benchmark_provenance": {
+            "dataset": lock["benchmark_provenance"]["dataset"],
+            "dataset_revision": lock["benchmark_provenance"]["dataset_revision"],
+            "split": lock["benchmark_provenance"]["split"],
+            "instance_id": INSTANCE_ID,
+            "native_components": ["problem", "repository identifier", "container mapping", "official evaluator"],
+            "project_authored_components": ["equal-position SYS token replacement", "assistant bridge", "preregistered Q2", "score probe"],
+            "outcome_data_used": False,
+        },
+        "source_frozen_episode_manifest": {"path": target.name, "sha256": file_sha256(target)},
+        "prompt": {
+            "kind": "frozen_first_post_edit_request_or_frozen_ordinary_prefill_probe",
+            "token_ids": target_ids,
+            "token_count": len(target_ids),
+            "token_ids_sha256": target_digest,
+            "serializer_id": payload["prompt"]["serializer_id"],
+            "tokenizer_revision": MODEL_REVISION,
+            "q2_included": True,
+        },
+        "segments": {
+            "q1_ranges": [q1_range],
+            "q2_ranges": [q2_range],
+            "q2_semantics": "project_authored_preregistered_followup_query_in_non_stateful_probe",
+        },
+        "propagation_window": window,
+        "capture": {
+            "mode": "strict_causal_indexer_matrix",
+            "layers": declared["layers"],
+            "tensor_parallel_size": 4,
+            "row_chunk_size": matrix["default_row_chunk_size"],
+            "indexer_tp_max_abs_difference": declared["indexer_tp_max_abs_difference"],
+            "hard_max_window_tokens": matrix["hard_max_window_tokens"],
+            "hard_max_total_edges_per_rank": matrix["hard_max_total_edges_per_rank"],
+            "cost_warning": "O(layers * window_tokens^2) capture cost; exact bounded estimate is frozen in the source probe",
+        },
+        "outcome_independent": True,
+        "authorship_boundary": "SWE-bench Pro supplies problem/repository/container/evaluator; PutPocket authors both-query diagnostic probe, edit, and score transforms",
+    }
+    matrix_target = Path(matrix_output)
+    _require(matrix_target.parent.resolve() == target.parent.resolve(), "FINAL_PROBE_OUTPUTS_MUST_SHARE_DIRECTORY")
+    matrix_target.write_text(json.dumps(matrix_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    load_matrix_episode_manifest(matrix_target)
+    return payload
+
+
 def build_instrumentation_config(probe: Mapping[str, Any], lock: Mapping[str, Any]) -> dict[str, Any]:
     capture = lock["capture"]
     _require(probe.get("prompt_token_ids_sha256") and probe.get("scenario_id") == SCENARIO_ID, "PROBE_ARTIFACT_INVALID")
@@ -649,6 +856,44 @@ def build_instrumentation_config(probe: Mapping[str, Any], lock: Mapping[str, An
     }
 
 
+def build_query_sum_instrumentation_config(
+    probe: Mapping[str, Any], lock: Mapping[str, Any]
+) -> dict[str, Any]:
+    declared = lock["query_sum_capture"]
+    _require(
+        probe.get("artifact_kind") == "frozen_benchmark_derived_two_query_probe"
+        and probe.get("scenario_id") == SCENARIO_ID
+        and probe["claim_boundary"]["real_a1_generated_or_executed"] is False,
+        "QUERY_SUM_PROBE_ARTIFACT_INVALID",
+    )
+    return {
+        "schema_version": 1,
+        "capture_mode": "query_range_attention_indexer_comparison",
+        "diagnostic_id": declared["diagnostic_id"],
+        "instance_id": INSTANCE_ID,
+        "scenario_id": SCENARIO_ID,
+        "probe_kind": "benchmark_derived_two_query_q1_q2_score_probe",
+        "expected_prompt_token_count": probe["prompt"]["token_count"],
+        "expected_prompt_token_ids_sha256": probe["prompt"]["token_ids_sha256"],
+        "expected_edit_position": lock["capture"]["equal_position_edit"]["position"],
+        "expected_target_token_id": lock["capture"]["equal_position_edit"]["new_token_id"],
+        "layers": declared["layers"],
+        "q1_ranges": probe["segments"]["q1_ranges"],
+        "q2_ranges": probe["segments"]["q2_ranges"],
+        "candidate_window": probe["propagation_window"],
+        "hard_max_query_tokens": declared["hard_max_query_tokens"],
+        "hard_max_candidate_tokens": declared["hard_max_candidate_tokens"],
+        "hard_max_main_logit_values_per_rank": declared["hard_max_main_logit_values_per_rank"],
+        "tensor_parallel_size": lock["runtime"]["tensor_parallel_size"],
+        "global_main_attention_heads": lock["model_layout"]["main_attention_heads"],
+        "indexer_heads": lock["model_layout"]["indexer_heads"],
+        "indexer_head_dim": lock["model_layout"]["indexer_head_dim"],
+        "main_qk_nope_head_dim": lock["model_layout"]["qk_nope_head_dim"],
+        "main_qk_rope_head_dim": lock["model_layout"]["qk_rope_head_dim"],
+        "q2_in_probe": True,
+    }
+
+
 def build_matrix_instrumentation_config(
     episode: Mapping[str, Any], lock: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -662,9 +907,9 @@ def build_matrix_instrumentation_config(
         declared["mode"] == "strict_causal_indexer_matrix"
         and declared["layers"] == package["default_layers"]
         and declared["tensor_parallel_size"] == lock["runtime"]["tensor_parallel_size"]
-        and declared["hard_max_window_tokens"] == package["hard_max_window_tokens"]
+        and declared["hard_max_window_tokens"] <= package["hard_max_window_tokens"]
         and declared["hard_max_total_edges_per_rank"]
-        == package["hard_max_total_edges_per_rank"]
+        <= package["hard_max_total_edges_per_rank"]
         and width <= package["hard_max_window_tokens"]
         and edges <= package["hard_max_total_edges_per_rank"],
         "MATRIX_CAPTURE_PACKAGE_BOUNDARY_MISMATCH",
@@ -849,6 +1094,75 @@ def capture_probe(
     return plan
 
 
+def capture_query_sum_probe(
+    *,
+    doctor_report: str | Path,
+    probe_path: str | Path,
+    model_root: str | Path,
+    output_root: str | Path,
+    lock_path: str | Path = PACKAGE_LOCK,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    _, doctor_digest = load_successful_doctor(doctor_report)
+    lock = load_package_lock(lock_path)
+    probe = load_json(probe_path)
+    config = build_query_sum_instrumentation_config(probe, lock)
+    output = Path(output_root).resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    _require(not any(output.glob("capture-rank-*.jsonl")), "QUERY_SUM_CAPTURE_OUTPUT_NOT_EMPTY")
+    config_path = output / "query-sum-instrumentation-config.json"
+    config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    plan = {
+        "schema_version": 1,
+        "capture_mode": config["capture_mode"],
+        "status": "dry_run" if dry_run else "armed",
+        "doctor_payload_sha256": doctor_digest,
+        "probe_sha256": file_sha256(probe_path),
+        "model_root": str(Path(model_root).resolve()),
+        "prompt_token_count": probe["prompt"]["token_count"],
+        "q1_ranges": config["q1_ranges"],
+        "q2_ranges": config["q2_ranges"],
+        "candidate_window": config["candidate_window"],
+        "layers": config["layers"],
+        "instrumentation_config": str(config_path),
+        "instrumentation_config_sha256": file_sha256(config_path),
+        "engine": lock["capture"]["engine_kwargs"],
+    }
+    if dry_run:
+        return plan
+    os.environ["PUTPOCKET_GLM52_SCORE_DIAGNOSTIC_ENABLE"] = "1"
+    os.environ["PUTPOCKET_GLM52_SCORE_DIAGNOSTIC_CONFIG"] = str(config_path)
+    os.environ["PUTPOCKET_GLM52_SCORE_DIAGNOSTIC_CONFIG_SHA256"] = file_sha256(config_path)
+    os.environ["PUTPOCKET_GLM52_SCORE_DIAGNOSTIC_OUTPUT_ROOT"] = str(output)
+    os.environ["PUTPOCKET_GLM52_SCORE_DIAGNOSTIC_RUN_ID"] = capture_run_id(doctor_digest, probe["prompt"]["token_ids_sha256"])
+    _require(not os.getenv("PUTPOCKET_VLLM_TRUE_PARTIAL_PREFILL_ENABLE"), "CAPTURE_TRUE_PARTIAL_MODE_MUST_BE_OFF")
+    _require(not os.getenv("PUTPOCKET_GLM52_FORCED_REUSE_CONTROL"), "CAPTURE_LEGACY_EMULATION_MODE_MUST_BE_OFF")
+    from vllm import LLM, SamplingParams
+    from vllm.inputs import TokensPrompt
+
+    engine = lock["capture"]["engine_kwargs"]
+    _require(probe["prompt"]["token_count"] <= engine["max_model_len"], "QUERY_SUM_CAPTURE_PROMPT_TOO_LONG")
+    llm = LLM(
+        model=str(Path(model_root).resolve()), tokenizer=str(Path(model_root).resolve()),
+        tensor_parallel_size=engine["tensor_parallel_size"], dtype=engine["dtype"],
+        quantization=engine["quantization"], block_size=engine["block_size"],
+        kv_cache_dtype=engine["kv_cache_dtype"], max_model_len=engine["max_model_len"],
+        max_num_seqs=engine["max_num_seqs"], enable_prefix_caching=False,
+        enable_chunked_prefill=False, enforce_eager=True, cpu_offload_gb=0,
+        trust_remote_code=False,
+        attention_config={"backend": "FLASHMLA_SPARSE", "sparse_mla_force_mqa": True},
+        compilation_config=0, seed=0,
+    )
+    results = llm.generate(
+        [TokensPrompt(prompt_token_ids=probe["prompt"]["token_ids"])],
+        SamplingParams(temperature=0.0, max_tokens=1, seed=0), use_tqdm=False,
+    )
+    _require(len(results) == 1 and results[0].outputs, "QUERY_SUM_CAPTURE_MODEL_OUTPUT_MISSING")
+    plan.update(status="captured", generated_token_count=len(results[0].outputs[0].token_ids))
+    (output / "query-sum-capture-run.json").write_text(json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return plan
+
+
 def capture_run_id(doctor_digest: str, probe_digest: str) -> str:
     _require(_SHA256.fullmatch(doctor_digest) is not None and _SHA256.fullmatch(probe_digest) is not None, "CAPTURE_RUN_DIGEST_INVALID")
     return f"glm52-score-{doctor_digest[:12]}-{probe_digest[:12]}"
@@ -865,5 +1179,25 @@ def analyze_probe(
     lock = load_package_lock(lock_path)
     report = analyze_capture(capture_root, output_root, lock, doctor_payload_sha256=doctor_digest)
     validate_schema(report, REPORT_SCHEMA)
+    validate_report_digest(report)
+    return report
+
+
+def analyze_query_sum_probe(
+    *,
+    doctor_report: str | Path,
+    probe_path: str | Path,
+    capture_root: str | Path,
+    output_root: str | Path,
+    lock_path: str | Path = PACKAGE_LOCK,
+) -> dict[str, Any]:
+    _, doctor_digest = load_successful_doctor(doctor_report)
+    lock = load_package_lock(lock_path)
+    probe = load_json(probe_path)
+    report = analyze_query_sum_capture(
+        capture_root, output_root, lock, probe,
+        doctor_payload_sha256=doctor_digest,
+    )
+    validate_schema(report, REPO_ROOT / lock["query_sum_capture"]["report_schema"])
     validate_report_digest(report)
     return report

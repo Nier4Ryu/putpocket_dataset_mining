@@ -3,9 +3,10 @@
 
 This file is installed into ``vllm.model_executor.layers`` by the RunPod
 package overlay.  Its original sampled attention/indexer comparison remains
-unchanged.  A separate bounded matrix mode records every strictly causal raw
-indexer row in a declared window for offline propagation.  Both are default
-OFF and mutually exclusive with runtime cache-reuse modes.
+unchanged.  A bounded all-query mode captures every Q1/Q2 content-token row
+against one declared causal candidate window.  A separate matrix mode records
+every strictly causal raw indexer row in that window for offline propagation.
+All modes are default OFF and mutually exclusive with runtime cache-reuse.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ LEGACY_EMULATION_ENV = "PUTPOCKET_GLM52_FORCED_REUSE_CONTROL"
 _LAYER_RE = re.compile(r"(?:^|\.)layers\.(\d+)\.")
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 SAMPLED_MODE = "sampled_attention_indexer_comparison"
+QUERY_SUM_MODE = "query_range_attention_indexer_comparison"
 MATRIX_MODE = "strict_causal_indexer_matrix"
 
 _config: dict[str, Any] | None = None
@@ -132,12 +134,40 @@ def _load_config() -> dict[str, Any]:
         "indexer_head_dim",
         "q2_in_probe",
     }
+    query_sum_required = {
+        "schema_version",
+        "capture_mode",
+        "diagnostic_id",
+        "instance_id",
+        "scenario_id",
+        "probe_kind",
+        "expected_prompt_token_count",
+        "expected_prompt_token_ids_sha256",
+        "expected_edit_position",
+        "expected_target_token_id",
+        "layers",
+        "q1_ranges",
+        "q2_ranges",
+        "candidate_window",
+        "hard_max_query_tokens",
+        "hard_max_candidate_tokens",
+        "hard_max_main_logit_values_per_rank",
+        "tensor_parallel_size",
+        "global_main_attention_heads",
+        "indexer_heads",
+        "indexer_head_dim",
+        "main_qk_nope_head_dim",
+        "main_qk_rope_head_dim",
+        "q2_in_probe",
+    }
     capture_mode = value.get("capture_mode", SAMPLED_MODE)
     if capture_mode == SAMPLED_MODE:
         _require(
             set(value) in (sampled_required, sampled_required | {"capture_mode"}),
             "SCORE_DIAGNOSTIC_CONFIG_KEYS_INVALID",
         )
+    elif capture_mode == QUERY_SUM_MODE:
+        _require(set(value) == query_sum_required, "SCORE_DIAGNOSTIC_CONFIG_KEYS_INVALID")
     else:
         _require(
             capture_mode == MATRIX_MODE and set(value) == matrix_required,
@@ -163,10 +193,49 @@ def _load_config() -> dict[str, Any]:
         and value["indexer_head_dim"] == 128,
         "SCORE_DIAGNOSTIC_MODEL_LAYOUT_INVALID",
     )
-    if capture_mode == SAMPLED_MODE:
+    if capture_mode in {SAMPLED_MODE, QUERY_SUM_MODE}:
+        if capture_mode == QUERY_SUM_MODE:
+            ranges = [*value["q1_ranges"], *value["q2_ranges"]]
+            _require(
+                all(
+                    isinstance(item, list)
+                    and len(item) == 2
+                    and all(isinstance(bound, int) for bound in item)
+                    and 0 <= item[0] < item[1] <= value["expected_prompt_token_count"]
+                    for item in ranges
+                ),
+                "QUERY_SUM_RANGES_INVALID",
+            )
+            queries = [position for start, end in ranges for position in range(start, end)]
+            _require(
+                queries == sorted(set(queries))
+                and value["q2_in_probe"] is True
+                and value["probe_kind"] == "benchmark_derived_two_query_q1_q2_score_probe",
+                "QUERY_SUM_PROBE_BOUNDARY_INVALID",
+            )
+            window = value["candidate_window"]
+            _require(
+                isinstance(window, list)
+                and len(window) == 2
+                and all(isinstance(bound, int) for bound in window)
+                and 0 <= window[0] < min(queries) < window[1] <= value["expected_prompt_token_count"],
+                "QUERY_SUM_WINDOW_INVALID",
+            )
+            query_count = len(queries)
+            candidate_width = window[1] - window[0]
+            local_heads = value["global_main_attention_heads"] // value["tensor_parallel_size"]
+            values_per_rank = sum(query - window[0] for query in queries) * local_heads * len(layers)
+            _require(
+                query_count <= value["hard_max_query_tokens"]
+                and candidate_width <= value["hard_max_candidate_tokens"]
+                and values_per_rank <= value["hard_max_main_logit_values_per_rank"],
+                "QUERY_SUM_CAPTURE_COST_CAP_EXCEEDED",
+            )
+            value["query_positions"] = queries
         queries = value["query_positions"]
         _require(
-            value["probe_kind"] == "ordinary_target_prefill_q1_boundary_no_q2",
+            capture_mode == QUERY_SUM_MODE
+            or value["probe_kind"] == "ordinary_target_prefill_q1_boundary_no_q2",
             "SCORE_DIAGNOSTIC_PROBE_KIND_INVALID",
         )
         _require(
@@ -208,7 +277,7 @@ def _load_config() -> dict[str, Any]:
             isinstance(value["row_chunk_size"], int)
             and 1 <= value["row_chunk_size"] <= 64
             and isinstance(value["hard_max_window_tokens"], int)
-            and 2 <= width <= value["hard_max_window_tokens"] <= 512
+            and 2 <= width <= value["hard_max_window_tokens"] <= 2048
             and edge_count <= value["hard_max_total_edges_per_rank"],
             "MATRIX_CAPTURE_COST_CAP_EXCEEDED",
         )
@@ -287,7 +356,7 @@ def maybe_set_score_diagnostic_batch(
         _token_digest(ids) == config["expected_prompt_token_ids_sha256"],
         "SCORE_DIAGNOSTIC_PROMPT_TOKEN_DIGEST_MISMATCH",
     )
-    if config.get("capture_mode", SAMPLED_MODE) == SAMPLED_MODE:
+    if config.get("capture_mode", SAMPLED_MODE) in {SAMPLED_MODE, QUERY_SUM_MODE}:
         edit_position = int(config["expected_edit_position"])
         _require(
             ids[edit_position] == config["expected_target_token_id"],
@@ -334,7 +403,8 @@ def maybe_capture_main_attention_reference(
     if not enabled() or _batch is None:
         return
     config = _load_config()
-    if config.get("capture_mode", SAMPLED_MODE) != SAMPLED_MODE:
+    capture_mode = config.get("capture_mode", SAMPLED_MODE)
+    if capture_mode not in {SAMPLED_MODE, QUERY_SUM_MODE}:
         return
     layer = _layer_id(layer_name)
     if layer not in config["layers"]:
@@ -358,15 +428,24 @@ def maybe_capture_main_attention_reference(
     )
     k_nope = projected[..., :qk_nope_head_dim]
     k_rope = k_pe.squeeze(1)
-    candidate_start = int(config["candidate_start_position"])
-    max_candidates = int(config["max_candidate_tokens"])
+    if capture_mode == QUERY_SUM_MODE:
+        candidate_start = int(config["candidate_window"][0])
+        max_candidates = int(config["hard_max_candidate_tokens"])
+    else:
+        candidate_start = int(config["candidate_start_position"])
+        max_candidates = int(config["max_candidate_tokens"])
     for query_position in config["query_positions"]:
         key = ("main", layer, query_position)
         if key in _seen:
             raise ScoreDiagnosticError("MAIN_REFERENCE_DUPLICATE_CAPTURE")
         query_index = pos.index(query_position)
-        first = max(candidate_start, query_position + 1 - max_candidates)
-        candidate_positions = list(range(first, query_position + 1))
+        if capture_mode == QUERY_SUM_MODE:
+            first = candidate_start
+            candidate_positions = list(range(first, query_position))
+        else:
+            first = max(candidate_start, query_position + 1 - max_candidates)
+            candidate_positions = list(range(first, query_position + 1))
+        _require(bool(candidate_positions), "MAIN_REFERENCE_CANDIDATE_SET_EMPTY")
         candidate_indices = torch.tensor(
             candidate_positions, dtype=torch.long, device=q.device
         )
@@ -392,7 +471,11 @@ def maybe_capture_main_attention_reference(
                 "reference_recomputed": True,
                 "formula": "scale*((q_nope dot k_nope)+(q_rope dot k_rope)) per main head",
                 "scale": float(scale),
-                "mask": "causal_inclusive_candidate_position_le_query_position",
+                "mask": (
+                    "strict_causal_candidate_position_lt_query_position"
+                    if capture_mode == QUERY_SUM_MODE
+                    else "causal_inclusive_candidate_position_le_query_position"
+                ),
                 "head_aggregation_at_capture": "none_tp_local_heads_preserved",
                 "local_head_count": q.shape[1],
                 "global_head_count": config["global_main_attention_heads"],
@@ -490,8 +573,12 @@ def maybe_capture_indexer_native_logits(
             _write(record)
             _seen.add(key)
         return
-    candidate_start = int(config["candidate_start_position"])
-    max_candidates = int(config["max_candidate_tokens"])
+    if capture_mode == QUERY_SUM_MODE:
+        candidate_start = int(config["candidate_window"][0])
+        max_candidates = int(config["hard_max_candidate_tokens"])
+    else:
+        candidate_start = int(config["candidate_start_position"])
+        max_candidates = int(config["max_candidate_tokens"])
     for query_position in config["query_positions"]:
         if query_position not in query_positions:
             continue
@@ -505,15 +592,19 @@ def maybe_capture_indexer_native_logits(
             valid_start == 0 and valid_end == query_position + 1,
             "INDEXER_NATIVE_CAUSAL_ALIGNMENT_UNSUPPORTED",
         )
-        first = max(candidate_start, valid_end - max_candidates)
-        _require(first >= valid_start, "INDEXER_NATIVE_CANDIDATE_START_INVALID")
-        candidate_positions = list(range(first, valid_end))
-        vector = (
-            logits[row, first:valid_end]
-            .detach()
-            .to("cpu", dtype=torch.float32)
-            .tolist()
+        first = (
+            candidate_start
+            if capture_mode == QUERY_SUM_MODE
+            else max(candidate_start, valid_end - max_candidates)
         )
+        _require(first >= valid_start, "INDEXER_NATIVE_CANDIDATE_START_INVALID")
+        candidate_end = query_position if capture_mode == QUERY_SUM_MODE else valid_end
+        candidate_positions = list(range(first, candidate_end))
+        if capture_mode == QUERY_SUM_MODE:
+            selected = logits[row, first:query_position]
+        else:
+            selected = logits[row, first:valid_end]
+        vector = selected.detach().to("cpu", dtype=torch.float32).tolist()
         _require(
             len(vector) == len(candidate_positions),
             "INDEXER_NATIVE_VECTOR_SHAPE_INVALID",
@@ -530,7 +621,9 @@ def maybe_capture_indexer_native_logits(
                     "softmax_scale": 128**-0.5,
                     "indexer_head_scale": 64**-0.5,
                 },
-                "mask": "native_cu_seqlen_ks_ke_causal_inclusive",
+                "mask": "native_cu_seqlen_ks_ke_causal_inclusive"
+                if capture_mode != QUERY_SUM_MODE
+                else "strict_causal_candidate_position_lt_query_position",
                 "head_aggregation_at_capture": "native_learned_weighted_sum_across_64_indexer_heads",
                 "indexer_head_count": config["indexer_heads"],
                 "indexer_head_dim": config["indexer_head_dim"],

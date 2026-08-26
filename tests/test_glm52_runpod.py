@@ -162,6 +162,23 @@ def test_score_overlay_captures_full_reference_and_native_pre_topk_only() -> Non
     assert lock_query_sum_boundary()["older_sampled_mode_is_final"] is False
 
 
+def test_doctor_binds_matrix_capture_mode_constant_and_function_dispatch() -> None:
+    source = (ROOT / "src/putpocket_dataset_mining/glm52_runpod.py").read_text(
+        encoding="utf-8"
+    )
+    assert "        MATRIX_MODE," in source
+    assert 'MATRIX_MODE == "strict_causal_indexer_matrix"' in source
+    assert (
+        '"MATRIX_MODE" in inspect.getsource(maybe_capture_indexer_native_logits)'
+        in source
+    )
+    assert (
+        '"strict_causal_indexer_matrix"\n'
+        "        in inspect.getsource(maybe_capture_indexer_native_logits)"
+        not in source
+    )
+
+
 def lock_query_sum_boundary() -> dict[str, object]:
     return load_package_lock()["query_sum_capture"]
 

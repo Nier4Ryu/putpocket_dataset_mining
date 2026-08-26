@@ -298,7 +298,7 @@
     {"path": "scripts/runpod/run_glm52_runpod_doctor.sh", "sha256": "9c2f961455635a55076e3d7f3dc04634c11fdb0bd3568a2ba5c60ec9004274d2"},
     {"path": "src/putpocket_dataset_mining/glm52_attention_indexer.py", "sha256": "41d0df09c0760bc6dc55b48d84d939f326606ccb692631bc972765c6a5e7c8b4"},
     {"path": "src/putpocket_dataset_mining/glm52_indexer_propagation.py", "sha256": "eeb0fbe400f43439e93770be7e1d8bf4f83bed23da18938d610775becf6cc58d"},
-    {"path": "src/putpocket_dataset_mining/glm52_runpod.py", "sha256": "167b8a0cf6a170424249114d0d19c9bab6f787461640133f51c4bc17b8ea0144"},
+    {"path": "src/putpocket_dataset_mining/glm52_runpod.py", "sha256": "07bfe0bcb8f426e6e8b73b17decb78eaa6177113cca1252bcbfc10f207c6b69f"},
     {"path": "src/putpocket_dataset_mining/glm52_runpod_cli.py", "sha256": "b2181fec906963cc6904c00e39444adb753295c21ed982116f52db9ec579f1ae"}
   ]
 }

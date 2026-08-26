@@ -450,6 +450,7 @@ def _distributed_check(lock: Mapping[str, Any]) -> dict[str, Any]:
 
 def _vllm_symbol_check() -> dict[str, Any]:
     from vllm.model_executor.layers.glm52_attention_indexer_scores import (
+        MATRIX_MODE,
         maybe_capture_indexer_native_logits,
         maybe_capture_main_attention_reference,
     )
@@ -483,8 +484,8 @@ def _vllm_symbol_check() -> dict[str, Any]:
     for owner, (symbol, needle) in required_source_symbols.items():
         _require(needle in inspect.getsource(symbol), f"DOCTOR_PATCHED_SYMBOL_MISSING:{owner}:{needle}")
     _require(
-        "strict_causal_indexer_matrix"
-        in inspect.getsource(maybe_capture_indexer_native_logits),
+        MATRIX_MODE == "strict_causal_indexer_matrix"
+        and "MATRIX_MODE" in inspect.getsource(maybe_capture_indexer_native_logits),
         "DOCTOR_MATRIX_CAPTURE_SYMBOL_MISSING",
     )
     symbols = [

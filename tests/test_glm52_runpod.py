@@ -96,6 +96,7 @@ def test_package_lock_pins_order_apply_arguments_provenance_and_artifacts() -> N
     assert lock["benchmark_provenance"]["instance_id"] == INSTANCE_ID
     assert lock["benchmark_provenance"]["mini_swe_submodule_commit"] == "d74716a3c8104a113f77cc9ab94cf407ecdcf1e9"
     assert lock["benchmark_provenance"]["mini_swe_scaffold"].startswith("mini-swe-agent/")
+    assert lock["environment"]["python_distributions"]["torch"] == "2.13.0+cu129"
     assert lock["capture"]["scenario_id"] == "glm52-sys-policy-equal-replacement-v1"
     assert lock["probe_boundary"]["q2_present"] is False
     assert lock["analysis"]["dissimilarity_failure"] is False

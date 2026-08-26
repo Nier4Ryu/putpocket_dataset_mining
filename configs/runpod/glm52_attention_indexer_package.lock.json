@@ -112,7 +112,7 @@
   "environment": {
     "base_image": "runpod_host_ubuntu22.04_cuda12.9_audited_2026-08-26_no_container_digest",
     "python_major_minor": "3.12",
-    "python_distributions": {"torch": "2.13.0"},
+    "python_distributions": {"torch": "2.13.0+cu129"},
     "required_imports": ["datasets", "jinja2", "jsonschema", "torch", "transformers", "vllm", "yaml"],
     "torch_cuda": "12.9",
     "vllm_build": "editable_source_build_after_all_three_overlays"
@@ -280,7 +280,7 @@
     {"path": "configs/runpod/schemas/glm52_indexer_multihop_token_row.schema.json", "sha256": "cf903e66764030e949ce7a5af960298997a7d7b9e63a105524558e8fa1fa0db5"},
     {"path": "configs/runpod/schemas/glm52_runpod_doctor.schema.json", "sha256": "324ef1edd0e7b3af78df5bab8e0010ef8d6559248e99a26c00b9792d2689a02a"},
     {"path": "configs/runpod/schemas/glm52_query_sum_report.schema.json", "sha256": "f877ccc500d0fbac5a7ad70c86dc97a956e3d3f06251d0bf532558b98a472e4b"},
-    {"path": "docs/RUNPOD_GLM52_ATTENTION_INDEXER.md", "sha256": "a8890893e8f59e7f873ffcf00ee27164ec78a491e86f428232b51492fb55977a"},
+    {"path": "docs/RUNPOD_GLM52_ATTENTION_INDEXER.md", "sha256": "ffa85f86550d31469bba84d2890e302fff8948ad8fdd6ab5f5acc960ab3ec099"},
     {"path": "instrumentation/vllm/glm52_attention_indexer_scores.py", "sha256": "68c8820c3bf932231d4094ab6ad22d890cf2174d6a937ea36100403e688b21dc"},
     {"path": "instrumentation/vllm/glm52_forced_edit_reuse.py", "sha256": "d3bb32c706e902931c2a19948ed56ba9aac03a8fc86c591a7ebaba2fcdf65c1b"},
     {"path": "instrumentation/vllm/putpocket_true_partial_prefill.py", "sha256": "dc14e1ccf08969ed684381128ad22360204b40075fc32c59979a26004ebb5f32"},

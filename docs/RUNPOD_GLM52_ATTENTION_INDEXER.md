@@ -48,7 +48,7 @@ export PUTPOCKET_EXPECTED_PROJECT_COMMIT=$(git rev-parse HEAD)
 ```
 
 The audited RunPod host uses Ubuntu 22.04, CUDA toolkit 12.9, Python 3.12, and
-torch 2.13.0 from the `cu129` wheel index. The exact vLLM commit is
+torch `2.13.0+cu129`. The exact vLLM commit is
 `4a3447d200e5aa428d68d1a00aa00f1a19a1a729`. It intentionally does not use the
 general `runpod-dev` vLLM 0.26 lock, whose vLLM and torch pins differ.
 

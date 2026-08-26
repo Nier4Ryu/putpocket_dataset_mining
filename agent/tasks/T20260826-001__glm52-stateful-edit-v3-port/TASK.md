@@ -107,6 +107,9 @@ validation:
   - a scoped third-overlay build fix now forces `cuda_fp8.h` into `tools/build_deepgemm_C.py`, with exact upstream/postimage hashes and a fresh zero-context patch-chain check; runtime inference behavior is unchanged
   - clean RunPod build attempt 3 passed all native targets and editable import; doctor attempt 3 then failed closed because its matrix-capture assertion searched a function body for a literal stored in module constant `MATRIX_MODE`, while all hardware/CUDA/NCCL/model/hash checks passed and Test 2 remained blocked
   - the doctor now validates both exact `MATRIX_MODE == "strict_causal_indexer_matrix"` and that the capture function dispatches through `MATRIX_MODE`; the capture implementation and inference behavior are unchanged
+  - live query-sum attempt 4 loaded the exact NVFP4 model and generated one token but failed closed with `CAPTURE_FILES_MISSING`; audit proved `GlmMoeDsaForCausalLM` uses `DeepseekV2Model` while batch attestation was wired only to `Glm4MoeLiteModel`
+  - the score overlay now wires fail-closed batch attestation into the actual DeepSeek/GLM DSA model path, pins its pre/postimage, and makes the doctor inspect that exact class before GPU capture
+  - the DeepSeek/GLM hook correction passed 76 focused tests, the full `389 passed, 2 skipped, 89 subtests` pytest suite, 291 unittests, project hash/schema/compile/shell/diff checks, and a genuinely fresh exact three-overlay source-chain validation
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/
@@ -116,4 +119,4 @@ commits:
   - 2e3f4fb6899c81cfbdc43098dbaf5bdb1187aef1 (server-side true-partial-prefill implementation)
   - d84bc3c5cf988b54a80a472032da7e44b8abfeff (machine-loadable scenario catalog)
   - current RunPod doctor and score-diagnostic packaging commit containing this record
-final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-065200.md
+final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-072700.md

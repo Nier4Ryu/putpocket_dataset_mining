@@ -455,7 +455,10 @@ def _vllm_symbol_check() -> dict[str, Any]:
         maybe_capture_main_attention_reference,
     )
     from vllm.model_executor.layers.sparse_attn_indexer import sparse_attn_indexer
-    from vllm.model_executor.models.deepseek_v2 import GlmMoeDsaForCausalLM
+    from vllm.model_executor.models.deepseek_v2 import (
+        DeepseekV2Model,
+        GlmMoeDsaForCausalLM,
+    )
     from vllm.utils.deep_gemm import fp8_fp4_mqa_logits, has_deep_gemm
     from vllm.v1.attention.backends.mla.flashmla_sparse import FlashMLASparseBackend
     from vllm.v1.attention.backends.mla.indexer import DeepseekV32IndexerBackend
@@ -480,6 +483,10 @@ def _vllm_symbol_check() -> dict[str, Any]:
         "scheduler_output": (SchedulerOutput, "putpocket_true_partial_continuation"),
         "attention_metadata": (CommonAttentionMetadata, "putpocket_true_partial_positions"),
         "gpu_model_runner": (GPUModelRunner, "putpocket_true_partial_active_payload"),
+        "glm_dsa_diagnostic_batch_attestation": (
+            DeepseekV2Model,
+            "maybe_set_score_diagnostic_batch",
+        ),
     }
     for owner, (symbol, needle) in required_source_symbols.items():
         _require(needle in inspect.getsource(symbol), f"DOCTOR_PATCHED_SYMBOL_MISSING:{owner}:{needle}")
@@ -491,6 +498,7 @@ def _vllm_symbol_check() -> dict[str, Any]:
     symbols = [
         sparse_attn_indexer,
         fp8_fp4_mqa_logits,
+        DeepseekV2Model,
         GlmMoeDsaForCausalLM,
         FlashMLASparseBackend,
         DeepseekV32IndexerBackend,

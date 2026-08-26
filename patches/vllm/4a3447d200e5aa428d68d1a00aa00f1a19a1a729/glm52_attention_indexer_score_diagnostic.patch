@@ -1,3 +1,12 @@
+diff --git a/tools/build_deepgemm_C.py b/tools/build_deepgemm_C.py
+index 67a5274..fc7fe3c 100644
+--- a/tools/build_deepgemm_C.py
++++ b/tools/build_deepgemm_C.py
+@@ -58,0 +59,4 @@ cmd = [
++    # DeepGEMM's host extension includes layouts that name CUDA FP8 types.
++    # Make those definitions visible to the host compiler as well as nvcc.
++    "-include",
++    "cuda_fp8.h",
 diff --git a/vllm/model_executor/layers/mla.py b/vllm/model_executor/layers/mla.py
 index 6c0e8e0..2392145 100644
 --- a/vllm/model_executor/layers/mla.py
@@ -20,7 +29,7 @@ index 6c0e8e0..2392145 100644
 +        )
 +
 diff --git a/vllm/model_executor/layers/sparse_attn_indexer.py b/vllm/model_executor/layers/sparse_attn_indexer.py
-index a466ef7..ee21a95 100644
+index a466ef7..7749480 100644
 --- a/vllm/model_executor/layers/sparse_attn_indexer.py
 +++ b/vllm/model_executor/layers/sparse_attn_indexer.py
 @@ -19,0 +20,3 @@ from vllm.model_executor.layers.glm52_forced_edit_reuse import (
@@ -37,23 +46,23 @@ index a466ef7..ee21a95 100644
 +                    token_start=chunk.token_start,
 +                    token_end=chunk.token_end,
 +                )
+diff --git a/vllm/model_executor/models/deepseek_v2.py b/vllm/model_executor/models/deepseek_v2.py
+index f076b4f..427d310 100644
+--- a/vllm/model_executor/models/deepseek_v2.py
++++ b/vllm/model_executor/models/deepseek_v2.py
+@@ -56,0 +57,3 @@ from vllm.model_executor.layers.fused_moe import (
++from vllm.model_executor.layers.glm52_attention_indexer_scores import (
++    maybe_set_score_diagnostic_batch,
++)
+@@ -1439,0 +1443 @@ class DeepseekV2Model(nn.Module):
++        maybe_set_score_diagnostic_batch(input_ids, positions)
 diff --git a/vllm/model_executor/models/glm4_moe_lite.py b/vllm/model_executor/models/glm4_moe_lite.py
-index 5d01665..117844b 100644
+index 5d01665..6d2b830 100644
 --- a/vllm/model_executor/models/glm4_moe_lite.py
 +++ b/vllm/model_executor/models/glm4_moe_lite.py
 @@ -53,0 +54,3 @@ from vllm.model_executor.layers.glm52_forced_edit_reuse import (
 +from vllm.model_executor.layers.glm52_attention_indexer_scores import (
 +    maybe_set_score_diagnostic_batch,
 +)
-@@ -300,0 +304,2 @@ class Glm4MoeLiteModel(nn.Module):
-+        if input_ids is not None:
-+            maybe_set_score_diagnostic_batch(input_ids, positions)
-diff --git a/tools/build_deepgemm_C.py b/tools/build_deepgemm_C.py
-index 67a5274..fc7fe3c 100644
---- a/tools/build_deepgemm_C.py
-+++ b/tools/build_deepgemm_C.py
-@@ -58,0 +59,4 @@ cmd = [
-+    # DeepGEMM's host extension includes layouts that name CUDA FP8 types.
-+    # Make those definitions visible to the host compiler as well as nvcc.
-+    "-include",
-+    "cuda_fp8.h",
+@@ -300,0 +304 @@ class Glm4MoeLiteModel(nn.Module):
++        maybe_set_score_diagnostic_batch(input_ids, positions)

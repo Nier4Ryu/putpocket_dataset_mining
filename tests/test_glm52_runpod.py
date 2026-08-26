@@ -141,6 +141,9 @@ def test_bootstrap_is_fail_fast_and_uses_exact_patch_modes() -> None:
 def test_score_overlay_captures_full_reference_and_native_pre_topk_only() -> None:
     patch = (PATCH_ROOT / "glm52_attention_indexer_score_diagnostic.patch").read_text(encoding="utf-8")
     hook = (ROOT / "instrumentation/vllm/glm52_attention_indexer_scores.py").read_text(encoding="utf-8")
+    assert "diff --git a/vllm/model_executor/models/deepseek_v2.py" in patch
+    assert "+        maybe_set_score_diagnostic_batch(input_ids, positions)" in patch
+    assert "SCORE_DIAGNOSTIC_INPUT_IDS_REQUIRED" in hook
     assert "maybe_capture_main_attention_reference" in patch
     assert "maybe_capture_indexer_native_logits" in patch
     assert "Diagnostic capture is deliberately before top_k_per_row_prefill" in patch
@@ -177,6 +180,8 @@ def test_doctor_binds_matrix_capture_mode_constant_and_function_dispatch() -> No
         "        in inspect.getsource(maybe_capture_indexer_native_logits)"
         not in source
     )
+    assert '"glm_dsa_diagnostic_batch_attestation"' in source
+    assert 'DeepseekV2Model,\n            "maybe_set_score_diagnostic_batch"' in source
 
 
 def lock_query_sum_boundary() -> dict[str, object]:

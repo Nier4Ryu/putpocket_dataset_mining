@@ -336,13 +336,14 @@ def _write(record: Mapping[str, Any]) -> None:
 
 
 def maybe_set_score_diagnostic_batch(
-    input_ids: torch.Tensor, positions: torch.Tensor
+    input_ids: torch.Tensor | None, positions: torch.Tensor
 ) -> None:
     """Attest the one full ordinary-prefill batch; ignore later decode steps."""
 
     global _batch
     if not enabled():
         return
+    _require(input_ids is not None, "SCORE_DIAGNOSTIC_INPUT_IDS_REQUIRED")
     config = _load_config()
     ids = input_ids.detach().reshape(-1).to("cpu", dtype=torch.int64).tolist()
     pos = positions.detach().reshape(-1).to("cpu", dtype=torch.int64).tolist()

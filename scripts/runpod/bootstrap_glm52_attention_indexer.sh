@@ -61,6 +61,7 @@ install -m 0644 "$PROJECT_ROOT/instrumentation/vllm/glm52_attention_indexer_scor
   "$VLLM_ROOT/vllm/model_executor/layers/glm52_forced_edit_reuse.py" \
   "$VLLM_ROOT/vllm/model_executor/layers/mla.py" \
   "$VLLM_ROOT/vllm/model_executor/layers/sparse_attn_indexer.py" \
+  "$VLLM_ROOT/vllm/model_executor/models/deepseek_v2.py" \
   "$VLLM_ROOT/vllm/model_executor/models/glm4_moe_lite.py" \
   "$VLLM_ROOT/vllm/v1/putpocket_true_partial_prefill.py"
 

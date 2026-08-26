@@ -25,7 +25,7 @@
       },
       {
         "path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_attention_indexer_score_diagnostic.patch",
-        "sha256": "10e026ae1d533793ed766f579e06c8ffd37d18d4567a3531b94f01224e8afd1c",
+        "sha256": "ab3867ecf22d9c62bf702cf3520e7c97b7035e03849ea10d7ef717050d5b2f51",
         "apply_tool": "git apply",
         "apply_args": ["--unidiff-zero"],
         "role": "score_diagnostic_overlay_with_cuda129_deepgemm_host_include_fix"
@@ -45,7 +45,7 @@
       {
         "source": "instrumentation/vllm/glm52_attention_indexer_scores.py",
         "destination": "vllm/model_executor/layers/glm52_attention_indexer_scores.py",
-        "sha256": "23db1ea079b2b1eb7765c4a938d07d0b02d8159d4559939c68d0e23ae74c2749"
+        "sha256": "9102a56bca11bfac672e3e5ab86c338e272470b910e013b94b880236ac4a7a02"
       }
     ],
     "source_hashes": {
@@ -55,6 +55,7 @@
         "vllm/model_executor/layers/attention/sparse_mla_attention.py": "1aa19b3dc2d74acd73d77a3d6b04c98b5e36585907308986098aff120a82d1cd",
         "vllm/model_executor/layers/mla.py": "ccdbafa998b1a7f7db47527df85efdfa4bc3027f6ec769fd4c30b3aee963a81b",
         "vllm/model_executor/layers/sparse_attn_indexer.py": "a6386326379dcf94439a0b020cd51a71ebfd0a36eaeb563417c821456b82a475",
+        "vllm/model_executor/models/deepseek_v2.py": "bcbd9cde689ffe3f5f271aff3a5e01351b05a68371192cac9d65cb5ffc6b4ba9",
         "vllm/model_executor/models/glm4_moe_lite.py": "b5997427783c1e775df18caab5a79f5412243673b63b12049be83ef0a8686ece",
         "vllm/v1/attention/backend.py": "14803680d6f0f3fcf04dd48def6b961c5dae70c061287610c8f0e1bbc82cb471",
         "vllm/v1/attention/backends/mla/indexer.py": "9b355adda249c7b9d72567d1a6d8e0e66e330a3bdd74a09f2744cfc8d6e2ced9",
@@ -70,6 +71,7 @@
         "vllm/model_executor/layers/attention/sparse_mla_attention.py": "1aa19b3dc2d74acd73d77a3d6b04c98b5e36585907308986098aff120a82d1cd",
         "vllm/model_executor/layers/mla.py": "ccdbafa998b1a7f7db47527df85efdfa4bc3027f6ec769fd4c30b3aee963a81b",
         "vllm/model_executor/layers/sparse_attn_indexer.py": "ad15b2178de74e6bf38eb19f0311d2bf28c22ee8356e9d561e471bb3ffecc4c5",
+        "vllm/model_executor/models/deepseek_v2.py": "bcbd9cde689ffe3f5f271aff3a5e01351b05a68371192cac9d65cb5ffc6b4ba9",
         "vllm/model_executor/models/glm4_moe_lite.py": "cadbd3416a18870687e560ac9b5958500aed16351f7a48c4814408e5b38da1ee",
         "vllm/v1/attention/backend.py": "14803680d6f0f3fcf04dd48def6b961c5dae70c061287610c8f0e1bbc82cb471",
         "vllm/v1/attention/backends/mla/indexer.py": "9b355adda249c7b9d72567d1a6d8e0e66e330a3bdd74a09f2744cfc8d6e2ced9",
@@ -85,6 +87,7 @@
         "vllm/model_executor/layers/attention/sparse_mla_attention.py": "0e8f2fab3b3ab338083e885eed10fae30dabf5b32d530190aa5394bad9b83d56",
         "vllm/model_executor/layers/mla.py": "ccdbafa998b1a7f7db47527df85efdfa4bc3027f6ec769fd4c30b3aee963a81b",
         "vllm/model_executor/layers/sparse_attn_indexer.py": "ad15b2178de74e6bf38eb19f0311d2bf28c22ee8356e9d561e471bb3ffecc4c5",
+        "vllm/model_executor/models/deepseek_v2.py": "bcbd9cde689ffe3f5f271aff3a5e01351b05a68371192cac9d65cb5ffc6b4ba9",
         "vllm/model_executor/models/glm4_moe_lite.py": "cadbd3416a18870687e560ac9b5958500aed16351f7a48c4814408e5b38da1ee",
         "vllm/v1/attention/backend.py": "4b2a449419b65eb7a409b4203f756e6dae8439cbd8fb1c02dfc6dc9fbcc8628c",
         "vllm/v1/attention/backends/mla/indexer.py": "ffc13e7d3d1e8e12d679098821b3bdf1bf3572e3d2e43a0d4dd83d023b64a399",
@@ -98,11 +101,12 @@
         "tools/build_deepgemm_C.py": "de3ba3d5e1ae23aadd71e7b44983db37664d301931ef192ce1e38b2ff8fc1afd",
         "vllm/model_executor/layers/attention/mla_attention.py": "3bcb96956a91a882f98c29cbf36ff8c4694b034c16406b79813847780bfe6b0f",
         "vllm/model_executor/layers/attention/sparse_mla_attention.py": "0e8f2fab3b3ab338083e885eed10fae30dabf5b32d530190aa5394bad9b83d56",
-        "vllm/model_executor/layers/glm52_attention_indexer_scores.py": "23db1ea079b2b1eb7765c4a938d07d0b02d8159d4559939c68d0e23ae74c2749",
+        "vllm/model_executor/layers/glm52_attention_indexer_scores.py": "9102a56bca11bfac672e3e5ab86c338e272470b910e013b94b880236ac4a7a02",
         "vllm/model_executor/layers/glm52_forced_edit_reuse.py": "d3bb32c706e902931c2a19948ed56ba9aac03a8fc86c591a7ebaba2fcdf65c1b",
         "vllm/model_executor/layers/mla.py": "32bfea3d09f3125e534c08203bbce9e0270280f88f6d8ae9a2918eb8418b1a8d",
         "vllm/model_executor/layers/sparse_attn_indexer.py": "f1bc32a20794089ee4f5689d28a00c3f3bcf8f2956b02dec6505305c7a9c9420",
-        "vllm/model_executor/models/glm4_moe_lite.py": "0628b7ef4c39b3e89501efbb3b62c2418871524168b9bf1676440074cdb719c7",
+        "vllm/model_executor/models/deepseek_v2.py": "9fd100da483afd3c1c8cf5260b15e3dbfa3147590c4ba335c2a0fb9dfa5759cc",
+        "vllm/model_executor/models/glm4_moe_lite.py": "c572a69c414fce5475d01bb46e1a79d50bcf1adeb1d41bb2c771a845d8e772a5",
         "vllm/v1/attention/backend.py": "4b2a449419b65eb7a409b4203f756e6dae8439cbd8fb1c02dfc6dc9fbcc8628c",
         "vllm/v1/attention/backends/mla/indexer.py": "ffc13e7d3d1e8e12d679098821b3bdf1bf3572e3d2e43a0d4dd83d023b64a399",
         "vllm/v1/core/sched/output.py": "10aadb6b58fa69e23758bbe2e2b2a0a71ebf4ca1d9d5c3aaf65a4a6f836500b7",
@@ -285,20 +289,20 @@
     {"path": "configs/runpod/schemas/glm52_indexer_multihop_token_row.schema.json", "sha256": "cf903e66764030e949ce7a5af960298997a7d7b9e63a105524558e8fa1fa0db5"},
     {"path": "configs/runpod/schemas/glm52_runpod_doctor.schema.json", "sha256": "324ef1edd0e7b3af78df5bab8e0010ef8d6559248e99a26c00b9792d2689a02a"},
     {"path": "configs/runpod/schemas/glm52_query_sum_report.schema.json", "sha256": "f877ccc500d0fbac5a7ad70c86dc97a956e3d3f06251d0bf532558b98a472e4b"},
-    {"path": "docs/RUNPOD_GLM52_ATTENTION_INDEXER.md", "sha256": "6b8fdc2e1ed1cd8e19498b183a1865322b53ff0887999f5a24ec211efb8252be"},
-    {"path": "instrumentation/vllm/glm52_attention_indexer_scores.py", "sha256": "23db1ea079b2b1eb7765c4a938d07d0b02d8159d4559939c68d0e23ae74c2749"},
+    {"path": "docs/RUNPOD_GLM52_ATTENTION_INDEXER.md", "sha256": "97c4c0a41fc9ce45ab1a9dcb74f8e158e2dbd732f5ebd8264954070a1c0a608c"},
+    {"path": "instrumentation/vllm/glm52_attention_indexer_scores.py", "sha256": "9102a56bca11bfac672e3e5ab86c338e272470b910e013b94b880236ac4a7a02"},
     {"path": "instrumentation/vllm/glm52_forced_edit_reuse.py", "sha256": "d3bb32c706e902931c2a19948ed56ba9aac03a8fc86c591a7ebaba2fcdf65c1b"},
     {"path": "instrumentation/vllm/putpocket_true_partial_prefill.py", "sha256": "dc14e1ccf08969ed684381128ad22360204b40075fc32c59979a26004ebb5f32"},
-    {"path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_attention_indexer_score_diagnostic.patch", "sha256": "10e026ae1d533793ed766f579e06c8ffd37d18d4567a3531b94f01224e8afd1c"},
+    {"path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_attention_indexer_score_diagnostic.patch", "sha256": "ab3867ecf22d9c62bf702cf3520e7c97b7035e03849ea10d7ef717050d5b2f51"},
     {"path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_forced_edit_reuse.patch", "sha256": "7f65cf6d0e7c3ff575506ad2d8b1a61f5526145971d41ba0e5e1e4db3bf1433e"},
     {"path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/putpocket_true_partial_prefill.patch", "sha256": "78dc0b9a6cde73974e1522d9e7af0e17df26094ca17c0d82b641bcdfccf680ba"},
-    {"path": "scripts/runpod/bootstrap_glm52_attention_indexer.sh", "sha256": "ec7fe6a759a8c20100c1b738ce9e68f886fc15c7de09227b1e99d0c97108ba97"},
+    {"path": "scripts/runpod/bootstrap_glm52_attention_indexer.sh", "sha256": "9842e08c4338725379e7d373b915aae21ebb74d72bd365255f35073cc5dcbeff"},
     {"path": "scripts/runpod/run_glm52_attention_indexer_score_test.sh", "sha256": "72e08a485fe57bd66a66f427f6627530163087a05d8e71ae73800afb19c0ae52"},
     {"path": "scripts/runpod/run_glm52_indexer_matrix_multihop.sh", "sha256": "2b54abd5074be116b4d7cd17c5b407998400b61cf1180f9e9d3ef632d91afcc5"},
     {"path": "scripts/runpod/run_glm52_runpod_doctor.sh", "sha256": "9c2f961455635a55076e3d7f3dc04634c11fdb0bd3568a2ba5c60ec9004274d2"},
     {"path": "src/putpocket_dataset_mining/glm52_attention_indexer.py", "sha256": "41d0df09c0760bc6dc55b48d84d939f326606ccb692631bc972765c6a5e7c8b4"},
     {"path": "src/putpocket_dataset_mining/glm52_indexer_propagation.py", "sha256": "eeb0fbe400f43439e93770be7e1d8bf4f83bed23da18938d610775becf6cc58d"},
-    {"path": "src/putpocket_dataset_mining/glm52_runpod.py", "sha256": "07bfe0bcb8f426e6e8b73b17decb78eaa6177113cca1252bcbfc10f207c6b69f"},
+    {"path": "src/putpocket_dataset_mining/glm52_runpod.py", "sha256": "58ba17b7f77c4ada4a1ce6ded1cbafcbf45992636c5113e76b81cbaa5af43840"},
     {"path": "src/putpocket_dataset_mining/glm52_runpod_cli.py", "sha256": "b2181fec906963cc6904c00e39444adb753295c21ed982116f52db9ec579f1ae"}
   ]
 }

@@ -93,13 +93,20 @@ runs POSIX `patch -p1 --dry-run --forward --batch` then the matching real
 phase hash and `py_compile`s the installed hooks. A later checksum cannot mask
 a failed patch command.
 
-The third overlay also carries one pinned CUDA 12.9 build-compatibility fix for
-the bundled DeepGEMM host extension: `tools/build_deepgemm_C.py` forces
+The third overlay also carries two pinned live-integration corrections. First,
+the bundled DeepGEMM host extension's `tools/build_deepgemm_C.py` forces
 `cuda_fp8.h` into its `g++` translation unit. Without that include, the exact
 pinned DeepGEMM source names `__nv_fp8_e4m3` through `mqa_logits.cuh` while the
 host compiler has not seen the CUDA FP8 definition, and the editable build
 fails closed. This is a build-only correction; it does not enable diagnostics
 or change runtime inference decisions.
+
+Second, score-batch attestation is wired into `DeepseekV2Model`, the actual
+model path behind the pinned `GlmMoeDsaForCausalLM` architecture, as well as
+the pre-existing GLM-lite path. When score capture is enabled, absence of
+`input_ids` now fails closed before either score hook can consume an
+unattested batch. The doctor inspects the actual DeepSeek/GLM class for this
+hook. Score capture remains default OFF and does not change inference choices.
 
 The legacy patch is deliberately applied with the repository's existing GNU
 `patch` convention. Plain `git apply` is not equivalent for this generated

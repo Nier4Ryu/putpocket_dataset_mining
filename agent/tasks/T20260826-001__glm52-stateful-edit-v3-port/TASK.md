@@ -70,6 +70,12 @@ rank-normalized multihop scientific-correction objective:
   - make top-K DCG rank weights at K 64 primary, sweep K 16/64/256, and retain population-z-score softmax at temperature 1 as a scale-sensitive nonnegative sanity variant
   - normalize every hop and report a separate equal-hop cumulative mixture, entropy/effective support, top-K stability against level 1 and the previous level, token rows, input attestations, and checksum-bound plots
   - keep the correction CPU-offline-only and out of vLLM scheduling, inference decisions, selector integration, and stateful-cache claims
+full-distribution visualization follow-up objective:
+  - preserve the immutable rank-normalized v1 artifact and consume its checksum-attested report and all 2,103 token rows without a GPU/RunPod rerun
+  - plot separate hop/cumulative absolute-position heatmaps with a shared fixed log-probability scale and frozen Q1/Q2 boundaries
+  - compare distribution shape using all-token sorted probability and cumulative-mass curves with no top-k truncation
+  - compute identity-aligned base-2 Jensen-Shannon distance matrices over all positions with symmetry, zero-diagonal, and `[0,1]` bounds
+  - write a distinct no-overwrite supplementary attestation, schema-valid summary, PNG/PDF pairs, and final checksums without runtime or selector integration
 registered next slice:
   - name: glm52-rope-aware-shifted-reuse
   - owner boundary: FLASHMLA_SPARSE main K-cache representation and DeepSeek V3.2 packed indexer representation
@@ -150,6 +156,11 @@ validation:
   - primary `rank_dcg_k64` level-6 top-64 retention/Jaccard was `0.328125/0.196262` versus level 1 and `0.96875/0.939394` versus level 5 for hop-only; equal-hop cumulative was `0.5/0.333333` versus level 1 and `0.953125/0.910448` versus level 5
   - K 16/64/256 and z-score-softmax sensitivity all showed the same qualitative result: progressive drift from level 1, high adjacent-level stability, and stronger level-1 retention for the cumulative mixture than the hop-only distribution
   - the new 14-file, 8,847,690-byte artifact passed both checksum manifests; report payload SHA-256 is `63c65db17ff8e8190d8791d0b1160929081316c5d72a919bbea606808d8d8780`, report SHA-256 is `cc00b6f41e79873b2258cdb17bb3bb5e86324799762c6953db373e8a3c992bfe`, and `FINAL_SHA256SUMS` SHA-256 is `1a9e367ef7a6732f7980a16ffc8d52e51cea4a937877b567c71e280987d4be8f`
+  - full-distribution focused scientific/package suite: 31 passed; full repository CPU suite: 413 passed, 2 skipped, 89 subtests passed
+  - all 2,103 positions and levels 1-6 passed nonnegative finite unit-mass validation; the six-by-six base-2 Jensen-Shannon distance matrices passed symmetry, exact-zero diagonal, and `[0,1]` bounds
+  - primary K=64 L1-to-L6 full-token Jensen-Shannon distance is `0.5905914558532159` for hop-only and `0.3645924415296114` for the equal-hop cumulative mixture
+  - the new 15-file, 1,135,514-byte supplement contains six PNG/PDF pairs plus attestation, summary, and final checksums; summary payload SHA-256 is `dd615be1b350b8f15bc47da91919e73d5f7025c0593a6d3fab6345e7cec07a92` and `FINAL_SHA256SUMS` SHA-256 is `82be91e9d80b6c60a8c32d02dc3a330c40cfaf3a43d4128efe948f4b5a747b53`
+  - supplement JSON schemas, Python compile, project package hashes, every output checksum, no-top-k/full-point counts, and visual inspection of all six PNGs passed; rank-normalized v1 source hashes remained unchanged
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/
@@ -162,5 +173,6 @@ commits:
   - ccc5de08df139b9b5a81b87f6c6d3e995909c4a6 (offline query-sum saturation correction)
   - 770ff33 (completion-audit reproducibility implementation)
   - 401f8a4f7dd12bd7c85f4129f09c570399eded1b (rank-normalized multihop implementation, schemas, plots, docs, and tests)
+  - 3033d000cb7e71ddbf6a690bbafccc85a8be018a (complete-token distribution analyzer, plots, schemas, docs, and tests)
   - current evidence-only RunPod execution handoff commit containing this record
-final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-215354.md
+final handoff link: agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-222724.md

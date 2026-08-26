@@ -74,7 +74,22 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
     query_sum_capture = lock.get("query_sum_capture")
     provenance = lock.get("benchmark_provenance")
     layout = lock.get("model_layout")
+    completion_audit = lock.get("completion_audit")
     _require(all(isinstance(item, Mapping) for item in (vllm, runtime, capture, matrix_capture, query_sum_capture, provenance, layout)), "RUNPOD_PACKAGE_SECTION_INVALID")
+    _require(isinstance(completion_audit, Mapping), "RUNPOD_COMPLETION_AUDIT_INVALID")
+    _require(
+        completion_audit.get("cache_origin_plot_script_sha256")
+        == "e1f5cdd967a48514750d9c3074a8ca4a33cd217060e9a7b5cbadf9c0df03363f"
+        and completion_audit.get("cache_origin_transfer_prototype_sha256")
+        == [
+            "42b26b61940fb6ed5aec2d384890387416567f9e04c1dc2df12ce214270a5ad7",
+            "26387857faf6225b76bafac58d55f7b5e0ef6cfe33efcc35682318b93dbdce70",
+        ]
+        and completion_audit.get("plot_dependency_versions")
+        == {"matplotlib": "3.11.1", "numpy": "2.4.6"}
+        and completion_audit.get("large_data_committed") is False,
+        "RUNPOD_COMPLETION_AUDIT_INVALID",
+    )
     _require(vllm["commit"] == VLLM_COMMIT, "RUNPOD_VLLM_COMMIT_INVALID")
     patch_chain = vllm.get("patch_chain")
     _require(isinstance(patch_chain, list) and len(patch_chain) == 3, "RUNPOD_PATCH_CHAIN_INVALID")

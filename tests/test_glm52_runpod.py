@@ -118,6 +118,10 @@ def test_package_lock_pins_order_apply_arguments_provenance_and_artifacts() -> N
     assert lock["capture"]["scenario_id"] == "glm52-sys-policy-equal-replacement-v1"
     assert lock["probe_boundary"]["q2_present"] is False
     assert lock["analysis"]["dissimilarity_failure"] is False
+    assert lock["completion_audit"]["cache_origin_plot_script_sha256"] == (
+        "e1f5cdd967a48514750d9c3074a8ca4a33cd217060e9a7b5cbadf9c0df03363f"
+    )
+    assert lock["completion_audit"]["large_data_committed"] is False
     assert validate_project_artifacts(ROOT, lock)["status"] == "passed"
 
 

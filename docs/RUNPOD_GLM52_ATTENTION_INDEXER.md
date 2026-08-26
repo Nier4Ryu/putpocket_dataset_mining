@@ -307,3 +307,74 @@ The final all-query and matrix modes fail closed at their declared caps. This
 diagnostic does not itself validate
 true-partial KV byte preservation, Q2 continuation, stateful task quality, or
 latency/compute savings.
+
+## Montblanc evidence completion and plot reproduction
+
+GPU evidence remains outside Git. After an accepted run, preserve remote
+originals and transfer only an immutable, explicitly sized archive. The
+generic proxy-safe helper uses a caller-supplied SSH target and identity, reads
+the remote file without modifying it, retains framed chunks, and verifies the
+declared byte count and SHA-256 before publishing the destination:
+
+```bash
+scripts/runpod/transfer_framed_file.sh \
+  --ssh-target "$RUNPOD_SSH_TARGET" \
+  --identity "$RUNPOD_SSH_IDENTITY" \
+  --remote-file /workspace/TASK/bundles/completion-evidence.tar.gz \
+  --destination "$MONTBLANC_EVIDENCE_ROOT/completion-evidence.tar.gz" \
+  --expected-sha256 "$EXPECTED_SHA256" \
+  --expected-bytes "$EXPECTED_BYTES"
+```
+
+No address, credential, private-key material, or workstation path is stored in
+the repository. The helper refuses an existing destination, candidate, or
+parts directory and never deletes remote or local evidence. Its two
+execution-time prototypes are retained only in the task artifact cache because
+they embed one host layout; their SHA-256 values are
+`42b26b61940fb6ed5aec2d384890387416567f9e04c1dc2df12ce214270a5ad7` and
+`26387857faf6225b76bafac58d55f7b5e0ef6cfe33efcc35682318b93dbdce70`.
+
+Build a deterministic consolidated inventory from a JSON spec whose groups
+map Montblanc-relative paths to remote-relative source paths and whose
+exclusions explain intentionally absent infrastructure:
+
+```bash
+python -m putpocket_dataset_mining.evidence_inventory build \
+  --root "$MONTBLANC_EVIDENCE_ROOT" \
+  --spec "$MONTBLANC_EVIDENCE_ROOT/completion-audit-spec.json" \
+  --output "$MONTBLANC_EVIDENCE_ROOT/completion-audit-inventory.json" \
+  --checksums "$MONTBLANC_EVIDENCE_ROOT/COMPLETION_AUDIT_SHA256SUMS"
+python -m putpocket_dataset_mining.evidence_inventory verify \
+  --root "$MONTBLANC_EVIDENCE_ROOT" \
+  --inventory "$MONTBLANC_EVIDENCE_ROOT/completion-audit-inventory.json"
+```
+
+The validator rejects duplicate local or remote paths, symlinks, path escape,
+undeclared groups, unsorted or mutated entries, size/digest/count mismatches,
+and an unexplained empty exclusion set. Model weights, Hugging Face caches,
+Python environments, vLLM build objects, compiler caches, failed partial raw
+captures, credentials, and duplicate copies of the accepted raw tree are
+reproducible-infrastructure or safety exclusions, not missing experimental
+evidence.
+
+The reusable plotter is the generalized, path-independent form of the script
+used for the accepted run. The cache-origin implementation has SHA-256
+`e1f5cdd967a48514750d9c3074a8ca4a33cd217060e9a7b5cbadf9c0df03363f`.
+Install the exact plotting extra and render from four inputs that are already
+bound by the supplied checksum manifest:
+
+```bash
+python -m pip install -e '.[plots]'
+python scripts/analysis/plot_glm52_score_evidence.py \
+  --evidence-root "$MONTBLANC_EVIDENCE_ROOT" \
+  --query-report-root accepted/query-sum-v2 \
+  --multihop-root accepted/multihop \
+  --checksum-manifest COMPLETION_AUDIT_SHA256SUMS \
+  --output-root "$MONTBLANC_EVIDENCE_ROOT/plots-reproduced"
+```
+
+It refuses unattested or digest-mismatched inputs and a nonempty output
+directory. It produces five PNG/PDF plot pairs, a schema-validated numeric
+summary, and `PLOT_SHA256SUMS`. Input paths recorded in the summary are always
+evidence-root-relative. Display-only z-score and symmetric-log color mappings
+do not modify the retained signed raw query-sum or multi-hop values.

@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.local/schemas/glm52_score_plot_summary.schema.json",
+  "title": "GLM 5.2 checksum-attested score plot summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_policy",
+    "implementation",
+    "input_checksum_manifest",
+    "display_transform_policy",
+    "inputs",
+    "layers",
+    "max_level",
+    "query_sum_metrics_from_report",
+    "query_sum_numeric_checks",
+    "multihop_numeric_summary",
+    "outputs",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source_policy": {
+      "const": "plots_generated_only_from_checksum_attested_transferred_runpod_artifacts"
+    },
+    "implementation": {"$ref": "#/$defs/pathDigest"},
+    "input_checksum_manifest": {"$ref": "#/$defs/pathDigest"},
+    "display_transform_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["query_comparison", "raw_multihop", "normalized_multihop"],
+      "properties": {
+        "query_comparison": {"type": "string", "minLength": 1},
+        "raw_multihop": {"type": "string", "minLength": 1},
+        "normalized_multihop": {"type": "string", "minLength": 1}
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/fileDigest"}
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 0}
+    },
+    "max_level": {"type": "integer", "minimum": 1},
+    "query_sum_metrics_from_report": {"type": "array", "minItems": 1},
+    "query_sum_numeric_checks": {"type": "object", "minProperties": 1},
+    "multihop_numeric_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer_sum", "per_layer"],
+      "properties": {
+        "layer_sum": {"type": "object", "minProperties": 1},
+        "per_layer": {"type": "object", "minProperties": 1}
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {"$ref": "#/$defs/fileDigest"}
+    },
+    "claim_boundary": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "safePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "pathDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/safePath"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "fileDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/safePath"},
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

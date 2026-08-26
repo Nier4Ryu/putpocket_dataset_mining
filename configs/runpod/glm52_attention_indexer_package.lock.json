@@ -282,8 +282,22 @@
     "dissimilarity_failure": false,
     "failures": ["capture_error", "alignment_error", "nonfinite_value", "schema_error", "digest_error", "missing_tp_or_layer_query_cell"]
   },
+  "completion_audit": {
+    "cache_origin_plot_script_sha256": "e1f5cdd967a48514750d9c3074a8ca4a33cd217060e9a7b5cbadf9c0df03363f",
+    "cache_origin_transfer_prototype_sha256": [
+      "42b26b61940fb6ed5aec2d384890387416567f9e04c1dc2df12ce214270a5ad7",
+      "26387857faf6225b76bafac58d55f7b5e0ef6cfe33efcc35682318b93dbdce70"
+    ],
+    "plot_dependency_versions": {
+      "matplotlib": "3.11.1",
+      "numpy": "2.4.6"
+    },
+    "transfer_policy": "explicit_remote_file_read_only_no_overwrite_size_and_sha256_verified_chunks_retained",
+    "inventory_policy": "remote_relative_deterministic_fail_closed_with_explicit_reproducible_infrastructure_exclusions",
+    "large_data_committed": false
+  },
   "project_artifacts": [
-    {"path": "pyproject.toml", "sha256": "82e722bf2fd436f30ef0adabf86a8e0915aca4f993a99cff853c9480cbd8bc65"},
+    {"path": "pyproject.toml", "sha256": "c4e7ace6a31786ceb8f7b83dd1f4a0c9f14c6d2ac67f5a7b15ddc8cec56947f2"},
     {"path": "configs/cluster/stateful_edit_scenarios/catalog.json", "sha256": "064a38371a539fc5655060637cf21577a12a60f18ef3176a8477a8f34017b669"},
     {"path": "configs/cluster/stateful_edit_scenarios/scenarios/glm52-sys-policy-equal-replacement-v1.json", "sha256": "f1769f464befbe2482e200521b98ffd4a59044d8abad0f5bc0d946a9bc713484"},
     {"path": "configs/runpod/glm52_attention_indexer_schedule.json", "sha256": "ef9f2dac3d243a216f2d4c778903c0f092050b76c63f898dd9ab506d5dd1770e"},
@@ -293,22 +307,27 @@
     {"path": "configs/runpod/schemas/glm52_indexer_matrix_row.schema.json", "sha256": "78457883923160af14d0359d1ef1bd6e7f6f2ca14636018544115ae302a28a27"},
     {"path": "configs/runpod/schemas/glm52_indexer_multihop_report.schema.json", "sha256": "55c63c9bc4577a24c506c5088e6347a7a247e688f49019a6e326d6ff0f6c6d7b"},
     {"path": "configs/runpod/schemas/glm52_indexer_multihop_token_row.schema.json", "sha256": "cf903e66764030e949ce7a5af960298997a7d7b9e63a105524558e8fa1fa0db5"},
+    {"path": "configs/runpod/schemas/glm52_montblanc_evidence_inventory.schema.json", "sha256": "5edfe3676a2d765cdbb3f80f0199c90223e45de721555b607e8a88b3c8f577a6"},
     {"path": "configs/runpod/schemas/glm52_runpod_doctor.schema.json", "sha256": "324ef1edd0e7b3af78df5bab8e0010ef8d6559248e99a26c00b9792d2689a02a"},
     {"path": "configs/runpod/schemas/glm52_query_sum_report.schema.json", "sha256": "4138512463fb8ebb6a4287d4ed81efadc7bbfe8cb51b21e2a822110803a5f23b"},
-    {"path": "docs/RUNPOD_GLM52_ATTENTION_INDEXER.md", "sha256": "964f09c5f66898c277536e396943ad06b62009c357061b88345737767493adbe"},
+    {"path": "configs/runpod/schemas/glm52_score_plot_summary.schema.json", "sha256": "7d1aa5f76848c719d4bb4e5e100684751640f01c29fc2706338003b9e0080d12"},
+    {"path": "docs/RUNPOD_GLM52_ATTENTION_INDEXER.md", "sha256": "7ae1a4c049c12fc87192a3a06352e167456a967d6aa93256ebebc9427d68e0f6"},
     {"path": "instrumentation/vllm/glm52_attention_indexer_scores.py", "sha256": "50494e69c21ab86e9312540c66c71a0da464dd3f05380a90b1e98c3e0989cfe3"},
     {"path": "instrumentation/vllm/glm52_forced_edit_reuse.py", "sha256": "d3bb32c706e902931c2a19948ed56ba9aac03a8fc86c591a7ebaba2fcdf65c1b"},
     {"path": "instrumentation/vllm/putpocket_true_partial_prefill.py", "sha256": "dc14e1ccf08969ed684381128ad22360204b40075fc32c59979a26004ebb5f32"},
     {"path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_attention_indexer_score_diagnostic.patch", "sha256": "ab3867ecf22d9c62bf702cf3520e7c97b7035e03849ea10d7ef717050d5b2f51"},
     {"path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_forced_edit_reuse.patch", "sha256": "7f65cf6d0e7c3ff575506ad2d8b1a61f5526145971d41ba0e5e1e4db3bf1433e"},
     {"path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/putpocket_true_partial_prefill.patch", "sha256": "78dc0b9a6cde73974e1522d9e7af0e17df26094ca17c0d82b641bcdfccf680ba"},
+    {"path": "scripts/analysis/plot_glm52_score_evidence.py", "sha256": "bbd900c65c359729d16f76ae857fa5052f659db2d08f39dabaebcc66dfef6e04"},
     {"path": "scripts/runpod/bootstrap_glm52_attention_indexer.sh", "sha256": "9842e08c4338725379e7d373b915aae21ebb74d72bd365255f35073cc5dcbeff"},
     {"path": "scripts/runpod/run_glm52_attention_indexer_score_test.sh", "sha256": "72e08a485fe57bd66a66f427f6627530163087a05d8e71ae73800afb19c0ae52"},
     {"path": "scripts/runpod/run_glm52_indexer_matrix_multihop.sh", "sha256": "2b54abd5074be116b4d7cd17c5b407998400b61cf1180f9e9d3ef632d91afcc5"},
     {"path": "scripts/runpod/run_glm52_runpod_doctor.sh", "sha256": "9c2f961455635a55076e3d7f3dc04634c11fdb0bd3568a2ba5c60ec9004274d2"},
+    {"path": "scripts/runpod/transfer_framed_file.sh", "sha256": "5a34a8d18fb7b07ddd040aa8fb521818f25e712340226d8eef2c814a520be69f"},
+    {"path": "src/putpocket_dataset_mining/evidence_inventory.py", "sha256": "f134f37a335adfe97eb609d4d0d84e91d42a23e4e74b0a9eb507bea8fd10cabf"},
     {"path": "src/putpocket_dataset_mining/glm52_attention_indexer.py", "sha256": "81daf3533514d381bd95cf9bfc5576d1ede2ae0eff09c6d2663653c8d62f37cd"},
     {"path": "src/putpocket_dataset_mining/glm52_indexer_propagation.py", "sha256": "eeb0fbe400f43439e93770be7e1d8bf4f83bed23da18938d610775becf6cc58d"},
-    {"path": "src/putpocket_dataset_mining/glm52_runpod.py", "sha256": "eef0f0276d759bd6104d1c0f80f88cd90505f70832ebe57447a5300ea85306f9"},
+    {"path": "src/putpocket_dataset_mining/glm52_runpod.py", "sha256": "5c4596b165658a8ea604cc63711d39df5105e7b54a12502cb8c7b7c14486d9ba"},
     {"path": "src/putpocket_dataset_mining/glm52_runpod_cli.py", "sha256": "b2181fec906963cc6904c00e39444adb753295c21ed982116f52db9ec579f1ae"}
   ]
 }

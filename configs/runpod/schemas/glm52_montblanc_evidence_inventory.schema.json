@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.local/schemas/glm52_montblanc_evidence_inventory.schema.json",
+  "title": "Montblanc GLM 5.2 evidence inventory payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "inventory_id",
+    "source_remote_root_id",
+    "entry_count",
+    "total_bytes",
+    "groups",
+    "entries",
+    "exclusions"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "inventory_id": {"type": "string", "minLength": 1},
+    "source_remote_root_id": {"type": "string", "minLength": 1},
+    "entry_count": {"type": "integer", "minimum": 1},
+    "total_bytes": {"type": "integer", "minimum": 1},
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "group_id",
+          "content_class",
+          "local_path",
+          "source_remote_relative"
+        ],
+        "properties": {
+          "group_id": {"$ref": "#/$defs/nonempty"},
+          "content_class": {"$ref": "#/$defs/nonempty"},
+          "local_path": {"$ref": "#/$defs/safePath"},
+          "source_remote_relative": {"$ref": "#/$defs/safePath"}
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "group_id",
+          "content_class",
+          "local_relative_path",
+          "source_remote_relative_path",
+          "bytes",
+          "sha256"
+        ],
+        "properties": {
+          "group_id": {"$ref": "#/$defs/nonempty"},
+          "content_class": {"$ref": "#/$defs/nonempty"},
+          "local_relative_path": {"$ref": "#/$defs/safePath"},
+          "source_remote_relative_path": {"$ref": "#/$defs/safePath"},
+          "bytes": {"type": "integer", "minimum": 0},
+          "sha256": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["exclusion_id", "reason"],
+        "properties": {
+          "exclusion_id": {"$ref": "#/$defs/nonempty"},
+          "reason": {"$ref": "#/$defs/nonempty"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonempty": {"type": "string", "minLength": 1},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "safePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    }
+  }
+}

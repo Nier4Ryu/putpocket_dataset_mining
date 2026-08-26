@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+plots = ["matplotlib==3.11.1", "numpy==2.4.6"]
 vllm = ["vllm"]
 
 [project.scripts]

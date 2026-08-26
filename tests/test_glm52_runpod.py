@@ -86,7 +86,7 @@ def test_package_lock_pins_order_apply_arguments_provenance_and_artifacts() -> N
     assert [item["role"] for item in chain] == [
         "required_legacy_packaging_base",
         "true_partial_overlay",
-        "score_diagnostic_overlay",
+        "score_diagnostic_overlay_with_cuda129_deepgemm_host_include_fix",
     ]
     assert [item["apply_tool"] for item in chain] == ["patch", "git apply", "git apply"]
     assert [item["apply_args"] for item in chain] == [
@@ -151,6 +151,14 @@ def test_score_overlay_captures_full_reference_and_native_pre_topk_only() -> Non
     assert '"strict_causal_candidate_position_lt_query_position"' in hook
     assert 'value["hard_max_window_tokens"] <= 2176' in hook
     assert 'value["hard_max_window_tokens"] <= 2048' not in hook
+    assert "diff --git a/tools/build_deepgemm_C.py b/tools/build_deepgemm_C.py" in patch
+    assert '+    "-include",' in patch
+    assert '+    "cuda_fp8.h",' in patch
+    assert (
+        load_package_lock()["vllm"]["source_hashes"]["post_score_diagnostic"]
+        ["tools/build_deepgemm_C.py"]
+        == "de3ba3d5e1ae23aadd71e7b44983db37664d301931ef192ce1e38b2ff8fc1afd"
+    )
     assert lock_query_sum_boundary()["older_sampled_mode_is_final"] is False
 
 

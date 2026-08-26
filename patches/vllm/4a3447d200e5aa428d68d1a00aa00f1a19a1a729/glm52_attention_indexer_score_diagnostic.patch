@@ -48,3 +48,12 @@ index 5d01665..117844b 100644
 @@ -300,0 +304,2 @@ class Glm4MoeLiteModel(nn.Module):
 +        if input_ids is not None:
 +            maybe_set_score_diagnostic_batch(input_ids, positions)
+diff --git a/tools/build_deepgemm_C.py b/tools/build_deepgemm_C.py
+index 67a5274..fc7fe3c 100644
+--- a/tools/build_deepgemm_C.py
++++ b/tools/build_deepgemm_C.py
+@@ -58,0 +59,4 @@ cmd = [
++    # DeepGEMM's host extension includes layouts that name CUDA FP8 types.
++    # Make those definitions visible to the host compiler as well as nvcc.
++    "-include",
++    "cuda_fp8.h",

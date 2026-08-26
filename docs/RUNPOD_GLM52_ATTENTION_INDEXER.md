@@ -93,6 +93,14 @@ runs POSIX `patch -p1 --dry-run --forward --batch` then the matching real
 phase hash and `py_compile`s the installed hooks. A later checksum cannot mask
 a failed patch command.
 
+The third overlay also carries one pinned CUDA 12.9 build-compatibility fix for
+the bundled DeepGEMM host extension: `tools/build_deepgemm_C.py` forces
+`cuda_fp8.h` into its `g++` translation unit. Without that include, the exact
+pinned DeepGEMM source names `__nv_fp8_e4m3` through `mqa_logits.cuh` while the
+host compiler has not seen the CUDA FP8 definition, and the editable build
+fails closed. This is a build-only correction; it does not enable diagnostics
+or change runtime inference decisions.
+
 The legacy patch is deliberately applied with the repository's existing GNU
 `patch` convention. Plain `git apply` is not equivalent for this generated
 zero-context legacy artifact: it can accept the hunk yet place additions at an

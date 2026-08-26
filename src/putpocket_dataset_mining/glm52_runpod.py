@@ -80,7 +80,11 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
     _require(isinstance(patch_chain, list) and len(patch_chain) == 3, "RUNPOD_PATCH_CHAIN_INVALID")
     _require(
         [item.get("role") for item in patch_chain]
-        == ["required_legacy_packaging_base", "true_partial_overlay", "score_diagnostic_overlay"],
+        == [
+            "required_legacy_packaging_base",
+            "true_partial_overlay",
+            "score_diagnostic_overlay_with_cuda129_deepgemm_host_include_fix",
+        ],
         "RUNPOD_PATCH_ORDER_INVALID",
     )
     _require(

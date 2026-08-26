@@ -98,6 +98,8 @@ validation:
   - live pinned NVFP4 config and vLLM `Indexer` audit corrected indexer provenance from 64 to 32 TP-replicated heads and native head scale from `64^-0.5` to `32^-0.5`
   - 32-head correction focused suite: 26 passed; full repository CPU suite: 387 passed, 2 skipped, 89 subtests passed
   - 32-head correction package/schema/compile/shell/diff checks and fresh exact three-overlay vLLM bootstrap/postimage validation passed
+  - live harness preflight bound SWE-bench Pro outer commit `ca10a60a...` and its `mini-swe-agent` gitlink `d74716a...`; the scaffold path is submodule-qualified and hash-pinned
+  - exact tokenizer preflight produced 2,105 prompt tokens, Q1 `[117,2069)`, Q2 `[2088,2103)`, propagation window `[117,2103)` (1,986 tokens), 7,884,420 matrix edge values/rank, and 123,766,144 main-reference values/rank, all within the existing hard caps without truncation
 artifacts:
   - agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/
   - /home/dyryu/.cache/putpocket-handoffs/T20260826-001__glm52-stateful-edit-v3-port/montblanc-extract-3fdaa44d7fbd/

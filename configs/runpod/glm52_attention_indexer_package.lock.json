@@ -170,7 +170,8 @@
     "row_sha256": "78ff3ac298f276dfafaa311c26b7ace35be7c52d9094b4a6f658de2e7b5e25d1",
     "harness_repository": "https://github.com/scaleapi/SWE-bench_Pro-os.git",
     "harness_commit": "ca10a60a5fcae51e6948ffe1485d4153d421e6c5",
-    "mini_swe_scaffold": "src/minisweagent/config/extra/swebench.yaml",
+    "mini_swe_submodule_commit": "d74716a3c8104a113f77cc9ab94cf407ecdcf1e9",
+    "mini_swe_scaffold": "mini-swe-agent/src/minisweagent/config/extra/swebench.yaml",
     "mini_swe_scaffold_sha256": "a29173c493de31863aa08a41ea851589789ac777a2ed44ce94fd0bcf52db16cb",
     "official_evaluator": "swe_bench_pro_eval.py",
     "authorship_boundary": "SWE-bench Pro supplies problem/repository/container/evaluator; PutPocket authors the SYS edit, stateful trajectory, and score probe."
@@ -270,7 +271,7 @@
     {"path": "pyproject.toml", "sha256": "82e722bf2fd436f30ef0adabf86a8e0915aca4f993a99cff853c9480cbd8bc65"},
     {"path": "configs/cluster/stateful_edit_scenarios/catalog.json", "sha256": "064a38371a539fc5655060637cf21577a12a60f18ef3176a8477a8f34017b669"},
     {"path": "configs/cluster/stateful_edit_scenarios/scenarios/glm52-sys-policy-equal-replacement-v1.json", "sha256": "f1769f464befbe2482e200521b98ffd4a59044d8abad0f5bc0d946a9bc713484"},
-    {"path": "configs/runpod/glm52_attention_indexer_schedule.json", "sha256": "57fae7ae56f252d85fba3fd318bfb26954a1a90c9d83c9bd4ae172aff8b7eb24"},
+    {"path": "configs/runpod/glm52_attention_indexer_schedule.json", "sha256": "81b0231b12388b8bea97c232cf51390058813836bb4e80d1b5ab2e54ccfd4b22"},
     {"path": "configs/runpod/schemas/glm52_attention_indexer_report.schema.json", "sha256": "483b81e7f8e3c702266d730f3a5617d1c888259e5d9d1fd99e81c41c78b7cab7"},
     {"path": "configs/runpod/schemas/glm52_attention_indexer_schedule.schema.json", "sha256": "4e7e997882ff86a79f881d5941312e5338b1028f9a7818fe9ae24bcffc38c20c"},
     {"path": "configs/runpod/schemas/glm52_indexer_matrix_episode.schema.json", "sha256": "d1d12f537393eb154dd245c5537bbaa428510f9c8e6aebc90c1923b21344614c"},
@@ -279,7 +280,7 @@
     {"path": "configs/runpod/schemas/glm52_indexer_multihop_token_row.schema.json", "sha256": "cf903e66764030e949ce7a5af960298997a7d7b9e63a105524558e8fa1fa0db5"},
     {"path": "configs/runpod/schemas/glm52_runpod_doctor.schema.json", "sha256": "324ef1edd0e7b3af78df5bab8e0010ef8d6559248e99a26c00b9792d2689a02a"},
     {"path": "configs/runpod/schemas/glm52_query_sum_report.schema.json", "sha256": "f877ccc500d0fbac5a7ad70c86dc97a956e3d3f06251d0bf532558b98a472e4b"},
-    {"path": "docs/RUNPOD_GLM52_ATTENTION_INDEXER.md", "sha256": "06a1a2e5bc06e7b7992f34944785d381758a632161bee6113765fa9230abe891"},
+    {"path": "docs/RUNPOD_GLM52_ATTENTION_INDEXER.md", "sha256": "a8890893e8f59e7f873ffcf00ee27164ec78a491e86f428232b51492fb55977a"},
     {"path": "instrumentation/vllm/glm52_attention_indexer_scores.py", "sha256": "68c8820c3bf932231d4094ab6ad22d890cf2174d6a937ea36100403e688b21dc"},
     {"path": "instrumentation/vllm/glm52_forced_edit_reuse.py", "sha256": "d3bb32c706e902931c2a19948ed56ba9aac03a8fc86c591a7ebaba2fcdf65c1b"},
     {"path": "instrumentation/vllm/putpocket_true_partial_prefill.py", "sha256": "dc14e1ccf08969ed684381128ad22360204b40075fc32c59979a26004ebb5f32"},
@@ -292,7 +293,7 @@
     {"path": "scripts/runpod/run_glm52_runpod_doctor.sh", "sha256": "9c2f961455635a55076e3d7f3dc04634c11fdb0bd3568a2ba5c60ec9004274d2"},
     {"path": "src/putpocket_dataset_mining/glm52_attention_indexer.py", "sha256": "41d0df09c0760bc6dc55b48d84d939f326606ccb692631bc972765c6a5e7c8b4"},
     {"path": "src/putpocket_dataset_mining/glm52_indexer_propagation.py", "sha256": "eeb0fbe400f43439e93770be7e1d8bf4f83bed23da18938d610775becf6cc58d"},
-    {"path": "src/putpocket_dataset_mining/glm52_runpod.py", "sha256": "a91f7256f8f68ed2845f92dfc82539f588ea2fdb2b06d9697a8e62a7e72a2fe2"},
+    {"path": "src/putpocket_dataset_mining/glm52_runpod.py", "sha256": "32d089f0d93addeb6771c3996f6295383931ddf7cbaaa8cf7512be3c03a8f986"},
     {"path": "src/putpocket_dataset_mining/glm52_runpod_cli.py", "sha256": "b2181fec906963cc6904c00e39444adb753295c21ed982116f52db9ec579f1ae"}
   ]
 }

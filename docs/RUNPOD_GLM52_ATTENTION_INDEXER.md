@@ -16,7 +16,9 @@ revision `7ab5114912baf22bb098818e604c02fe7ad2c11f`, split `test`, instance
 `instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5`.
 The repository identifier is `ansible/ansible`; the official harness is
 `scaleapi/SWE-bench_Pro-os` at
-`ca10a60a5fcae51e6948ffe1485d4153d421e6c5`.
+`ca10a60a5fcae51e6948ffe1485d4153d421e6c5`. Its `mini-swe-agent`
+gitlink is initialized at `d74716a3c8104a113f77cc9ab94cf407ecdcf1e9`;
+the pinned scaffold lives inside that submodule.
 
 SWE-bench Pro supplies the problem row, repository/container mapping, and
 evaluator. It does not supply the stateful edit trajectory. PutPocket authors
@@ -58,6 +60,9 @@ git clone https://github.com/vllm-project/vllm.git /workspace/vllm
 git -C /workspace/vllm checkout --detach 4a3447d200e5aa428d68d1a00aa00f1a19a1a729
 git clone https://github.com/scaleapi/SWE-bench_Pro-os.git /workspace/SWE-bench_Pro-os
 git -C /workspace/SWE-bench_Pro-os checkout --detach ca10a60a5fcae51e6948ffe1485d4153d421e6c5
+git -C /workspace/SWE-bench_Pro-os submodule update --init --depth 1 mini-swe-agent
+git -C /workspace/SWE-bench_Pro-os/mini-swe-agent rev-parse HEAD | \
+  grep -Fx d74716a3c8104a113f77cc9ab94cf407ecdcf1e9
 ```
 
 The local model must be the explicit revision

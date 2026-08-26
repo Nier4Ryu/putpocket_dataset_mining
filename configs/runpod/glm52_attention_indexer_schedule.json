@@ -52,7 +52,7 @@
       "test_id": "glm52-main-indexer-score-compare-v1",
       "depends_on": ["glm52-runpod-doctor-v1"],
       "dependency_evidence": "doctor.payload_sha256",
-      "setup_command": "git -C /workspace/SWE-bench_Pro-os rev-parse HEAD | grep -Fx ca10a60a5fcae51e6948ffe1485d4153d421e6c5 && test -f /workspace/artifacts/test1/doctor.json",
+      "setup_command": "git -C /workspace/SWE-bench_Pro-os rev-parse HEAD | grep -Fx ca10a60a5fcae51e6948ffe1485d4153d421e6c5 && git -C /workspace/SWE-bench_Pro-os/mini-swe-agent rev-parse HEAD | grep -Fx d74716a3c8104a113f77cc9ab94cf407ecdcf1e9 && test -f /workspace/artifacts/test1/doctor.json",
       "command": "./scripts/runpod/run_glm52_attention_indexer_score_test.sh /workspace/models/aec724e8c7b8ee9db3b48c01c320f63f9cdaf8aa /workspace/SWE-bench_Pro-os /workspace/artifacts/test1/doctor.json /workspace/artifacts/test2 /workspace/Putpocket_env/bin/python",
       "inputs": [
         "successful immutable doctor payload digest",

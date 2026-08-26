@@ -175,7 +175,13 @@ def validate_package_lock(lock: Mapping[str, Any]) -> None:
     )
     _require(
         provenance.get("dataset") == "ScaleAI/SWE-bench_Pro"
-        and provenance.get("dataset_revision") == "7ab5114912baf22bb098818e604c02fe7ad2c11f",
+        and provenance.get("dataset_revision") == "7ab5114912baf22bb098818e604c02fe7ad2c11f"
+        and provenance.get("harness_commit")
+        == "ca10a60a5fcae51e6948ffe1485d4153d421e6c5"
+        and provenance.get("mini_swe_submodule_commit")
+        == "d74716a3c8104a113f77cc9ab94cf407ecdcf1e9"
+        and provenance.get("mini_swe_scaffold")
+        == "mini-swe-agent/src/minisweagent/config/extra/swebench.yaml",
         "RUNPOD_DATASET_PROVENANCE_INVALID",
     )
 
@@ -239,6 +245,29 @@ def _command(argv: Sequence[str], cwd: Path | None = None) -> str:
     if result.returncode != 0:
         raise ConfigError(f"COMMAND_FAILED:{argv[0]}:{result.stderr.strip()}")
     return result.stdout.strip()
+
+
+def _validate_harness_scaffold(harness: Path, lock: Mapping[str, Any]) -> Path:
+    """Bind the outer SWE-bench Pro checkout and its mini-swe-agent gitlink."""
+
+    provenance = lock["benchmark_provenance"]
+    _require(
+        _command(["git", "rev-parse", "HEAD"], harness)
+        == provenance["harness_commit"],
+        "PROBE_HARNESS_COMMIT_MISMATCH",
+    )
+    mini_swe = harness / "mini-swe-agent"
+    _require(
+        _command(["git", "rev-parse", "HEAD"], mini_swe)
+        == provenance["mini_swe_submodule_commit"],
+        "PROBE_MINI_SWE_SUBMODULE_COMMIT_MISMATCH",
+    )
+    scaffold = harness / provenance["mini_swe_scaffold"]
+    _require(
+        file_sha256(scaffold) == provenance["mini_swe_scaffold_sha256"],
+        "PROBE_SCAFFOLD_DIGEST_MISMATCH",
+    )
+    return scaffold
 
 
 def _check(check_id: str, operation: Callable[[], Any]) -> dict[str, Any]:
@@ -574,9 +603,7 @@ def prepare_probe(
     model = Path(model_root).resolve()
     harness = Path(harness_root).resolve()
     _model_config_check(model, lock)
-    _require(_command(["git", "rev-parse", "HEAD"], harness) == lock["benchmark_provenance"]["harness_commit"], "PROBE_HARNESS_COMMIT_MISMATCH")
-    scaffold = harness / lock["benchmark_provenance"]["mini_swe_scaffold"]
-    _require(file_sha256(scaffold) == lock["benchmark_provenance"]["mini_swe_scaffold_sha256"], "PROBE_SCAFFOLD_DIGEST_MISMATCH")
+    scaffold = _validate_harness_scaffold(harness, lock)
     from datasets import load_dataset
     from jinja2 import StrictUndefined, Template
     from transformers import AutoTokenizer
@@ -663,9 +690,7 @@ def prepare_final_two_query_probe(
     model = Path(model_root).resolve()
     harness = Path(harness_root).resolve()
     _model_config_check(model, lock)
-    _require(_command(["git", "rev-parse", "HEAD"], harness) == lock["benchmark_provenance"]["harness_commit"], "PROBE_HARNESS_COMMIT_MISMATCH")
-    scaffold = harness / lock["benchmark_provenance"]["mini_swe_scaffold"]
-    _require(file_sha256(scaffold) == lock["benchmark_provenance"]["mini_swe_scaffold_sha256"], "PROBE_SCAFFOLD_DIGEST_MISMATCH")
+    scaffold = _validate_harness_scaffold(harness, lock)
     from datasets import load_dataset
     from jinja2 import StrictUndefined, Template
     from transformers import AutoTokenizer

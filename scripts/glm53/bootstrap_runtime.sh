@@ -74,7 +74,9 @@ test "$(sha256sum "${VLLM_SOURCE_DIR}/docker/versions.json" | awk '{print $1}')"
   echo "final_image=${FINAL_IMAGE}"
 } > "${RUNTIME_ROOT}/evidence/runtime_build_inputs.txt"
 
-docker build --progress=plain --target vllm-openai \
+docker build --progress=plain \
+  --file "${VLLM_SOURCE_DIR}/docker/Dockerfile" \
+  --target vllm-openai \
   --build-arg "BUILD_BASE_IMAGE=${BUILD_BASE_IMAGE}" \
   --build-arg "FINAL_BASE_IMAGE=${FINAL_BASE_IMAGE}" \
   --build-arg max_jobs=2 \

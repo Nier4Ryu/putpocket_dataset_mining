@@ -110,7 +110,7 @@
   },
   "package_files": [
     {"path": "docker/glm53_sm120/Dockerfile.flashinfer-overlay", "size": 2404, "sha256": "9296a91292dcdc32a8a1ea96a69295a9cde14ae454560bad8e5152c8ff781312"},
-    {"path": "scripts/glm53/bootstrap_runtime.sh", "size": 4469, "sha256": "9cedf16aafb535b569fda2e21c73cecfec98eb1ac9e19a98cdf044617b4644f4"},
+    {"path": "scripts/glm53/bootstrap_runtime.sh", "size": 4523, "sha256": "9dd0241e9971bb9b06c4441f0871ca7c598a7da117ba1310e48c05deb9629c89"},
     {"path": "scripts/glm53/download_model.sh", "size": 3096, "sha256": "f1b96aad850687bdfe0517fdc8b845921594dda142f825dffa0aed8ca6525fe1"},
     {"path": "scripts/glm53/launch_server.sh", "size": 4074, "sha256": "8a843a92bc1083d133f75e4a07712f3ec35935f2d151431251828311453cb41d"},
     {"path": "scripts/glm53/run_smoke.sh", "size": 2135, "sha256": "22821ecd7758ab4735cd9d33da8841d51a94a65d72742e7e36b72b3ed05f26c2"},

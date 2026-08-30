@@ -112,6 +112,13 @@ sees the checkpoint read-only. The stop script resolves one exact CID, verifies
 both task and run labels, archives logs/telemetry, and uses SIGTERM with an
 infinite Docker stop timeout so it never escalates to SIGKILL.
 
+Montblanc's Docker daemon has no NVIDIA Container Toolkit or CDI runtime. The
+launch therefore fails closed on driver drift and passes only the six required
+NVIDIA character devices plus five resolved compute-driver libraries into the
+container read-only. This task-local, driver-580.159.03 contract avoids a
+machine-wide Docker daemon reconfiguration. A minimal Torch probe must see
+exactly three SM120 devices before the production launch is accepted.
+
 The smoke performs three checks against the same ready server:
 
 1. `/v1/models` exposes `glm-5.3-flash-nvfp4`;

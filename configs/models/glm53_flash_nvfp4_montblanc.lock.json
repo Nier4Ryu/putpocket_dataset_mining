@@ -102,6 +102,8 @@
     "python_version": "3.12",
     "torch_cuda_arch_list": "12.0",
     "flash_attention_arch_policy": "upstream_per_kernel_forward_compatible_defaults",
+    "nvidia_driver_version": "580.159.03",
+    "container_gpu_passthrough": "explicit_devices_and_driver_libs",
     "build_base_image": "pytorch/manylinux2_28-builder:cuda13.0-78e737ad29420ffc4800e677c51e2a852caf8359@sha256:c8d8dba2124931732d1b073dec1d8999cd4d6c5ff7c5e77232137e77d9f00f6a",
     "final_base_image": "nvidia/cuda:13.0.3-base-ubuntu24.04@sha256:97d085a7423ee18ec483a2878b9be2c976dc4ba908aef96518beb00e1899dcc4",
     "attention_backend": "FLASHINFER_MLA_SPARSE_SM120",
@@ -119,11 +121,11 @@
     {"path": "patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/glm53_skip_unpublished_flashinfer_release.patch", "size": 2836, "sha256": "f6cff2143e82e08cc76953218866a1c94a5f2b283f9cbdf06fbe8e36556776c5"},
     {"path": "scripts/glm53/bootstrap_runtime.sh", "size": 5720, "sha256": "d143d18f23274ac988abfe5aec6492abbb608109d07cbd57d69ab4a95d8c6f01"},
     {"path": "scripts/glm53/download_model.sh", "size": 3096, "sha256": "f1b96aad850687bdfe0517fdc8b845921594dda142f825dffa0aed8ca6525fe1"},
-    {"path": "scripts/glm53/launch_server.sh", "size": 4074, "sha256": "8a843a92bc1083d133f75e4a07712f3ec35935f2d151431251828311453cb41d"},
+    {"path": "scripts/glm53/launch_server.sh", "size": 5682, "sha256": "2b4395fb93d14c29fb0da257e5a82ae07af53178e541237b29b43015e0c58819"},
     {"path": "scripts/glm53/run_smoke.sh", "size": 2135, "sha256": "22821ecd7758ab4735cd9d33da8841d51a94a65d72742e7e36b72b3ed05f26c2"},
     {"path": "scripts/glm53/smoke_client.py", "size": 6501, "sha256": "4644eecab4a279b66f1f8ebf93beb57380a23bd9e62ba06c56eb02b8654a9001"},
     {"path": "scripts/glm53/stop_server.sh", "size": 1475, "sha256": "c6398835565829896d00939c89840a6fc19ffa938d7f25f9c9f2f52c33b7cf57"},
-    {"path": "src/putpocket_dataset_mining/glm53_deployment.py", "size": 26834, "sha256": "1c62394a05623fb44cc194512c5bded682c19d3cbac5b062a9d0f984a1046f5a"},
+    {"path": "src/putpocket_dataset_mining/glm53_deployment.py", "size": 27315, "sha256": "b7c394a4423e599eefe9086c7f8368cd4d9613aacca178d5838794ff5b32054e"},
     {"path": "configs/execution/server2_glm53_flash_nvfp4_ep3.example.yaml", "size": 939, "sha256": "0271c54f77ad8242b6a691b7905d0f4495656c46d5c0a86ff5345e8b4b2841e2"}
   ]
 }

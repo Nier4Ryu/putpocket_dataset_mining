@@ -39,6 +39,53 @@ python3 -m putpocket_dataset_mining.glm53_deployment --lock "${LOCK_PATH}" \
 python3 -m putpocket_dataset_mining.glm53_deployment --lock "${LOCK_PATH}" \
   inspect-image --image "${IMAGE}" --output "${RUN_DIR}/runtime_image.json"
 
+EXPECTED_DRIVER_VERSION="$(python3 - "${LOCK_PATH}" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1], encoding="utf-8"))["runtime"]["nvidia_driver_version"])
+PY
+)"
+HOST_DRIVER_VERSIONS="$(
+  nvidia-smi --query-gpu=driver_version --format=csv,noheader |
+    sed '/^[[:space:]]*$/d' | sort -u
+)"
+if [[ "${HOST_DRIVER_VERSIONS}" != "${EXPECTED_DRIVER_VERSION}" ]]; then
+  echo "Host NVIDIA driver does not match the locked version ${EXPECTED_DRIVER_VERSION}." >&2
+  exit 2
+fi
+
+GPU_PASSTHROUGH_ARGS=()
+for device in \
+  /dev/nvidia0 /dev/nvidia1 /dev/nvidia2 /dev/nvidiactl \
+  /dev/nvidia-uvm /dev/nvidia-uvm-tools; do
+  if [[ ! -c "${device}" ]]; then
+    echo "Required NVIDIA character device is absent: ${device}" >&2
+    exit 2
+  fi
+  GPU_PASSTHROUGH_ARGS+=(--device "${device}")
+done
+
+DRIVER_LIB_SONAMES=(
+  libcuda.so.1
+  libnvidia-ml.so.1
+  libnvidia-ptxjitcompiler.so.1
+  libnvidia-nvvm.so.4
+  "libnvidia-gpucomp.so.${EXPECTED_DRIVER_VERSION}"
+)
+for soname in "${DRIVER_LIB_SONAMES[@]}"; do
+  host_path="$(
+    /sbin/ldconfig -p |
+      awk -v expected="${soname}" '$1 == expected {print $NF; exit}'
+  )"
+  host_path="$(readlink -f "${host_path}")"
+  if [[ -z "${host_path}" || ! -f "${host_path}" ]]; then
+    echo "Required NVIDIA driver library is absent: ${soname}" >&2
+    exit 2
+  fi
+  GPU_PASSTHROUGH_ARGS+=(
+    --volume "${host_path}:/usr/local/nvidia/lib64/${soname}:ro"
+  )
+done
+
 cat > "${RUN_DIR}/launch_args.json" <<JSON
 {
   "run_id": "${RUN_ID}",
@@ -54,6 +101,8 @@ cat > "${RUN_DIR}/launch_args.json" <<JSON
   "block_size": 512,
   "attention_backend": "FLASHINFER_MLA_SPARSE_SM120",
   "moe_backend": "marlin",
+  "container_gpu_passthrough": "explicit_devices_and_driver_libs",
+  "nvidia_driver_version": "${EXPECTED_DRIVER_VERSION}",
   "mtp": false,
   "prefix_caching": false
 }
@@ -64,10 +113,11 @@ docker run --detach --rm \
   --cidfile "${RUN_DIR}/container.cid" \
   --label "putpocket.task_id=${TASK_ID}" \
   --label "putpocket.run_id=${RUN_ID}" \
-  --gpus 'device=0,1,2' \
+  "${GPU_PASSTHROUGH_ARGS[@]}" \
   --shm-size 24g \
   --publish "127.0.0.1:${PORT}:8000" \
   --env CUDA_VISIBLE_DEVICES=0,1,2 \
+  --env LD_LIBRARY_PATH=/usr/local/nvidia/lib64:/usr/local/cuda/lib64 \
   --env HF_HUB_OFFLINE=1 \
   --env TRANSFORMERS_OFFLINE=1 \
   --env FLASHINFER_DISABLE_VERSION_CHECK=1 \

@@ -81,7 +81,13 @@ class GLM53RuntimeContractTests(unittest.TestCase):
     def test_launch_uses_only_supported_three_gpu_layout_and_bounded_smoke(self) -> None:
         text = (ROOT / "scripts/glm53/launch_server.sh").read_text(encoding="utf-8")
         required = [
-            "--gpus 'device=0,1,2'",
+            "/dev/nvidia0 /dev/nvidia1 /dev/nvidia2 /dev/nvidiactl",
+            "/dev/nvidia-uvm /dev/nvidia-uvm-tools",
+            "libcuda.so.1",
+            "libnvidia-ptxjitcompiler.so.1",
+            "libnvidia-nvvm.so.4",
+            "libnvidia-gpucomp.so.${EXPECTED_DRIVER_VERSION}",
+            "explicit_devices_and_driver_libs",
             "--tensor-parallel-size 1",
             "--pipeline-parallel-size 1",
             "--data-parallel-size 3",
@@ -102,6 +108,7 @@ class GLM53RuntimeContractTests(unittest.TestCase):
                 self.assertIn(value, text)
         self.assertNotIn("--tensor-parallel-size 3", text)
         self.assertNotIn("--pipeline-parallel-size 3", text)
+        self.assertNotIn("--gpus", text)
         self.assertNotIn("model_mtp", text)
 
     def test_safe_stop_never_escalates_to_sigkill(self) -> None:

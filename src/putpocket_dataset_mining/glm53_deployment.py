@@ -120,6 +120,10 @@ def validate_model_lock(lock: dict[str, Any]) -> None:
         raise GLM53DeploymentError("SM120 compressed-tensors smoke must use Marlin MoE")
     if runtime.get("torch_cuda_arch_list") != "12.0":
         raise GLM53DeploymentError("Montblanc runtime must be compiled for SM120 only")
+    if runtime.get("nvidia_driver_version") != "580.159.03":
+        raise GLM53DeploymentError("Montblanc driver version must remain explicitly pinned")
+    if runtime.get("container_gpu_passthrough") != "explicit_devices_and_driver_libs":
+        raise GLM53DeploymentError("container GPU passthrough mode is not fail-closed")
     if runtime.get("enable_mtp") is not False or runtime.get("enable_prefix_caching") is not False:
         raise GLM53DeploymentError("smoke runtime must disable MTP and prefix caching")
 
@@ -283,6 +287,11 @@ def host_doctor(
     memory = _proc_memory_summary()
     statvfs = os.statvfs(Path.home())
     hf_home = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
+    driver = _command_output(
+        ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"]
+    ).splitlines()[0]
+    if driver != lock["runtime"]["nvidia_driver_version"]:
+        failures.append(f"nvidia_driver_version:{driver}")
     return {
         "schema_version": 1,
         "task_id": TASK_ID,
@@ -321,7 +330,7 @@ def host_doctor(
             "cached_token_file_present": (hf_home / "token").is_file(),
             "hf_home": str(hf_home),
         },
-        "driver": _command_output(["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"]).splitlines()[0],
+        "driver": driver,
     }
 
 

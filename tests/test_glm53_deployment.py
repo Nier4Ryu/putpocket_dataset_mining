@@ -165,6 +165,34 @@ class GLM53DeploymentTests(unittest.TestCase):
         self.assertEqual(report["status"], "failed")
         self.assertIn("gpu_compute_processes_present", report["failures"])
 
+    def test_host_doctor_fails_closed_on_driver_drift(self) -> None:
+        gpu = {
+            "index": 0,
+            "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+            "memory_total_mib": 97887,
+            "memory_total_bytes": 97887 * 1024 * 1024,
+            "compute_capability": "12.0",
+        }
+        disk = type("Disk", (), {"total": 2 * 1024**4, "free": 512 * 1024**3})()
+        with (
+            patch(
+                "putpocket_dataset_mining.glm53_deployment._nvidia_smi_rows",
+                return_value=[gpu, {**gpu, "index": 1}, {**gpu, "index": 2}],
+            ),
+            patch(
+                "putpocket_dataset_mining.glm53_deployment._nvidia_compute_processes",
+                return_value=[],
+            ),
+            patch("putpocket_dataset_mining.glm53_deployment.shutil.disk_usage", return_value=disk),
+            patch(
+                "putpocket_dataset_mining.glm53_deployment._command_output",
+                return_value="999.0",
+            ),
+        ):
+            report = host_doctor(self.lock)
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("nvidia_driver_version:999.0", report["failures"])
+
     def test_runtime_image_fails_closed_without_sm120_only_environment(self) -> None:
         runtime = self.lock["runtime"]
         labels = {

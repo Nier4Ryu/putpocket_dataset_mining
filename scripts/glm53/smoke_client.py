@@ -38,7 +38,7 @@ def _wait_ready(base_url: str, timeout_sec: float) -> tuple[float, dict[str, Any
         try:
             models = _json_request(f"{base_url}/v1/models")
             return time.monotonic() - started, models
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
             last_error = f"{type(exc).__name__}: {exc}"
             time.sleep(10)
     raise RuntimeError(f"server did not become ready within {timeout_sec}s: {last_error}")

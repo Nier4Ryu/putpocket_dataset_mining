@@ -30,10 +30,14 @@ FROM ${VLLM_BASE_IMAGE}
 
 ARG VLLM_COMMIT
 ARG FLASHINFER_COMMIT
+ARG VLLM_SM120_TOPK_LENS_PATCH_SHA256
+ARG VLLM_SM120_TOPK_LENS_PRE_SHA256
+ARG VLLM_SM120_TOPK_LENS_POST_SHA256
 
 LABEL putpocket.task_id="T20260830-001__glm53-montblanc-deployment" \
       putpocket.vllm.commit="${VLLM_COMMIT}" \
       putpocket.flashinfer.commit="${FLASHINFER_COMMIT}" \
+      putpocket.vllm.sm120_topk_lens_patch_sha256="${VLLM_SM120_TOPK_LENS_PATCH_SHA256}" \
       putpocket.runtime.scope="glm53-flash-sm120-nope"
 
 # The exact source wheel identifies as 0.6.18. The pinned upstream vLLM
@@ -48,6 +52,7 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=flashinfer-source-builder /opt/flashinfer-wheelhouse/ /tmp/flashinfer-wheelhouse/
+COPY patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/glm53_sm120_nope_topk_lens.patch /tmp/glm53_sm120_nope_topk_lens.patch
 
 RUN set -eux; \
     python3 -m pip uninstall -y flashinfer-python flashinfer-jit-cache; \
@@ -55,3 +60,21 @@ RUN set -eux; \
       /tmp/flashinfer-wheelhouse/flashinfer_python-*.whl; \
     rm -rf /tmp/flashinfer-wheelhouse; \
     python3 -c 'import flashinfer; print(flashinfer.__version__)'
+
+RUN set -eux; \
+    test "$(sha256sum /tmp/glm53_sm120_nope_topk_lens.patch | cut -d ' ' -f1)" = \
+      "${VLLM_SM120_TOPK_LENS_PATCH_SHA256}"; \
+    site_root="$(python3 -c 'from pathlib import Path; import vllm; print(Path(vllm.__file__).parent.parent)')"; \
+    target="${site_root}/vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py"; \
+    test "$(sha256sum "${target}" | cut -d ' ' -f1)" = \
+      "${VLLM_SM120_TOPK_LENS_PRE_SHA256}"; \
+    patch --batch --forward --no-backup-if-mismatch --dry-run \
+      --strip=1 --directory="${site_root}" \
+      --input=/tmp/glm53_sm120_nope_topk_lens.patch; \
+    patch --batch --forward --no-backup-if-mismatch \
+      --strip=1 --directory="${site_root}" \
+      --input=/tmp/glm53_sm120_nope_topk_lens.patch; \
+    test "$(sha256sum "${target}" | cut -d ' ' -f1)" = \
+      "${VLLM_SM120_TOPK_LENS_POST_SHA256}"; \
+    python3 -m py_compile "${target}"; \
+    rm -f /tmp/glm53_sm120_nope_topk_lens.patch

@@ -52,6 +52,7 @@ class GLM53RuntimeContractTests(unittest.TestCase):
         )
         self.assertIn("vllm_dockerfile_post_patch_sha256", text)
         self.assertIn("vllm_nope_cache_post_patch_sha256", text)
+        self.assertIn("vllm_sm120_topk_lens_post_patch_sha256", text)
         self.assertIn('git -C "${VLLM_SOURCE_DIR}" apply --check', text)
         self.assertIn("EXPECTED_VLLM_STATUS", text)
         self.assertIn("apply --check --unidiff-zero", text)
@@ -82,6 +83,25 @@ class GLM53RuntimeContractTests(unittest.TestCase):
         self.assertNotIn("kv_cache.size(2) == 528", patch_text)
         self.assertNotIn("kv_cache.size(2)", patch_text)
         self.assertNotIn("qk_rope_head_dim", patch_text)
+
+    def test_sm120_nope_overlay_passes_exact_active_topk_lengths(self) -> None:
+        patch_text = (
+            ROOT
+            / "patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/"
+            "glm53_sm120_nope_topk_lens.patch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("return_valid_counts=True", patch_text)
+        self.assertIn("sparse_mla_top_k_lens=active_topk_lens", patch_text)
+        self.assertIn("active_topk_lens = topk_lens.clamp(min=1)", patch_text)
+        self.assertIn("out.masked_fill_(empty_rows.view(-1, 1, 1), 0.0)", patch_text)
+        self.assertNotIn("sparse_mla_top_k_lens=attn_metadata.seq_lens", patch_text)
+
+        dockerfile = (
+            ROOT / "docker/glm53_sm120/Dockerfile.flashinfer-overlay"
+        ).read_text(encoding="utf-8")
+        self.assertIn("VLLM_SM120_TOPK_LENS_PRE_SHA256", dockerfile)
+        self.assertIn("VLLM_SM120_TOPK_LENS_POST_SHA256", dockerfile)
+        self.assertIn("patch --batch --forward", dockerfile)
 
     def test_lock_makes_sm120_only_build_boundary_explicit(self) -> None:
         lock = json.loads(
@@ -144,6 +164,12 @@ class GLM53RuntimeContractTests(unittest.TestCase):
         self.assertNotIn("--gpus", text)
         self.assertNotIn("model_mtp", text)
 
+    def test_launch_driver_library_lookup_consumes_ldconfig_output(self) -> None:
+        text = (ROOT / "scripts/glm53/launch_server.sh").read_text(encoding="utf-8")
+        self.assertIn('$1 == expected && first == "" {first = $NF}', text)
+        self.assertIn('END {if (first != "") print first}', text)
+        self.assertNotIn('$1 == expected {print $NF; exit}', text)
+
     def test_safe_stop_never_escalates_to_sigkill(self) -> None:
         text = (ROOT / "scripts/glm53/stop_server.sh").read_text(encoding="utf-8")
         self.assertIn("docker stop --signal SIGTERM --timeout -1", text)
@@ -160,6 +186,7 @@ class GLM53RuntimeContractTests(unittest.TestCase):
         self.assertIn("first_text != second_text", text)
         self.assertIn("rendered_prompt=rendered", text)
         self.assertIn('"clear_thinking": True', text)
+        self.assertIn("urllib.error.URLError, OSError, json.JSONDecodeError", text)
 
     def test_execution_example_is_machine_readable_and_consistent(self) -> None:
         try:

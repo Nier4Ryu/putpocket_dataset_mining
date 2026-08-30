@@ -74,7 +74,10 @@ DRIVER_LIB_SONAMES=(
 for soname in "${DRIVER_LIB_SONAMES[@]}"; do
   host_path="$(
     /sbin/ldconfig -p |
-      awk -v expected="${soname}" '$1 == expected {print $NF; exit}'
+      awk -v expected="${soname}" '
+        $1 == expected && first == "" {first = $NF}
+        END {if (first != "") print first}
+      '
   )"
   host_path="$(readlink -f "${host_path}")"
   if [[ -z "${host_path}" || ! -f "${host_path}" ]]; then

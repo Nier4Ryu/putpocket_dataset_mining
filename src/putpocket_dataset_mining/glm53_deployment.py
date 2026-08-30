@@ -126,6 +126,15 @@ def validate_model_lock(lock: dict[str, Any]) -> None:
         raise GLM53DeploymentError("container GPU passthrough mode is not fail-closed")
     if runtime.get("enable_mtp") is not False or runtime.get("enable_prefix_caching") is not False:
         raise GLM53DeploymentError("smoke runtime must disable MTP and prefix caching")
+    if runtime.get("vllm_sm120_topk_lens_overlay_mode") != "post-wheel-python-patch":
+        raise GLM53DeploymentError("SM120 top-k lengths must use the locked runtime overlay")
+    for key in (
+        "vllm_sm120_topk_lens_patch_sha256",
+        "vllm_sm120_topk_lens_pre_patch_sha256",
+        "vllm_sm120_topk_lens_post_patch_sha256",
+    ):
+        if not SHA256_RE.fullmatch(str(runtime.get(key, ""))):
+            raise GLM53DeploymentError(f"invalid runtime SHA-256: {key}")
 
     package_files = lock.get("package_files")
     if not isinstance(package_files, list) or not package_files:
@@ -351,6 +360,9 @@ def inspect_runtime_image(image: str, lock: dict[str, Any]) -> dict[str, Any]:
         "putpocket.task_id": TASK_ID,
         "putpocket.vllm.commit": runtime["vllm_commit"],
         "putpocket.flashinfer.commit": runtime["flashinfer_commit"],
+        "putpocket.vllm.sm120_topk_lens_patch_sha256": runtime[
+            "vllm_sm120_topk_lens_patch_sha256"
+        ],
     }
     failures = [
         f"label:{key}"
@@ -524,6 +536,15 @@ try:
  values['indexer']=SparseAttnIndexerKpool.__name__
  values['ep_weight_filter_arg']=hasattr(EngineArgs,'enable_ep_weight_filter')
  values['glm53_nope_dispatch']=(64,2176) in _DECODE_GLM53_NOPE_DISPATCH
+ import inspect
+ sm120_source=inspect.getsource(FlashInferMLASparseSM120Impl.forward_mqa)
+ values['sm120_topk_lens_overlay']=(
+   'return_valid_counts=True' in sm120_source
+   and 'sparse_mla_top_k_lens=active_topk_lens' in sm120_source
+   and 'out.masked_fill_(empty_rows.view(-1, 1, 1), 0.0)' in sm120_source
+ )
+ if not values['sm120_topk_lens_overlay']:
+  failures.append('SM120 NoPE top-k lengths runtime overlay is absent')
 except Exception as exc:
  failures.append(type(exc).__name__+':'+str(exc))
 print(json.dumps({'status':'ok' if not failures else 'failed','failures':failures,'values':values},sort_keys=True))

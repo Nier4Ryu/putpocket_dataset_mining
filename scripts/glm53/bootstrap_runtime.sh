@@ -55,6 +55,11 @@ VLLM_NOPE_CACHE_POST_SHA="$(lock_value runtime.vllm_nope_cache_post_patch_sha256
 VLLM_NOPE_CACHE_PATCH_REL="$(lock_value runtime.vllm_nope_cache_patch_path)"
 VLLM_NOPE_CACHE_PATCH="${REPO_ROOT}/${VLLM_NOPE_CACHE_PATCH_REL}"
 VLLM_NOPE_CACHE_SOURCE="${VLLM_SOURCE_DIR}/csrc/libtorch_stable/cache_kernels.cu"
+VLLM_SM120_TOPK_LENS_PATCH_REL="$(lock_value runtime.vllm_sm120_topk_lens_patch_path)"
+VLLM_SM120_TOPK_LENS_PATCH="${REPO_ROOT}/${VLLM_SM120_TOPK_LENS_PATCH_REL}"
+VLLM_SM120_TOPK_LENS_PATCH_SHA="$(lock_value runtime.vllm_sm120_topk_lens_patch_sha256)"
+VLLM_SM120_TOPK_LENS_PRE_SHA="$(lock_value runtime.vllm_sm120_topk_lens_pre_patch_sha256)"
+VLLM_SM120_TOPK_LENS_POST_SHA="$(lock_value runtime.vllm_sm120_topk_lens_post_patch_sha256)"
 
 if [[ ! -d "${VLLM_SOURCE_DIR}/.git" ]]; then
   if [[ -e "${VLLM_SOURCE_DIR}" ]]; then
@@ -73,6 +78,8 @@ test "$(sha256sum "${VLLM_DOCKERFILE_PATCH}" | awk '{print $1}')" = \
   "$(lock_value runtime.vllm_dockerfile_patch_sha256)"
 test "$(sha256sum "${VLLM_NOPE_CACHE_PATCH}" | awk '{print $1}')" = \
   "$(lock_value runtime.vllm_nope_cache_patch_sha256)"
+test "$(sha256sum "${VLLM_SM120_TOPK_LENS_PATCH}" | awk '{print $1}')" = \
+  "${VLLM_SM120_TOPK_LENS_PATCH_SHA}"
 
 DOCKERFILE_SHA="$(sha256sum "${VLLM_SOURCE_DIR}/docker/Dockerfile" | awk '{print $1}')"
 if [[ "${DOCKERFILE_SHA}" = "${VLLM_DOCKERFILE_BASE_SHA}" ]]; then
@@ -111,6 +118,8 @@ git -C "${VLLM_SOURCE_DIR}" diff --check
   echo "vllm_dockerfile_post_patch_sha256=${VLLM_DOCKERFILE_POST_SHA}"
   echo "vllm_nope_cache_patch=${VLLM_NOPE_CACHE_PATCH_REL}"
   echo "vllm_nope_cache_post_patch_sha256=${VLLM_NOPE_CACHE_POST_SHA}"
+  echo "vllm_sm120_topk_lens_patch=${VLLM_SM120_TOPK_LENS_PATCH_REL}"
+  echo "vllm_sm120_topk_lens_post_patch_sha256=${VLLM_SM120_TOPK_LENS_POST_SHA}"
   echo "build_base_image=${BUILD_BASE_IMAGE}"
   echo "final_base_image=${FINAL_BASE_IMAGE}"
   echo "vllm_image=${VLLM_IMAGE}"
@@ -134,6 +143,9 @@ docker build --progress=plain \
   --build-arg "VLLM_BASE_IMAGE=${VLLM_IMAGE}" \
   --build-arg "VLLM_COMMIT=${VLLM_COMMIT}" \
   --build-arg "FLASHINFER_COMMIT=${FLASHINFER_COMMIT}" \
+  --build-arg "VLLM_SM120_TOPK_LENS_PATCH_SHA256=${VLLM_SM120_TOPK_LENS_PATCH_SHA}" \
+  --build-arg "VLLM_SM120_TOPK_LENS_PRE_SHA256=${VLLM_SM120_TOPK_LENS_PRE_SHA}" \
+  --build-arg "VLLM_SM120_TOPK_LENS_POST_SHA256=${VLLM_SM120_TOPK_LENS_POST_SHA}" \
   --tag "${FINAL_IMAGE}" \
   "${REPO_ROOT}" \
   2>&1 | tee "${RUNTIME_ROOT}/logs/flashinfer_overlay_build.log"

@@ -82,6 +82,17 @@ The whitespace-clean zero-context patch must be applied with
 `git apply --check --unidiff-zero` followed by
 `git apply --unidiff-zero`; bootstrap records that contract explicitly.
 
+The pinned SM120 Python backend also omitted a required native-NoPE argument:
+FlashInfer requires one contiguous INT32 active top-k length for every query
+row. A separate checksum-bound post-wheel overlay mirrors the already present
+generic sparse-backend contract. It requests valid counts while translating
+logical indices, compacts valid entries before `-1` padding, passes the exact
+per-query `sparse_mla_top_k_lens`, substitutes one safe dummy slot only for an
+empty row, and zeros that row's output after the launch. The overlay validates
+the installed source preimage, patch hash, and postimage before `py_compile`;
+image doctor rejects an absent overlay. It changes neither indexer selection
+nor inference-time scheduling and does not require rebuilding the CUDA wheel.
+
 The image is deliberately host-specific: vLLM's supported
 `torch_cuda_arch_list` build argument is fixed to `12.0`. This retains the
 SM120 NVFP4, Marlin MoE, router, cache, and extension intersections selected by
@@ -123,6 +134,12 @@ runtime-label drift, or an existing run directory. It publishes only on
 sees the checkpoint read-only. The stop script resolves one exact CID, verifies
 both task and run labels, archives logs/telemetry, and uses SIGTERM with an
 infinite Docker stop timeout so it never escalates to SIGKILL.
+
+Driver-library resolution consumes the complete `ldconfig -p` stream so
+`set -o pipefail` cannot misclassify a successful early match as SIGPIPE 141.
+The smoke readiness loop treats connection reset/other `OSError` failures as
+transient only until its fixed timeout; response/schema failures after
+readiness still fail closed.
 
 Montblanc's Docker daemon has no NVIDIA Container Toolkit or CDI runtime. The
 launch therefore fails closed on driver drift and passes only the six required

@@ -40,6 +40,7 @@ fixed task decisions:
   - do not exclude vllm-flash-attn from this wheel: Glm5Next imports its multimodal module eagerly, MMEncoderAttention imports fa_utils, and CUDA fa_utils imports vllm.vllm_flash_attn; setup.py also declares the FA2/FA3 extension targets
   - the checksum-bound packaging patch removes both unavailable 0.6.18rc10 release-wheel install sites; the pinned FlashInfer PR source remains the only task runtime overlay authority
   - actual model warmup proved the pinned generic fp8_ds_mla cache writer rejected GLM-5.3 NoPE at pe_dim=0; a second checksum-bound vLLM patch retains the 656-byte ABI, accepts only 0 or 64, and suppresses the RoPE copy warp only for NoPE
+  - the following real warmup proved the SM120 Python backend omitted FlashInfer's mandatory per-query native-NoPE sparse_mla_top_k_lens; a checksum-bound post-wheel overlay mirrors the pinned generic backend's valid-count, empty-row, and exact-length contract without rebuilding CUDA or changing selection
 completion criteria:
   - immutable model files pass exact size and SHA-256 verification
   - runtime image source labels and GLM53_NOPE symbols pass doctor checks
@@ -54,6 +55,8 @@ validation:
   - initial SM120 CUDA build reached wheel packaging; it then failed closed because the first patch omitted a second unpublished FlashInfer restore site (exit 2, not masked)
   - corrected patch applies to the exact upstream preimage and yields the locked postimage; cached rebuild and GPU runtime remain pending
   - first three-GPU server attempt loaded all weights and allocated KV, then failed closed in concat_and_cache_mla before readiness because upstream required pe_dim=64; no generation was claimed
+  - the NoPE cache rebuild completed with image doctor and binary guard evidence; the next unique run passed that prior pe_dim boundary, then failed closed because sparse_mla_top_k_lens was absent; no generation was claimed
+  - real launch exposed and fixed an ldconfig/pipefail SIGPIPE preflight bug and a transient connection-reset readiness bug; both failures are retained in task-local runtime evidence
 artifacts:
   - task source: agent/tasks/T20260830-001__glm53-montblanc-deployment/
   - runtime evidence root: task-local cache selected by GLM53_RUNTIME_ROOT (not committed)

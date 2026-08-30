@@ -39,6 +39,7 @@ fixed task decisions:
   - the vLLM image is SM120-only via the official torch_cuda_arch_list=12.0 build arg; FlashAttention retains upstream per-kernel compatibility defaults while GLM main attention uses the pinned FlashInfer SM120 NoPE path
   - do not exclude vllm-flash-attn from this wheel: Glm5Next imports its multimodal module eagerly, MMEncoderAttention imports fa_utils, and CUDA fa_utils imports vllm.vllm_flash_attn; setup.py also declares the FA2/FA3 extension targets
   - the checksum-bound packaging patch removes both unavailable 0.6.18rc10 release-wheel install sites; the pinned FlashInfer PR source remains the only task runtime overlay authority
+  - actual model warmup proved the pinned generic fp8_ds_mla cache writer rejected GLM-5.3 NoPE at pe_dim=0; a second checksum-bound vLLM patch retains the 656-byte ABI, accepts only 0 or 64, and suppresses the RoPE copy warp only for NoPE
 completion criteria:
   - immutable model files pass exact size and SHA-256 verification
   - runtime image source labels and GLM53_NOPE symbols pass doctor checks
@@ -52,6 +53,7 @@ validation:
   - shell syntax/compileall/git diff --check: pass (pre-runtime)
   - initial SM120 CUDA build reached wheel packaging; it then failed closed because the first patch omitted a second unpublished FlashInfer restore site (exit 2, not masked)
   - corrected patch applies to the exact upstream preimage and yields the locked postimage; cached rebuild and GPU runtime remain pending
+  - first three-GPU server attempt loaded all weights and allocated KV, then failed closed in concat_and_cache_mla before readiness because upstream required pe_dim=64; no generation was claimed
 artifacts:
   - task source: agent/tasks/T20260830-001__glm53-montblanc-deployment/
   - runtime evidence root: task-local cache selected by GLM53_RUNTIME_ROOT (not committed)

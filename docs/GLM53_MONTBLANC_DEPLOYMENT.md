@@ -68,7 +68,19 @@ FlashInfer 0.6.18rc10 release assets; a checksum-bound packaging-only patch
 skips both the base install and the post-vLLM-wheel restore steps. The exact
 FlashInfer PR source wheel is then
 installed without an AOT cache, so its module is JIT-compiled into a task-local
-cache. The patch does not change vLLM Python or CUDA runtime source.
+cache.
+
+The pinned integration accepts NoPE in its FlashInfer backend but its generic
+`fp8_ds_mla` cache writer still rejects `qk_rope_head_dim=0` and unconditionally
+reads a 64-element RoPE tensor. A second checksum-bound patch preserves the
+existing 656-byte cache ABI, permits only `pe_dim` 0 or 64, and launches the
+third copy warp only for the 64-dimensional RoPE case. For GLM-5.3 NoPE the
+first 64 threads still write all 512 latent FP8 bytes and four FP32 scales; the
+unused 128-byte RoPE tail is not read or written. Both source preimage and
+postimage hashes are locked, and bootstrap fails on any other source state.
+The whitespace-clean zero-context patch must be applied with
+`git apply --check --unidiff-zero` followed by
+`git apply --unidiff-zero`; bootstrap records that contract explicitly.
 
 The image is deliberately host-specific: vLLM's supported
 `torch_cuda_arch_list` build argument is fixed to `12.0`. This retains the

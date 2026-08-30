@@ -1,0 +1,25 @@
+diff --git a/csrc/libtorch_stable/cache_kernels.cu b/csrc/libtorch_stable/cache_kernels.cu
+index bc8d1be..21929f2 100644
+--- a/csrc/libtorch_stable/cache_kernels.cu
++++ b/csrc/libtorch_stable/cache_kernels.cu
+@@ -531,2 +531,2 @@ __global__ void concat_and_cache_ds_mla_kernel(
+-  // The RoPE part (last 64 elements) is handled by another 1 warp (32 threads).
+-  // So in total, we use 3 warps (96 threads) per block.
++  // The optional RoPE part (last 64 elements) is handled by another 1 warp
++  // (32 threads). NoPE MLA launches only the first 2 warps.
+@@ -538 +538,2 @@ __global__ void concat_and_cache_ds_mla_kernel(
+-  // The last warp handles the RoPE part
++  // The optional last warp handles the RoPE part. A NoPE tensor has a zero
++  // second dimension and must never be dereferenced.
+@@ -923 +924,2 @@ void concat_and_cache_mla(
+-    STD_TORCH_CHECK(pe_dim == 64, "pe_dim must be 64 for fp8_ds_mla");
++    STD_TORCH_CHECK(pe_dim == 0 || pe_dim == 64,
++                    "pe_dim must be 0 or 64 for fp8_ds_mla");
+@@ -948,3 +950,4 @@ void concat_and_cache_mla(
+-    // The RoPE part (last 64 elements) is handled by another 1 warp (32
+-    // threads). So in total, we use 3 warps (96 threads) per block.
+-    dim3 block(96);
++    // The optional RoPE part (last 64 elements) is handled by another 1 warp
++    // (32 threads). NoPE MLA launches only the first 2 warps so the empty k_pe
++    // tensor is never dereferenced.
++    dim3 block(pe_dim == 0 ? 64 : 96);

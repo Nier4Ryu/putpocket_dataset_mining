@@ -51,8 +51,13 @@ class GLM53RuntimeContractTests(unittest.TestCase):
             text,
         )
         self.assertIn("vllm_dockerfile_post_patch_sha256", text)
+        self.assertIn("vllm_nope_cache_post_patch_sha256", text)
         self.assertIn('git -C "${VLLM_SOURCE_DIR}" apply --check', text)
-        self.assertIn('status --porcelain)" = " M docker/Dockerfile"', text)
+        self.assertIn("EXPECTED_VLLM_STATUS", text)
+        self.assertIn("apply --check --unidiff-zero", text)
+        self.assertIn("apply --unidiff-zero", text)
+        self.assertIn(" M csrc/libtorch_stable/cache_kernels.cu", text)
+        self.assertIn(" M docker/Dockerfile", text)
 
     def test_packaging_patch_only_skips_unpublished_flashinfer_release(self) -> None:
         patch_text = (
@@ -66,6 +71,18 @@ class GLM53RuntimeContractTests(unittest.TestCase):
         self.assertIn("flashinfer_python-${FLASHINFER_VERSION}", patch_text)
         self.assertNotIn("vllm/", patch_text)
 
+    def test_nope_cache_patch_preserves_layout_and_skips_only_rope_warp(self) -> None:
+        patch_text = (
+            ROOT
+            / "patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/"
+            "glm53_nope_fp8_ds_mla_cache.patch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("pe_dim == 0 || pe_dim == 64", patch_text)
+        self.assertIn("dim3 block(pe_dim == 0 ? 64 : 96)", patch_text)
+        self.assertNotIn("kv_cache.size(2) == 528", patch_text)
+        self.assertNotIn("kv_cache.size(2)", patch_text)
+        self.assertNotIn("qk_rope_head_dim", patch_text)
+
     def test_lock_makes_sm120_only_build_boundary_explicit(self) -> None:
         lock = json.loads(
             (ROOT / "configs/models/glm53_flash_nvfp4_montblanc.lock.json").read_text(
@@ -76,6 +93,22 @@ class GLM53RuntimeContractTests(unittest.TestCase):
         self.assertEqual(
             lock["runtime"]["flash_attention_arch_policy"],
             "upstream_per_kernel_forward_compatible_defaults",
+        )
+        self.assertEqual(
+            lock["runtime"]["vllm_nope_cache_pre_patch_sha256"],
+            "e145bd707407376f3bb412383f9d6281a88168ce2ab6cbe593e11d83399a7ac5",
+        )
+        self.assertEqual(
+            lock["runtime"]["vllm_nope_cache_post_patch_sha256"],
+            "538fed053d6ee8c2b021b4e8d65d39eaa981ae3b57c17e85dcd68db413ccf03a",
+        )
+        self.assertEqual(
+            lock["runtime"]["vllm_nope_cache_patch_apply_args"],
+            ["--unidiff-zero"],
+        )
+        self.assertIn(
+            "656-byte",
+            lock["runtime"]["vllm_nope_cache_patch_scope"],
         )
 
     def test_launch_uses_only_supported_three_gpu_layout_and_bounded_smoke(self) -> None:

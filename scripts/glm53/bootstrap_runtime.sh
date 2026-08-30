@@ -50,6 +50,11 @@ VLLM_DOCKERFILE_BASE_SHA="$(lock_value runtime.vllm_dockerfile_sha256)"
 VLLM_DOCKERFILE_POST_SHA="$(lock_value runtime.vllm_dockerfile_post_patch_sha256)"
 VLLM_DOCKERFILE_PATCH_REL="$(lock_value runtime.vllm_dockerfile_patch_path)"
 VLLM_DOCKERFILE_PATCH="${REPO_ROOT}/${VLLM_DOCKERFILE_PATCH_REL}"
+VLLM_NOPE_CACHE_BASE_SHA="$(lock_value runtime.vllm_nope_cache_pre_patch_sha256)"
+VLLM_NOPE_CACHE_POST_SHA="$(lock_value runtime.vllm_nope_cache_post_patch_sha256)"
+VLLM_NOPE_CACHE_PATCH_REL="$(lock_value runtime.vllm_nope_cache_patch_path)"
+VLLM_NOPE_CACHE_PATCH="${REPO_ROOT}/${VLLM_NOPE_CACHE_PATCH_REL}"
+VLLM_NOPE_CACHE_SOURCE="${VLLM_SOURCE_DIR}/csrc/libtorch_stable/cache_kernels.cu"
 
 if [[ ! -d "${VLLM_SOURCE_DIR}/.git" ]]; then
   if [[ -e "${VLLM_SOURCE_DIR}" ]]; then
@@ -66,6 +71,8 @@ test "$(sha256sum "${VLLM_SOURCE_DIR}/docker/versions.json" | awk '{print $1}')"
   "$(lock_value runtime.vllm_versions_sha256)"
 test "$(sha256sum "${VLLM_DOCKERFILE_PATCH}" | awk '{print $1}')" = \
   "$(lock_value runtime.vllm_dockerfile_patch_sha256)"
+test "$(sha256sum "${VLLM_NOPE_CACHE_PATCH}" | awk '{print $1}')" = \
+  "$(lock_value runtime.vllm_nope_cache_patch_sha256)"
 
 DOCKERFILE_SHA="$(sha256sum "${VLLM_SOURCE_DIR}/docker/Dockerfile" | awk '{print $1}')"
 if [[ "${DOCKERFILE_SHA}" = "${VLLM_DOCKERFILE_BASE_SHA}" ]]; then
@@ -78,7 +85,22 @@ elif [[ "${DOCKERFILE_SHA}" != "${VLLM_DOCKERFILE_POST_SHA}" ]]; then
 fi
 test "$(sha256sum "${VLLM_SOURCE_DIR}/docker/Dockerfile" | awk '{print $1}')" = \
   "${VLLM_DOCKERFILE_POST_SHA}"
-test "$(git -C "${VLLM_SOURCE_DIR}" status --porcelain)" = " M docker/Dockerfile"
+
+NOPE_CACHE_SHA="$(sha256sum "${VLLM_NOPE_CACHE_SOURCE}" | awk '{print $1}')"
+if [[ "${NOPE_CACHE_SHA}" = "${VLLM_NOPE_CACHE_BASE_SHA}" ]]; then
+  git -C "${VLLM_SOURCE_DIR}" apply --check --unidiff-zero \
+    "${VLLM_NOPE_CACHE_PATCH}"
+  git -C "${VLLM_SOURCE_DIR}" apply --unidiff-zero \
+    "${VLLM_NOPE_CACHE_PATCH}"
+elif [[ "${NOPE_CACHE_SHA}" != "${VLLM_NOPE_CACHE_POST_SHA}" ]]; then
+  echo "Pinned vLLM cache kernel is neither the exact preimage nor postimage." >&2
+  exit 2
+fi
+test "$(sha256sum "${VLLM_NOPE_CACHE_SOURCE}" | awk '{print $1}')" = \
+  "${VLLM_NOPE_CACHE_POST_SHA}"
+EXPECTED_VLLM_STATUS=$' M csrc/libtorch_stable/cache_kernels.cu\n M docker/Dockerfile'
+test "$(git -C "${VLLM_SOURCE_DIR}" status --porcelain)" = \
+  "${EXPECTED_VLLM_STATUS}"
 git -C "${VLLM_SOURCE_DIR}" diff --check
 
 {
@@ -87,6 +109,8 @@ git -C "${VLLM_SOURCE_DIR}" diff --check
   echo "flashinfer_commit=${FLASHINFER_COMMIT}"
   echo "vllm_dockerfile_patch=${VLLM_DOCKERFILE_PATCH_REL}"
   echo "vllm_dockerfile_post_patch_sha256=${VLLM_DOCKERFILE_POST_SHA}"
+  echo "vllm_nope_cache_patch=${VLLM_NOPE_CACHE_PATCH_REL}"
+  echo "vllm_nope_cache_post_patch_sha256=${VLLM_NOPE_CACHE_POST_SHA}"
   echo "build_base_image=${BUILD_BASE_IMAGE}"
   echo "final_base_image=${FINAL_BASE_IMAGE}"
   echo "vllm_image=${VLLM_IMAGE}"

@@ -3,9 +3,13 @@ from __future__ import annotations
 import os
 import atexit
 import gc
+import json
 import signal
 import subprocess
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -34,6 +38,119 @@ class GenerationResult:
 class GenerationEngine(Protocol):
     def generate(self, request: GenerationRequest) -> GenerationResult:
         ...
+
+
+class OpenAICompatibleHTTPGenerationEngine:
+    """PutPocket ``GenerationEngine`` adapter for an OpenAI-compatible server.
+
+    PutPocket owns prompt rendering, so this adapter deliberately calls the
+    legacy-compatible ``/v1/completions`` endpoint with the exact rendered
+    prompt.  It does not apply a second chat template.  Credentials, when
+    needed, are read from a named environment variable and are never retained
+    in result metadata.
+    """
+
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        model_id: str,
+        timeout_sec: float = 300.0,
+        api_key_env: str | None = None,
+    ) -> None:
+        parsed = urllib.parse.urlsplit(base_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("base_url must be an absolute HTTP(S) URL")
+        if parsed.username is not None or parsed.password is not None:
+            raise ValueError("base_url must not contain embedded credentials")
+        if timeout_sec <= 0:
+            raise ValueError("timeout_sec must be positive")
+        self.base_url = base_url.rstrip("/")
+        self.model_id = model_id
+        self.timeout_sec = float(timeout_sec)
+        self.api_key_env = api_key_env
+
+    def generate(self, request: GenerationRequest) -> GenerationResult:
+        payload: dict[str, Any] = {
+            "model": self.model_id,
+            "prompt": request.rendered_prompt,
+            "max_tokens": request.max_tokens,
+            "temperature": request.temperature,
+            "top_p": request.top_p,
+            "n": request.n,
+            "stream": False,
+        }
+        if request.seed is not None:
+            payload["seed"] = request.seed
+        headers = {"Content-Type": "application/json"}
+        if self.api_key_env is not None:
+            api_key = os.environ.get(self.api_key_env)
+            if not api_key:
+                raise InfraError(
+                    f"OpenAI-compatible API credential environment variable "
+                    f"{self.api_key_env!r} is unset"
+                )
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        started_ns = time.perf_counter_ns()
+        started_utc = utc_now_iso()
+        started_kst = kst_now_iso()
+        http_request = urllib.request.Request(
+            f"{self.base_url}/v1/completions",
+            data=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(http_request, timeout=self.timeout_sec) as response:
+                response_payload = json.load(response)
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+            raise InfraError(f"OpenAI-compatible generation request failed: {exc}") from exc
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise InfraError("OpenAI-compatible server returned invalid JSON") from exc
+
+        ended_ns = time.perf_counter_ns()
+        try:
+            choice = response_payload["choices"][0]
+            text = choice["text"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise InfraError("OpenAI-compatible response has no completion text") from exc
+        if not isinstance(text, str):
+            raise InfraError("OpenAI-compatible completion text is not a string")
+        usage = response_payload.get("usage") or {}
+        completion_tokens = usage.get("completion_tokens")
+        elapsed = (ended_ns - started_ns) / 1_000_000_000
+        return GenerationResult(
+            text=text,
+            metadata={
+                "model_id": self.model_id,
+                "serving_mode": "openai_compatible_http",
+                "input_kind": "rendered_prompt_string",
+                "vllm_internal_chat_template_applied": False,
+                "endpoint": f"{self.base_url}/v1/completions",
+                "temperature": request.temperature,
+                "top_p": request.top_p,
+                "n": request.n,
+                "seed": request.seed,
+                "max_tokens": request.max_tokens,
+                "completion_token_count": completion_tokens,
+                "finish_reason": choice.get("finish_reason"),
+                "request_id": response_payload.get("id"),
+                "elapsed_sec": elapsed,
+                "request_start_monotonic_ns": started_ns,
+                "request_end_monotonic_ns": ended_ns,
+                "request_start_utc": started_utc,
+                "request_start_kst": started_kst,
+                "request_end_utc": utc_now_iso(),
+                "request_end_kst": kst_now_iso(),
+                "time_to_first_token_sec": None,
+                "output_tokens_per_second": (
+                    completion_tokens / elapsed
+                    if isinstance(completion_tokens, int) and elapsed > 0
+                    else None
+                ),
+            },
+        )
 
 
 class LocalVLLMEngine:

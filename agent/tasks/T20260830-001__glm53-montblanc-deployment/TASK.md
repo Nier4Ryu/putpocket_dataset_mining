@@ -1,0 +1,56 @@
+# T20260830-001__glm53-montblanc-deployment
+
+task identity: T20260830-001__glm53-montblanc-deployment
+objective: glm53-montblanc-deployment
+status: in_progress
+base tip: 6e8f8920ff5074ffeb7073223fa88fc3ea65ee0d
+branch: agent/T20260830-001__glm53-montblanc-deployment
+worktree: /home/dyryu/putpocket_dataset_mining_worktrees/T20260830-001__glm53-montblanc-deployment
+runtime mode: isolated-native
+write scope:
+  - source/docs/tests required for this task
+forbidden paths:
+  - Putpocket_env/
+  - data/
+  - logs/
+  - models/
+  - .ssh/
+fixed decisions:
+  - canonical runtime checkout is /home/${USER}/putpocket_dataset_mining or /workspace/putpocket_dataset_mining
+  - task worktrees live under /home/${USER}/putpocket_dataset_mining_worktrees or /workspace/putpocket_dataset_mining_worktrees
+plan:
+  - audit host, source, official models, and current GLM-5.2 boundary
+  - lock GLM-5.3-Flash compressed-tensors NVFP4 and TP1/DP3/EP3 capacity plan
+  - implement task-local doctor/download/build/lifecycle/client package
+  - download and verify immutable selected files
+  - build pinned vLLM plus FlashInfer SM120 NoPE runtime
+  - launch real three-GPU endpoint and run OpenAI plus PutPocket smoke
+  - stop only the task-owned server, validate, commit, push, and hand off
+fixed task decisions:
+  - selected checkpoint is RedHatAI/GLM-5.3-Flash-NVFP4 at 36c184c6cda000a481711306df5adde42f63321a
+  - official full GLM-5.3 FP8/BF16 and Flash FP8/BF16 do not fit three 97,887 MiB cards
+  - selected main checkpoint is 190,262,595,076 bytes; the independent MTP file is excluded
+  - TP3 is illegal because 64 attention heads and hidden size 4096 are not divisible by 3
+  - PP3 is unsupported by the pinned Glm5Next implementation
+  - supported plan is TP1/DP3/EP3 with 96 of 288 experts per rank and early EP weight filtering
+  - vLLM PR 53906 head 878631b6079d2cf9fb80830ef9cb41b43aded098 supplies GLM-5.3 integration
+  - FlashInfer PR 4802 head c2eec117219457e45126fa4fa87e7240dd4ea620 supplies SM120 GLM53_NOPE
+  - compressed-tensors uses Marlin MoE; MTP and prefix caching remain off for the bounded smoke
+completion criteria:
+  - immutable model files pass exact size and SHA-256 verification
+  - runtime image source labels and GLM53_NOPE symbols pass doctor checks
+  - actual three-GPU vLLM endpoint becomes ready
+  - /v1/models, deterministic chat, and PutPocket rendered-prompt HTTP smoke pass
+  - task server stops via ownership-checked SIGTERM without hard kill
+  - focused/full CPU tests pass and task-local TO_GPT handoff exists
+validation:
+  - focused CPU/static: 16 passed, 26 subtests passed (pre-runtime)
+  - lock/package hashes: pass (pre-runtime)
+  - shell syntax/compileall/git diff --check: pass (pre-runtime)
+  - GPU runtime: pending model download/build
+artifacts:
+  - task source: agent/tasks/T20260830-001__glm53-montblanc-deployment/
+  - runtime evidence root: task-local cache selected by GLM53_RUNTIME_ROOT (not committed)
+commits:
+  - pending
+final handoff link: pending

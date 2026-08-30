@@ -1,0 +1,33 @@
+schema_version: 1
+execution_role: local_controller
+serving_backend: openai_compatible_http
+endpoint: http://127.0.0.1:8137
+served_model_name: glm-5.3-flash-nvfp4
+model_lock: configs/models/glm53_flash_nvfp4_montblanc.lock.json
+input_contract:
+  kind: rendered_prompt_string
+  apply_server_chat_template: false
+generation:
+  temperature: 0.0
+  top_p: 1.0
+  seed: 530053
+server:
+  launch_script: scripts/glm53/launch_server.sh
+  smoke_script: scripts/glm53/run_smoke.sh
+  stop_script: scripts/glm53/stop_server.sh
+parallelism:
+  tensor_parallel_size: 1
+  data_parallel_size: 3
+  expert_parallel_size: 3
+  pipeline_parallel_size: 1
+  enable_ep_weight_filter: true
+runtime_boundaries:
+  model_family: GLM-5.3-Flash
+  checkpoint_format: compressed-tensors-nvfp4-w4a4
+  attention_backend: FLASHINFER_MLA_SPARSE_SM120
+  moe_backend: marlin
+  kv_cache_dtype: fp8_ds_mla
+  mtp: false
+  prefix_caching: false
+  max_model_len: 4096
+  max_num_seqs: 1

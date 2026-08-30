@@ -18,4 +18,8 @@ putpocket-dataset-mining multi --config configs/dataset_mining/mbpp_stateful_mul
 
 Runtime mining requires Docker, Codex CLI, HuggingFace dataset/model access, Transformers, and local vLLM Python engine availability. vLLM generation is invoked with already-rendered prompt strings; vLLM is never asked to apply a chat template internally.
 
+The isolated three-RTX-PRO-6000 GLM-5.3-Flash NVFP4 deployment, including
+immutable model/runtime locks and the OpenAI-compatible PutPocket smoke path,
+is documented in [`docs/GLM53_MONTBLANC_DEPLOYMENT.md`](docs/GLM53_MONTBLANC_DEPLOYMENT.md).
+
 Server-2 uses one active uv-managed environment at `Putpocket_env`. The canonical setup entrypoint is `scripts/env/bootstrap_sr.sh --preset server2`; the canonical activation entrypoint is `source scripts/env/env_activate.sh`. Root-level generated `PROMPT`, `COMMANDS`, and `TO_GPT` Markdown files are not part of the active workflow; task reports belong under `agent/tasks/<TASK>/handoffs/`.

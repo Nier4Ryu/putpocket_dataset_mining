@@ -1,0 +1,57 @@
+ARG VLLM_BASE_IMAGE
+
+FROM ${VLLM_BASE_IMAGE} AS flashinfer-source-builder
+
+ARG FLASHINFER_COMMIT
+ARG FLASHINFER_PULL_REF=refs/pull/4802/head
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends git; \
+    rm -rf /var/lib/apt/lists/*; \
+    git init /opt/flashinfer-source; \
+    git -C /opt/flashinfer-source remote add origin https://github.com/flashinfer-ai/flashinfer.git; \
+    git -C /opt/flashinfer-source fetch --depth=1 origin "${FLASHINFER_PULL_REF}"; \
+    git -C /opt/flashinfer-source checkout --detach FETCH_HEAD; \
+    test "$(git -C /opt/flashinfer-source rev-parse HEAD)" = "${FLASHINFER_COMMIT}"; \
+    git -C /opt/flashinfer-source submodule update --init --depth=1 \
+      3rdparty/cccl 3rdparty/cutlass 3rdparty/spdlog
+
+RUN set -eux; \
+    python3 -m pip install --no-cache-dir --upgrade 'setuptools>=77' 'packaging>=24' wheel; \
+    cd /opt/flashinfer-source; \
+    BUILD_NVEP=0 BUILD_NIXL_EP=0 BUILD_NCCL_EP=0 \
+      FLASHINFER_BUILD_NO_PIP=1 \
+      python3 -m pip wheel --no-build-isolation --no-deps \
+        --wheel-dir /opt/flashinfer-wheelhouse .; \
+    test "$(find /opt/flashinfer-wheelhouse -maxdepth 1 -name 'flashinfer_python-*.whl' | wc -l)" -eq 1
+
+FROM ${VLLM_BASE_IMAGE}
+
+ARG VLLM_COMMIT
+ARG FLASHINFER_COMMIT
+
+LABEL putpocket.task_id="T20260830-001__glm53-montblanc-deployment" \
+      putpocket.vllm.commit="${VLLM_COMMIT}" \
+      putpocket.flashinfer.commit="${FLASHINFER_COMMIT}" \
+      putpocket.runtime.scope="glm53-flash-sm120-nope"
+
+# The exact source wheel identifies as 0.6.18 while the retained official
+# generic cubin wheel is 0.6.18rc10. The NoPE module never comes from that
+# cubin wheel: the older JIT-cache package is removed below and the pinned
+# source is compiled into the task-local workspace at first use.
+ENV FLASHINFER_DISABLE_VERSION_CHECK=1
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends build-essential; \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=flashinfer-source-builder /opt/flashinfer-wheelhouse/ /tmp/flashinfer-wheelhouse/
+
+RUN set -eux; \
+    python3 -m pip uninstall -y flashinfer-python flashinfer-jit-cache; \
+    python3 -m pip install --no-cache-dir --no-deps --force-reinstall \
+      /tmp/flashinfer-wheelhouse/flashinfer_python-*.whl; \
+    rm -rf /tmp/flashinfer-wheelhouse; \
+    python3 -c 'import flashinfer; print(flashinfer.__version__)'

@@ -36,10 +36,10 @@ LABEL putpocket.task_id="T20260830-001__glm53-montblanc-deployment" \
       putpocket.flashinfer.commit="${FLASHINFER_COMMIT}" \
       putpocket.runtime.scope="glm53-flash-sm120-nope"
 
-# The exact source wheel identifies as 0.6.18 while the retained official
-# generic cubin wheel is 0.6.18rc10. The NoPE module never comes from that
-# cubin wheel: the older JIT-cache package is removed below and the pinned
-# source is compiled into the task-local workspace at first use.
+# The exact source wheel identifies as 0.6.18. The pinned upstream vLLM
+# Dockerfile's unpublished rc10 release-wheel step is skipped by the locked
+# packaging patch; the pinned source is compiled into the task-local workspace
+# at first use.
 ENV FLASHINFER_DISABLE_VERSION_CHECK=1
 
 RUN set -eux; \

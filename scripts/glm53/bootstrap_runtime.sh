@@ -46,6 +46,10 @@ VLLM_PULL_REF="$(lock_value runtime.vllm_pull_ref)"
 FLASHINFER_COMMIT="$(lock_value runtime.flashinfer_commit)"
 BUILD_BASE_IMAGE="$(lock_value runtime.build_base_image)"
 FINAL_BASE_IMAGE="$(lock_value runtime.final_base_image)"
+VLLM_DOCKERFILE_BASE_SHA="$(lock_value runtime.vllm_dockerfile_sha256)"
+VLLM_DOCKERFILE_POST_SHA="$(lock_value runtime.vllm_dockerfile_post_patch_sha256)"
+VLLM_DOCKERFILE_PATCH_REL="$(lock_value runtime.vllm_dockerfile_patch_path)"
+VLLM_DOCKERFILE_PATCH="${REPO_ROOT}/${VLLM_DOCKERFILE_PATCH_REL}"
 
 if [[ ! -d "${VLLM_SOURCE_DIR}/.git" ]]; then
   if [[ -e "${VLLM_SOURCE_DIR}" ]]; then
@@ -58,16 +62,31 @@ if [[ ! -d "${VLLM_SOURCE_DIR}/.git" ]]; then
   git -C "${VLLM_SOURCE_DIR}" checkout --detach FETCH_HEAD
 fi
 test "$(git -C "${VLLM_SOURCE_DIR}" rev-parse HEAD)" = "${VLLM_COMMIT}"
-test -z "$(git -C "${VLLM_SOURCE_DIR}" status --porcelain)"
-test "$(sha256sum "${VLLM_SOURCE_DIR}/docker/Dockerfile" | awk '{print $1}')" = \
-  "$(lock_value runtime.vllm_dockerfile_sha256)"
 test "$(sha256sum "${VLLM_SOURCE_DIR}/docker/versions.json" | awk '{print $1}')" = \
   "$(lock_value runtime.vllm_versions_sha256)"
+test "$(sha256sum "${VLLM_DOCKERFILE_PATCH}" | awk '{print $1}')" = \
+  "$(lock_value runtime.vllm_dockerfile_patch_sha256)"
+
+DOCKERFILE_SHA="$(sha256sum "${VLLM_SOURCE_DIR}/docker/Dockerfile" | awk '{print $1}')"
+if [[ "${DOCKERFILE_SHA}" = "${VLLM_DOCKERFILE_BASE_SHA}" ]]; then
+  test -z "$(git -C "${VLLM_SOURCE_DIR}" status --porcelain)"
+  git -C "${VLLM_SOURCE_DIR}" apply --check "${VLLM_DOCKERFILE_PATCH}"
+  git -C "${VLLM_SOURCE_DIR}" apply "${VLLM_DOCKERFILE_PATCH}"
+elif [[ "${DOCKERFILE_SHA}" != "${VLLM_DOCKERFILE_POST_SHA}" ]]; then
+  echo "Pinned vLLM Dockerfile is neither the exact preimage nor postimage." >&2
+  exit 2
+fi
+test "$(sha256sum "${VLLM_SOURCE_DIR}/docker/Dockerfile" | awk '{print $1}')" = \
+  "${VLLM_DOCKERFILE_POST_SHA}"
+test "$(git -C "${VLLM_SOURCE_DIR}" status --porcelain)" = " M docker/Dockerfile"
+git -C "${VLLM_SOURCE_DIR}" diff --check
 
 {
   echo "vllm_commit=${VLLM_COMMIT}"
   echo "vllm_pull_ref=${VLLM_PULL_REF}"
   echo "flashinfer_commit=${FLASHINFER_COMMIT}"
+  echo "vllm_dockerfile_patch=${VLLM_DOCKERFILE_PATCH_REL}"
+  echo "vllm_dockerfile_post_patch_sha256=${VLLM_DOCKERFILE_POST_SHA}"
   echo "build_base_image=${BUILD_BASE_IMAGE}"
   echo "final_base_image=${FINAL_BASE_IMAGE}"
   echo "vllm_image=${VLLM_IMAGE}"

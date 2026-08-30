@@ -46,6 +46,19 @@ class GLM53RuntimeContractTests(unittest.TestCase):
         )
         self.assertIn('--file "${VLLM_SOURCE_DIR}/docker/Dockerfile"', text)
         self.assertIn('--target vllm-openai', text)
+        self.assertIn("vllm_dockerfile_post_patch_sha256", text)
+        self.assertIn('git -C "${VLLM_SOURCE_DIR}" apply --check', text)
+        self.assertIn('status --porcelain)" = " M docker/Dockerfile"', text)
+
+    def test_packaging_patch_only_skips_unpublished_flashinfer_release(self) -> None:
+        patch_text = (
+            ROOT
+            / "patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/"
+            "glm53_skip_unpublished_flashinfer_release.patch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("FlashInfer 0.6.18rc10 release assets", patch_text)
+        self.assertIn("RUN true", patch_text)
+        self.assertNotIn("vllm/", patch_text)
 
     def test_launch_uses_only_supported_three_gpu_layout_and_bounded_smoke(self) -> None:
         text = (ROOT / "scripts/glm53/launch_server.sh").read_text(encoding="utf-8")

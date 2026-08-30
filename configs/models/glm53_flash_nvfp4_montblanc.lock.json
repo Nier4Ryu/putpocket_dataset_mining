@@ -87,6 +87,10 @@
     "vllm_commit": "878631b6079d2cf9fb80830ef9cb41b43aded098",
     "vllm_version_family": "0.29.0.dev",
     "vllm_dockerfile_sha256": "9b6769fdcf62aded04cb86158c93712b423e61860603d81419f7c72b9196982e",
+    "vllm_dockerfile_patch_path": "patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/glm53_skip_unpublished_flashinfer_release.patch",
+    "vllm_dockerfile_patch_sha256": "cb3f6aed6c735363411cba25ab28b96624ebb76782f7f5030428d24522b78003",
+    "vllm_dockerfile_post_patch_sha256": "dd2ab673f05b21c2904b0556ecbb601eaf0e50069f44a40ad00d3ebb0bb9096c",
+    "vllm_dockerfile_patch_scope": "packaging-only removal of unavailable FlashInfer 0.6.18rc10 release-wheel install; exact FlashInfer PR source is installed by the downstream overlay",
     "vllm_versions_sha256": "2f038fa126ec201a4ae95490ebd36c8da6648d5e3d6b2e65f7771dab851dd929",
     "flashinfer_repository": "https://github.com/flashinfer-ai/flashinfer.git",
     "flashinfer_pull_request": 4802,
@@ -109,8 +113,9 @@
     "enable_mtp": false
   },
   "package_files": [
-    {"path": "docker/glm53_sm120/Dockerfile.flashinfer-overlay", "size": 2404, "sha256": "9296a91292dcdc32a8a1ea96a69295a9cde14ae454560bad8e5152c8ff781312"},
-    {"path": "scripts/glm53/bootstrap_runtime.sh", "size": 4523, "sha256": "9dd0241e9971bb9b06c4441f0871ca7c598a7da117ba1310e48c05deb9629c89"},
+    {"path": "docker/glm53_sm120/Dockerfile.flashinfer-overlay", "size": 2358, "sha256": "e4b23ec4c6b5dc051bae1d00e2ca11b8df36dbdd97920feb4a424f92a013e699"},
+    {"path": "patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/glm53_skip_unpublished_flashinfer_release.patch", "size": 1810, "sha256": "cb3f6aed6c735363411cba25ab28b96624ebb76782f7f5030428d24522b78003"},
+    {"path": "scripts/glm53/bootstrap_runtime.sh", "size": 5638, "sha256": "860c86f4d9f280e2bd3beb8288773f69cb2121a1c78e03407e4e6b45717d9a18"},
     {"path": "scripts/glm53/download_model.sh", "size": 3096, "sha256": "f1b96aad850687bdfe0517fdc8b845921594dda142f825dffa0aed8ca6525fe1"},
     {"path": "scripts/glm53/launch_server.sh", "size": 4074, "sha256": "8a843a92bc1083d133f75e4a07712f3ec35935f2d151431251828311453cb41d"},
     {"path": "scripts/glm53/run_smoke.sh", "size": 2135, "sha256": "22821ecd7758ab4735cd9d33da8841d51a94a65d72742e7e36b72b3ed05f26c2"},

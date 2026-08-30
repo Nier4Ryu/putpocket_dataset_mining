@@ -63,8 +63,11 @@ records the exact missing kernel shape. This package builds
 [FlashInfer PR 4802](https://github.com/flashinfer-ai/flashinfer/pull/4802) at
 `c2eec117219457e45126fa4fa87e7240dd4ea620`. The latter supplies the SM120
 `GLM53_NOPE` query-512 path with effective top-k 2,176 (2,048 selection plus
-the 128-wide tail tile). The source wheel is installed without the older AOT
-cache so the exact module is JIT-compiled into a task-local cache.
+the 128-wide tail tile). The pinned vLLM PR's Dockerfile references unpublished
+FlashInfer 0.6.18rc10 release assets; a checksum-bound packaging-only patch
+skips that release-wheel step. The exact FlashInfer PR source wheel is then
+installed without an AOT cache, so its module is JIT-compiled into a task-local
+cache. The patch does not change vLLM Python or CUDA runtime source.
 
 The compressed-tensors checkpoint and Marlin MoE backend are deliberate.
 [vLLM issue 54150](https://github.com/vllm-project/vllm/issues/54150) reports

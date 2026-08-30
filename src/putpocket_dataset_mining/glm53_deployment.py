@@ -51,8 +51,10 @@ def validate_model_lock(lock: dict[str, Any]) -> None:
         raise GLM53DeploymentError("selected checkpoint is not GLM-5.3-Flash")
     if not GIT_SHA_RE.fullmatch(str(selection.get("revision", ""))):
         raise GLM53DeploymentError("checkpoint revision must be an immutable 40-hex Git SHA")
-    if selection.get("weight_files_include_mtp") is not False:
-        raise GLM53DeploymentError("the bounded smoke package must explicitly exclude MTP")
+    if selection.get("weight_files_include_mtp") is not True:
+        raise GLM53DeploymentError(
+            "checkpoint completeness requires the index-referenced MTP shard"
+        )
 
     files = lock.get("files")
     if not isinstance(files, list) or not files:
@@ -67,8 +69,6 @@ def validate_model_lock(lock: dict[str, Any]) -> None:
         if relative in seen:
             raise GLM53DeploymentError(f"duplicate model file entry: {relative}")
         seen.add(relative)
-        if relative == "model_mtp.safetensors":
-            raise GLM53DeploymentError("MTP weights must not enter the bounded checkpoint set")
         size = item.get("size")
         if not isinstance(size, int) or size <= 0:
             raise GLM53DeploymentError(f"invalid file size for {relative}")
@@ -79,8 +79,14 @@ def validate_model_lock(lock: dict[str, Any]) -> None:
             weight_count += 1
     if total != lock.get("selected_files_total_bytes"):
         raise GLM53DeploymentError("selected file byte total does not match lock")
-    if weight_count != 10 or "model.safetensors.index.json" not in seen:
-        raise GLM53DeploymentError("expected ten main weight shards and one index")
+    if (
+        weight_count != 10
+        or "model_mtp.safetensors" not in seen
+        or "model.safetensors.index.json" not in seen
+    ):
+        raise GLM53DeploymentError(
+            "expected ten main shards, the index-referenced MTP shard, and one index"
+        )
 
     config = _mapping(lock, "model_config_contract")
     plan = _mapping(lock, "capacity_plan")
@@ -404,8 +410,6 @@ def _verify_local_weight_index(model_dir: Path, lock: dict[str, Any]) -> dict[st
         for item in lock["files"]
         if item["path"].endswith(".safetensors")
     }
-    if "model_mtp.safetensors" in referenced:
-        failures.append("index_references_excluded_mtp")
     if referenced != selected:
         failures.append("index_shard_set_mismatch")
     return {

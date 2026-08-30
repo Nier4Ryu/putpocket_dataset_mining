@@ -26,7 +26,8 @@ class GLM53DeploymentTests(unittest.TestCase):
         validate_model_lock(self.lock)
         paths = selected_model_paths(self.lock)
         self.assertEqual(len([p for p in paths if p.startswith("model-")]), 10)
-        self.assertNotIn("model_mtp.safetensors", paths)
+        self.assertIn("model_mtp.safetensors", paths)
+        self.assertFalse(self.lock["runtime"]["enable_mtp"])
         self.assertEqual(
             self.lock["capacity_plan"]["parallelism"],
             {
@@ -43,11 +44,16 @@ class GLM53DeploymentTests(unittest.TestCase):
         )
         self.assertEqual(verify_package_files(self.lock)["status"], "ok")
 
-    def test_lock_rejects_mtp_and_unsafe_or_duplicate_paths(self) -> None:
-        for mutation in ("mtp", "unsafe", "duplicate"):
+    def test_lock_rejects_missing_mtp_and_unsafe_or_duplicate_paths(self) -> None:
+        for mutation in ("missing_mtp", "unsafe", "duplicate"):
             lock = copy.deepcopy(self.lock)
-            if mutation == "mtp":
-                lock["selection"]["weight_files_include_mtp"] = True
+            if mutation == "missing_mtp":
+                lock["files"] = [
+                    item for item in lock["files"] if item["path"] != "model_mtp.safetensors"
+                ]
+                lock["selected_files_total_bytes"] = sum(
+                    item["size"] for item in lock["files"]
+                )
             elif mutation == "unsafe":
                 lock["files"][0]["path"] = "../README.md"
             else:
@@ -99,7 +105,9 @@ class GLM53DeploymentTests(unittest.TestCase):
             lock_by_path = {item["path"]: item for item in lock["files"]}
             lock_by_path["config.json"]["size"] = (root / "config.json").stat().st_size
             shard_paths = [
-                item["path"] for item in lock["files"] if item["path"].startswith("model-")
+                item["path"]
+                for item in lock["files"]
+                if item["path"].endswith(".safetensors")
             ]
             (root / "model.safetensors.index.json").write_text(
                 json.dumps({"weight_map": {f"weight.{i}": p for i, p in enumerate(shard_paths)}}),
@@ -113,7 +121,7 @@ class GLM53DeploymentTests(unittest.TestCase):
         self.assertEqual(report["status"], "ok")
         self.assertEqual(report["weight_index"]["referenced_shards"], sorted(shard_paths))
 
-    def test_model_verification_rejects_index_reference_to_mtp(self) -> None:
+    def test_model_verification_rejects_index_shard_set_drift(self) -> None:
         lock = self._small_lock()
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -121,12 +129,12 @@ class GLM53DeploymentTests(unittest.TestCase):
                 (root / item["path"]).write_bytes(b"x" * item["size"])
             (root / "config.json").write_text("{}", encoding="utf-8")
             (root / "model.safetensors.index.json").write_text(
-                json.dumps({"weight_map": {"bad": "model_mtp.safetensors"}}),
+                json.dumps({"weight_map": {"bad": "unknown.safetensors"}}),
                 encoding="utf-8",
             )
             report = verify_model_directory(root, lock, verify_hashes=False)
         self.assertEqual(report["status"], "failed")
-        self.assertIn("index_references_excluded_mtp", report["failures"])
+        self.assertIn("index_shard_set_mismatch", report["failures"])
 
     def test_host_doctor_fails_closed_on_live_gpu_process(self) -> None:
         gpu = {
@@ -169,6 +177,7 @@ class GLM53DeploymentTests(unittest.TestCase):
             )
         files.extend(
             [
+                {"path": "model_mtp.safetensors", "size": 11, "sha256": "0" * 64},
                 {"path": "config.json", "size": 1, "sha256": "0" * 64},
                 {
                     "path": "model.safetensors.index.json",

@@ -30,9 +30,11 @@ with SHA-256
 That is retained as a provenance caveat rather than being presented as a new
 license grant.
 
-Only the ten main shards and exact tokenizer/config artifacts are downloaded:
-190,262,595,076 bytes (177.196 GiB). The independent 7,618,560,424-byte MTP
-file is excluded for this deterministic smoke.
+The ten main shards, exact tokenizer/config artifacts, and the index-referenced
+7,618,560,424-byte MTP shard are downloaded: 197,881,155,500 bytes (184.291
+GiB). The MTP file is required because the immutable upstream index maps 1,753
+layer-45 tensor names to it. MTP execution remains disabled, so these stored
+weights are not included in the 45-layer serving payload estimate.
 
 ## Why this layout fits
 

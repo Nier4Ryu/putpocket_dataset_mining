@@ -16,10 +16,10 @@
     "quantizer": "Red Hat AI / LLM Compressor",
     "quantization": "compressed-tensors NVFP4 W4A4, group size 16, dynamic activation scales",
     "architecture": "Glm5NextForConditionalGeneration",
-    "weight_files_include_mtp": false,
-    "mtp_exclusion_reason": "The independent 7.62 GB MTP file is not needed for the deterministic single-token smoke and is intentionally excluded to preserve disk and VRAM headroom."
+    "weight_files_include_mtp": true,
+    "mtp_storage_reason": "The immutable upstream model.safetensors.index.json references 1,753 layer-45 MTP tensors in model_mtp.safetensors, so the file is required for checkpoint/index completeness. Runtime MTP remains disabled and those tensors are not part of the 45-layer serving payload estimate."
   },
-  "selected_files_total_bytes": 190262595076,
+  "selected_files_total_bytes": 197881155500,
   "files": [
     {"path": "README.md", "size": 2151, "sha256": "5bd97cb7defce03eba98e842ecb851d4307b41f4959a74f910d7a4522ad267db"},
     {"path": "chat_template.jinja", "size": 10644, "sha256": "34d5ee66b12fa6446cdae131c352b8f68cd85369e0e6fda115583805fada3891"},
@@ -35,6 +35,7 @@
     {"path": "model-00008-of-00010.safetensors", "size": 20000332348, "sha256": "f0dc21ce2b1da1739e974cd2736a6fbdc58ddc0551dc5569f679ee5e7f63da93"},
     {"path": "model-00009-of-00010.safetensors", "size": 20000722232, "sha256": "f11d8fdd3694491fa2c5a6fb47a28197f020a861ff194153d47a6bb8eeb7609a"},
     {"path": "model-00010-of-00010.safetensors", "size": 10215657876, "sha256": "2519e9daf2c153555e2ecd5d408edb0175c507d094729b55d9092d1385b382b6"},
+    {"path": "model_mtp.safetensors", "size": 7618560424, "sha256": "0cf8dfdc936f1cbc33b9e88d0289ff3b5b4a3d0f7381158a8ccbebb9c8adc035"},
     {"path": "model.safetensors.index.json", "size": 17055736, "sha256": "015faae91e8189c7553f1d48ec3d0694b8c02b282d7f58af2d7b4064a81ce4c0"},
     {"path": "processor_config.json", "size": 909, "sha256": "aae38374c94b08cc9b0547c6e64f05b951bd9735cea571c6988f5ed552bed3ed"},
     {"path": "recipe.yaml", "size": 1200, "sha256": "c90bdcc6cd502c44af68ed4017740fe448d213f537a1a9509dc6437b9833c673"},
@@ -115,7 +116,7 @@
     {"path": "scripts/glm53/run_smoke.sh", "size": 2135, "sha256": "22821ecd7758ab4735cd9d33da8841d51a94a65d72742e7e36b72b3ed05f26c2"},
     {"path": "scripts/glm53/smoke_client.py", "size": 6501, "sha256": "4644eecab4a279b66f1f8ebf93beb57380a23bd9e62ba06c56eb02b8654a9001"},
     {"path": "scripts/glm53/stop_server.sh", "size": 1475, "sha256": "c6398835565829896d00939c89840a6fc19ffa938d7f25f9c9f2f52c33b7cf57"},
-    {"path": "src/putpocket_dataset_mining/glm53_deployment.py", "size": 26403, "sha256": "913b292969eeeef3a2ba3cf882b8ee9e94bbcd8cd21f626341995f7808eff655"},
+    {"path": "src/putpocket_dataset_mining/glm53_deployment.py", "size": 26306, "sha256": "26791b768dfc835cdb24952e1aae34bb28410698257769dbb2ba2ba08b175f2c"},
     {"path": "configs/execution/server2_glm53_flash_nvfp4_ep3.example.yaml", "size": 939, "sha256": "0271c54f77ad8242b6a691b7905d0f4495656c46d5c0a86ff5345e8b4b2841e2"}
   ]
 }

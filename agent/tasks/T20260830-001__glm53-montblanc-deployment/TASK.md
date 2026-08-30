@@ -29,7 +29,7 @@ plan:
 fixed task decisions:
   - selected checkpoint is RedHatAI/GLM-5.3-Flash-NVFP4 at 36c184c6cda000a481711306df5adde42f63321a
   - official full GLM-5.3 FP8/BF16 and Flash FP8/BF16 do not fit three 97,887 MiB cards
-  - selected main checkpoint is 190,262,595,076 bytes; the independent MTP file is excluded
+  - complete indexed checkpoint is 197,881,155,500 bytes; its MTP shard is stored for upstream-index completeness but MTP execution remains disabled
   - TP3 is illegal because 64 attention heads and hidden size 4096 are not divisible by 3
   - PP3 is unsupported by the pinned Glm5Next implementation
   - supported plan is TP1/DP3/EP3 with 96 of 288 experts per rank and early EP weight filtering

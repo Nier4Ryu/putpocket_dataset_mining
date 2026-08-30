@@ -46,6 +46,10 @@ class GLM53RuntimeContractTests(unittest.TestCase):
         )
         self.assertIn('--file "${VLLM_SOURCE_DIR}/docker/Dockerfile"', text)
         self.assertIn('--target vllm-openai', text)
+        self.assertIn(
+            '--build-arg "torch_cuda_arch_list=$(lock_value runtime.torch_cuda_arch_list)"',
+            text,
+        )
         self.assertIn("vllm_dockerfile_post_patch_sha256", text)
         self.assertIn('git -C "${VLLM_SOURCE_DIR}" apply --check', text)
         self.assertIn('status --porcelain)" = " M docker/Dockerfile"', text)
@@ -59,6 +63,18 @@ class GLM53RuntimeContractTests(unittest.TestCase):
         self.assertIn("FlashInfer 0.6.18rc10 release assets", patch_text)
         self.assertIn("RUN true", patch_text)
         self.assertNotIn("vllm/", patch_text)
+
+    def test_lock_makes_sm120_only_build_boundary_explicit(self) -> None:
+        lock = json.loads(
+            (ROOT / "configs/models/glm53_flash_nvfp4_montblanc.lock.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(lock["runtime"]["torch_cuda_arch_list"], "12.0")
+        self.assertEqual(
+            lock["runtime"]["flash_attention_arch_policy"],
+            "upstream_per_kernel_forward_compatible_defaults",
+        )
 
     def test_launch_uses_only_supported_three_gpu_layout_and_bounded_smoke(self) -> None:
         text = (ROOT / "scripts/glm53/launch_server.sh").read_text(encoding="utf-8")

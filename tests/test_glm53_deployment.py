@@ -10,6 +10,7 @@ from unittest.mock import patch
 from putpocket_dataset_mining.glm53_deployment import (
     GLM53DeploymentError,
     host_doctor,
+    inspect_runtime_image,
     load_model_lock,
     selected_model_paths,
     validate_model_lock,
@@ -163,6 +164,28 @@ class GLM53DeploymentTests(unittest.TestCase):
             report = host_doctor(self.lock)
         self.assertEqual(report["status"], "failed")
         self.assertIn("gpu_compute_processes_present", report["failures"])
+
+    def test_runtime_image_fails_closed_without_sm120_only_environment(self) -> None:
+        runtime = self.lock["runtime"]
+        labels = {
+            "putpocket.task_id": self.lock["task_id"],
+            "putpocket.vllm.commit": runtime["vllm_commit"],
+            "putpocket.flashinfer.commit": runtime["flashinfer_commit"],
+        }
+        inspect = [{"Id": "sha256:test", "Config": {"Labels": labels, "Env": []}}]
+        with (
+            patch(
+                "putpocket_dataset_mining.glm53_deployment._run_json_command",
+                return_value=inspect,
+            ),
+            patch(
+                "putpocket_dataset_mining.glm53_deployment._runtime_import_probe",
+                return_value={"status": "ok", "failures": []},
+            ),
+        ):
+            report = inspect_runtime_image("test-image", self.lock)
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("environment:TORCH_CUDA_ARCH_LIST", report["failures"])
 
     def _small_lock(self) -> dict:
         lock = copy.deepcopy(self.lock)

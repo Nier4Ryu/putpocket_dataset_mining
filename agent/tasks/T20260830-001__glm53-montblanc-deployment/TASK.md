@@ -36,6 +36,7 @@ fixed task decisions:
   - vLLM PR 53906 head 878631b6079d2cf9fb80830ef9cb41b43aded098 supplies GLM-5.3 integration
   - FlashInfer PR 4802 head c2eec117219457e45126fa4fa87e7240dd4ea620 supplies SM120 GLM53_NOPE
   - compressed-tensors uses Marlin MoE; MTP and prefix caching remain off for the bounded smoke
+  - the vLLM image is SM120-only via the official torch_cuda_arch_list=12.0 build arg; FlashAttention retains upstream per-kernel compatibility defaults while GLM main attention uses the pinned FlashInfer SM120 NoPE path
 completion criteria:
   - immutable model files pass exact size and SHA-256 verification
   - runtime image source labels and GLM53_NOPE symbols pass doctor checks

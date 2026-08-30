@@ -98,6 +98,7 @@ docker build --progress=plain \
   --target vllm-openai \
   --build-arg "BUILD_BASE_IMAGE=${BUILD_BASE_IMAGE}" \
   --build-arg "FINAL_BASE_IMAGE=${FINAL_BASE_IMAGE}" \
+  --build-arg "torch_cuda_arch_list=$(lock_value runtime.torch_cuda_arch_list)" \
   --build-arg max_jobs=2 \
   --build-arg nvcc_threads=1 \
   --tag "${VLLM_IMAGE}" \

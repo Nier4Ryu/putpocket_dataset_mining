@@ -118,6 +118,8 @@ def validate_model_lock(lock: dict[str, Any]) -> None:
         raise GLM53DeploymentError("runtime must select the SM120 sparse MLA backend")
     if runtime.get("moe_backend") != "marlin":
         raise GLM53DeploymentError("SM120 compressed-tensors smoke must use Marlin MoE")
+    if runtime.get("torch_cuda_arch_list") != "12.0":
+        raise GLM53DeploymentError("Montblanc runtime must be compiled for SM120 only")
     if runtime.get("enable_mtp") is not False or runtime.get("enable_prefix_caching") is not False:
         raise GLM53DeploymentError("smoke runtime must disable MTP and prefix caching")
 
@@ -330,6 +332,11 @@ def inspect_runtime_image(image: str, lock: dict[str, Any]) -> dict[str, Any]:
         raise GLM53DeploymentError(f"docker image inspect returned no unique image for {image}")
     image_info = inspect[0]
     labels = ((image_info.get("Config") or {}).get("Labels") or {})
+    image_env = {
+        item.partition("=")[0]: item.partition("=")[2]
+        for item in ((image_info.get("Config") or {}).get("Env") or [])
+        if "=" in item
+    }
     runtime = lock["runtime"]
     expected_labels = {
         "putpocket.task_id": TASK_ID,
@@ -341,6 +348,8 @@ def inspect_runtime_image(image: str, lock: dict[str, Any]) -> dict[str, Any]:
         for key, value in expected_labels.items()
         if labels.get(key) != value
     ]
+    if image_env.get("TORCH_CUDA_ARCH_LIST") != runtime["torch_cuda_arch_list"]:
+        failures.append("environment:TORCH_CUDA_ARCH_LIST")
     probe = _runtime_import_probe(image)
     if probe.get("status") != "ok":
         failures.extend(f"runtime_probe:{item}" for item in probe.get("failures", []))
@@ -351,6 +360,7 @@ def inspect_runtime_image(image: str, lock: dict[str, Any]) -> dict[str, Any]:
         "image_id": image_info.get("Id"),
         "repo_digests": image_info.get("RepoDigests") or [],
         "labels": {key: labels.get(key) for key in expected_labels},
+        "torch_cuda_arch_list": image_env.get("TORCH_CUDA_ARCH_LIST"),
         "runtime_probe": probe,
     }
 

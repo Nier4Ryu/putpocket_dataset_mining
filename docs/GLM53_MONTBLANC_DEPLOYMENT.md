@@ -69,6 +69,15 @@ skips that release-wheel step. The exact FlashInfer PR source wheel is then
 installed without an AOT cache, so its module is JIT-compiled into a task-local
 cache. The patch does not change vLLM Python or CUDA runtime source.
 
+The image is deliberately host-specific: vLLM's supported
+`torch_cuda_arch_list` build argument is fixed to `12.0`. This retains the
+SM120 NVFP4, Marlin MoE, router, cache, and extension intersections selected by
+upstream CMake while avoiding seven unused architecture variants. FlashAttention
+keeps upstream's per-kernel forward-compatible architecture defaults; it is not
+the GLM-5.3 main-attention authority, which is the separately pinned
+`FLASHINFER_MLA_SPARSE_SM120` source path. Image inspection fails unless
+`TORCH_CUDA_ARCH_LIST=12.0` is embedded in the final environment.
+
 The compressed-tensors checkpoint and Marlin MoE backend are deliberate.
 [vLLM issue 54150](https://github.com/vllm-project/vllm/issues/54150) reports
 clean output for this RedHatAI checkpoint on the same SM120 GPU family and

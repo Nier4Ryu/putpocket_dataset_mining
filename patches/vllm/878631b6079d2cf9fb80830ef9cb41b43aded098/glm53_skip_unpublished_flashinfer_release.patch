@@ -5,7 +5,8 @@ index 266b91f..5d8e779 100644
 @@ -946,25 +946,9 @@ RUN --mount=type=cache,target=/opt/uv/cache \
      fi && \
      rm /tmp/requirements-cuda.txt /tmp/common.txt
- 
+-
++
 -# Install FlashInfer from release assets.
 -# https://docs.flashinfer.ai/installation.html
 -ARG FLASHINFER_VERSION=0.6.18rc10
@@ -30,6 +31,7 @@ index 266b91f..5d8e779 100644
 +# FlashInfer 0.6.18rc10 release assets.  The downstream task image installs
 +# the exact source revision and intentionally does not depend on those wheels.
 +RUN true
- 
+-
++
  # ============================================================
  # OPENAI API SERVER DEPENDENCIES

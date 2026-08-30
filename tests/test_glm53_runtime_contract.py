@@ -61,7 +61,9 @@ class GLM53RuntimeContractTests(unittest.TestCase):
             "glm53_skip_unpublished_flashinfer_release.patch"
         ).read_text(encoding="utf-8")
         self.assertIn("FlashInfer 0.6.18rc10 release assets", patch_text)
-        self.assertIn("RUN true", patch_text)
+        self.assertEqual(patch_text.count("+RUN true"), 2)
+        self.assertIn("do not restore the unavailable release", patch_text)
+        self.assertIn("flashinfer_python-${FLASHINFER_VERSION}", patch_text)
         self.assertNotIn("vllm/", patch_text)
 
     def test_lock_makes_sm120_only_build_boundary_explicit(self) -> None:

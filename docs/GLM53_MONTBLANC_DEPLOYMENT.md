@@ -65,7 +65,8 @@ records the exact missing kernel shape. This package builds
 `GLM53_NOPE` query-512 path with effective top-k 2,176 (2,048 selection plus
 the 128-wide tail tile). The pinned vLLM PR's Dockerfile references unpublished
 FlashInfer 0.6.18rc10 release assets; a checksum-bound packaging-only patch
-skips that release-wheel step. The exact FlashInfer PR source wheel is then
+skips both the base install and the post-vLLM-wheel restore steps. The exact
+FlashInfer PR source wheel is then
 installed without an AOT cache, so its module is JIT-compiled into a task-local
 cache. The patch does not change vLLM Python or CUDA runtime source.
 

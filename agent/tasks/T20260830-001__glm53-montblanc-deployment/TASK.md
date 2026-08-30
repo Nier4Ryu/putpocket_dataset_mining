@@ -37,6 +37,8 @@ fixed task decisions:
   - FlashInfer PR 4802 head c2eec117219457e45126fa4fa87e7240dd4ea620 supplies SM120 GLM53_NOPE
   - compressed-tensors uses Marlin MoE; MTP and prefix caching remain off for the bounded smoke
   - the vLLM image is SM120-only via the official torch_cuda_arch_list=12.0 build arg; FlashAttention retains upstream per-kernel compatibility defaults while GLM main attention uses the pinned FlashInfer SM120 NoPE path
+  - do not exclude vllm-flash-attn from this wheel: Glm5Next imports its multimodal module eagerly, MMEncoderAttention imports fa_utils, and CUDA fa_utils imports vllm.vllm_flash_attn; setup.py also declares the FA2/FA3 extension targets
+  - the checksum-bound packaging patch removes both unavailable 0.6.18rc10 release-wheel install sites; the pinned FlashInfer PR source remains the only task runtime overlay authority
 completion criteria:
   - immutable model files pass exact size and SHA-256 verification
   - runtime image source labels and GLM53_NOPE symbols pass doctor checks
@@ -45,10 +47,11 @@ completion criteria:
   - task server stops via ownership-checked SIGTERM without hard kill
   - focused/full CPU tests pass and task-local TO_GPT handoff exists
 validation:
-  - focused CPU/static: 16 passed, 26 subtests passed (pre-runtime)
+  - focused CPU/static: 16 passed, 26 subtests passed (pre-runtime); 16 passed after two-site packaging correction
   - lock/package hashes: pass (pre-runtime)
   - shell syntax/compileall/git diff --check: pass (pre-runtime)
-  - GPU runtime: pending model download/build
+  - initial SM120 CUDA build reached wheel packaging; it then failed closed because the first patch omitted a second unpublished FlashInfer restore site (exit 2, not masked)
+  - corrected patch applies to the exact upstream preimage and yields the locked postimage; cached rebuild and GPU runtime remain pending
 artifacts:
   - task source: agent/tasks/T20260830-001__glm53-montblanc-deployment/
   - runtime evidence root: task-local cache selected by GLM53_RUNTIME_ROOT (not committed)

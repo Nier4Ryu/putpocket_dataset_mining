@@ -130,6 +130,14 @@ class GLM53RuntimeContractTests(unittest.TestCase):
             "656-byte",
             lock["runtime"]["vllm_nope_cache_patch_scope"],
         )
+        self.assertEqual(
+            lock["runtime"]["validated_runtime_image_id"],
+            "sha256:b79bacf76a107fc9ddd67fcc84851e3f5ae222fe6fd6a2f187723297e1400b1e",
+        )
+        self.assertEqual(lock["runtime"]["block_size"], 512)
+        self.assertEqual(
+            lock["runtime"]["observed_v4_effective_attention_page_size"], 8704
+        )
 
     def test_launch_uses_only_supported_three_gpu_layout_and_bounded_smoke(self) -> None:
         text = (ROOT / "scripts/glm53/launch_server.sh").read_text(encoding="utf-8")
@@ -187,6 +195,21 @@ class GLM53RuntimeContractTests(unittest.TestCase):
         self.assertIn("rendered_prompt=rendered", text)
         self.assertIn('"clear_thinking": True', text)
         self.assertIn("urllib.error.URLError, OSError, json.JSONDecodeError", text)
+
+    def test_smoke_environment_pins_chat_template_dependency(self) -> None:
+        text = (ROOT / "scripts/glm53/run_smoke.sh").read_text(encoding="utf-8")
+        self.assertIn('"transformers==5.15.0"', text)
+        self.assertIn('"jinja2==3.1.6"', text)
+        lock = json.loads(
+            (ROOT / "configs/models/glm53_flash_nvfp4_montblanc.lock.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(lock["runtime"]["smoke_client_python_version"], "3.13")
+        self.assertEqual(
+            lock["runtime"]["smoke_client_transformers_version"], "5.15.0"
+        )
+        self.assertEqual(lock["runtime"]["smoke_client_jinja2_version"], "3.1.6")
 
     def test_execution_example_is_machine_readable_and_consistent(self) -> None:
         try:

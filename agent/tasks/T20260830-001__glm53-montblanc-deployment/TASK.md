@@ -41,6 +41,8 @@ fixed task decisions:
   - the checksum-bound packaging patch removes both unavailable 0.6.18rc10 release-wheel install sites; the pinned FlashInfer PR source remains the only task runtime overlay authority
   - actual model warmup proved the pinned generic fp8_ds_mla cache writer rejected GLM-5.3 NoPE at pe_dim=0; a second checksum-bound vLLM patch retains the 656-byte ABI, accepts only 0 or 64, and suppresses the RoPE copy warp only for NoPE
   - the following real warmup proved the SM120 Python backend omitted FlashInfer's mandatory per-query native-NoPE sparse_mla_top_k_lens; a checksum-bound post-wheel overlay mirrors the pinned generic backend's valid-count, empty-row, and exact-length contract without rebuilding CUDA or changing selection
+  - the isolated Python 3.13 smoke client explicitly pins transformers 5.15.0 and jinja2 3.1.6; ambient client dependencies are not accepted
+  - v4 observed an effective attention page size of 8704 despite requested block size 512 because hybrid Mamba requires a common page; both values must remain visible in evidence
 completion criteria:
   - immutable model files pass exact size and SHA-256 verification
   - runtime image source labels and GLM53_NOPE symbols pass doctor checks
@@ -57,9 +59,27 @@ validation:
   - first three-GPU server attempt loaded all weights and allocated KV, then failed closed in concat_and_cache_mla before readiness because upstream required pe_dim=64; no generation was claimed
   - the NoPE cache rebuild completed with image doctor and binary guard evidence; the next unique run passed that prior pe_dim boundary, then failed closed because sparse_mla_top_k_lens was absent; no generation was claimed
   - real launch exposed and fixed an ldconfig/pipefail SIGPIPE preflight bug and a transient connection-reset readiness bug; both failures are retained in task-local runtime evidence
+  - v4 image sha256:b79bacf76a107fc9ddd67fcc84851e3f5ae222fe6fd6a2f187723297e1400b1e reached all three API workers ready; first worker readiness was 343.667 seconds after container start
+  - v4 passed both prior warmup blockers (NoPE pe_dim=0 and native sparse_mla_top_k_lens); weights loaded in 67.76 seconds and model loading used 71.02 GiB per rank
+  - requested block size remained 512; runtime effective attention page was 8704; KV capacities were 165,888/165,888/153,600 tokens
+  - first v4 client attempt failed closed on missing jinja2 before generation; report SHA-256 fcf10ef00e1deaa936a25ee384f3321175ec24393b26e59e810e83d7265d331c
+  - a post-fix same-server diagnostic report exists and is preserved (SHA-256 6ecfa7ddfe78030c1062852ad8792deefd6499e9b83e14a85be0753c6c5f4bd7), but is not accepted as the final end-to-end run because it did not begin from a fresh launch of the committed dependency fix
+  - CPU-only continuation must not launch or attach GPUs; one fresh unique three-GPU launch/smoke/owned-stop cycle remains after explicit GPU re-authorization
+  - CPU-only final focused GLM-5.3 suite: 21 passed in 0.021 seconds
+  - full repository CPU/static suite: 205 passed in 2.717 seconds
+  - no-device image import/lock/model-size checks: pass; exact fresh-source patch pre/postimages: pass
+  - shell syntax, Python compileall, 38 JSON files, and git diff --check: pass
 artifacts:
   - task source: agent/tasks/T20260830-001__glm53-montblanc-deployment/
   - runtime evidence root: task-local cache selected by GLM53_RUNTIME_ROOT (not committed)
+  - v4 run evidence: ${GLM53_RUNTIME_ROOT}/runs/glm53-smoke-20260830T144600Z-afb94b4-topklens-v4
+  - CPU-only finalization evidence: ${GLM53_RUNTIME_ROOT}/evidence/cpu-only-finalization-20260831T043000Z-v2 (SHA256SUMS SHA-256 f7da6dce9205b4e018caf3f7c75ced1c768239cafe51183f9fa85c65f51b1b7e)
 commits:
-  - pending
-final handoff link: pending
+  - 2e7cbec: initial isolated GLM-5.3 Flash deployment package
+  - 1853b33..3b66633: model-index, upstream Dockerfile, FlashInfer packaging, SM120 build, and safe device-passthrough fixes
+  - 046a0bc: NoPE fp8_ds_mla cache write fix
+  - afb94b4: native SM120 sparse top-k length fix
+  - final CPU-only dependency/evidence commit: this task-finalization commit (exact SHA in the final report)
+remaining acceptance:
+  - after explicit GPU re-authorization only, run one fresh unique launch -> smoke -> ownership-checked stop cycle from the pushed branch; no other implementation slice remains
+final handoff link: agent/tasks/T20260830-001__glm53-montblanc-deployment/handoffs/TO_GPT_20260831-042717.md

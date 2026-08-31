@@ -32,7 +32,8 @@ fi
 "${UV_BIN}" pip install --python "${CLIENT_ENV}/bin/python" \
   --no-deps "${REPO_ROOT}"
 "${UV_BIN}" pip install --python "${CLIENT_ENV}/bin/python" \
-  "transformers==5.15.0"
+  "transformers==5.15.0" \
+  "jinja2==3.1.6"
 
 nvidia-smi -q -x > "${RUN_DIR}/nvidia_smi_before_smoke.xml"
 "${CLIENT_ENV}/bin/python" "${REPO_ROOT}/scripts/glm53/smoke_client.py" \

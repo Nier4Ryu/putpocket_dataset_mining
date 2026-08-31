@@ -139,7 +139,9 @@ Driver-library resolution consumes the complete `ldconfig -p` stream so
 `set -o pipefail` cannot misclassify a successful early match as SIGPIPE 141.
 The smoke readiness loop treats connection reset/other `OSError` failures as
 transient only until its fixed timeout; response/schema failures after
-readiness still fail closed.
+readiness still fail closed. Its isolated Python 3.13 client environment pins
+both `transformers==5.15.0` and the separately required `jinja2==3.1.6`, so
+local `chat_template.jinja` rendering cannot depend on an ambient package.
 
 Montblanc's Docker daemon has no NVIDIA Container Toolkit or CDI runtime. The
 launch therefore fails closed on driver drift and passes only the six required
@@ -155,6 +157,42 @@ The smoke performs three checks against the same ready server:
 3. PutPocket's `OpenAICompatibleHTTPGenerationEngine` sends the exact locally
    chat-templated rendered prompt through `/v1/completions` without applying a
    second server chat template.
+
+## Observed v4 boundary and remaining acceptance run
+
+The immutable v4 diagnostic run used image
+`sha256:b79bacf76a107fc9ddd67fcc84851e3f5ae222fe6fd6a2f187723297e1400b1e`
+and run ID `glm53-smoke-20260830T144600Z-afb94b4-topklens-v4`. All three API
+workers reached `Application startup complete`; the first did so 343.667
+seconds after container start. This is real evidence that model warmup passed
+both earlier integration failures: the NoPE `pe_dim=0` FP8 MLA cache write and
+the SM120 native sparse `sparse_mla_top_k_lens` requirement.
+
+Weights loaded in 67.76 seconds and each rank reported 71.02 GiB for model
+loading. The requested `--block-size 512` was retained in the launch contract,
+but vLLM raised the effective attention page to 8,704 tokens to match the
+hybrid Mamba page. The resulting KV capacities were 165,888 tokens on ranks 0
+and 1 and 153,600 on rank 2. Telemetry recorded peak device allocations of
+96,038, 96,038, and 90,207 MiB.
+
+The first formal client attempt then failed closed before generation because
+`jinja2` was absent from the isolated client environment. The dependency is
+now pinned above. A same-server post-fix diagnostic produced valid model-list,
+deterministic chat, and PutPocket HTTP payloads, but it is retained only as
+unaccepted diagnostic evidence: it did not begin with a fresh server launch
+from the committed dependency fix. Therefore this document does not claim a
+completed end-to-end smoke.
+
+The CPU-only finalization reran 21 focused GLM-5.3 tests and all 205 repository
+tests. It also reconstructed all three vLLM changes from the immutable upstream
+commit, applied each with its locked command contract, matched every exact
+postimage, and imported the final image without passing any NVIDIA device into
+Docker.
+
+Once GPU use is explicitly re-authorized, the sole remaining acceptance step
+is one fresh unique run from the pushed branch: wait for all three GPUs to be
+idle, run `launch_server.sh`, run `run_smoke.sh` once, require all three checks
+to pass, and stop that exact task container with `stop_server.sh`.
 
 The example integration config is
 `configs/execution/server2_glm53_flash_nvfp4_ep3.example.yaml`. It documents a

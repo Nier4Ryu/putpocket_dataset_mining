@@ -14,6 +14,7 @@ Worktree:
 Branch: `agent/T20260903-001__glm53-retarget-all`
 
 Implementation commit: `f10da9c1f2b900a819468c956a9ecb16c778bcfe`.
+Validation handoff commit: `067f4edf993b771f487bfe1a1a8dfa0384e7c457`.
 
 ## Preserved scientific scope
 

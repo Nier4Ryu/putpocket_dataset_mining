@@ -52,6 +52,6 @@ artifacts:
   - current model cache: absent; 169,755,856,896 free bytes was below the locked 197,881,155,500-byte weight payload, so no unsafe download was attempted
   - historical deployment model-verification evidence remains read-only and is not stateful GLM-5.3 success evidence
 commits:
-  - implementation commit: f10da9c1f2b900a819468c956a9ecb16c778bcfe
-  - validation handoff commit: 067f4edf993b771f487bfe1a1a8dfa0384e7c457
+  - implementation commit: f10da9cecaabc11b84b8218df50dcfd28c062c3e
+  - validation handoff commit: 067f4ed11fb0b1f1eb652535e901e91a8129f5e5
 final handoff link: agent/tasks/T20260903-001__glm53-retarget-all/handoffs/TO_GPT_20260903_FINAL.md

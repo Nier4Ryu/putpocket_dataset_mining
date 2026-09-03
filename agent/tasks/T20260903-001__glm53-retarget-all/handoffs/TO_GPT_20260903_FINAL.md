@@ -13,7 +13,7 @@ Worktree:
 
 Branch: `agent/T20260903-001__glm53-retarget-all`
 
-Implementation commit: pending at handoff authoring time; record after commit.
+Implementation commit: `f10da9c1f2b900a819468c956a9ecb16c778bcfe`.
 
 ## Preserved scientific scope
 

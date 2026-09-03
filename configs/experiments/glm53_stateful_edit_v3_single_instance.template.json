@@ -1,0 +1,60 @@
+{
+  "$schema": "./schemas/glm53_stateful_edit_v3_episode.schema.json",
+  "schema_version": 3,
+  "artifact_kind": "authoring_template",
+  "scenario_id": "glm53-swebench-pro-ansible-single-system-replacement-v3",
+  "status": "requires_glm53_freeze",
+  "provenance": {
+    "benchmark_dataset": "ScaleAI/SWE-bench_Pro",
+    "benchmark_revision": "7ab5114912baf22bb098818e604c02fe7ad2c11f",
+    "benchmark_split": "test",
+    "instance_id": "instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+    "harness_commit": "ca10a60a5fcae51e6948ffe1485d4153d421e6c5",
+    "benchmark_native_components": [
+      "problem row",
+      "repository/container mapping",
+      "official evaluator"
+    ],
+    "putpocket_authored_components": [
+      "A1 execution and Q2 freezing",
+      "system-message edit",
+      "selector and ratio sweep"
+    ],
+    "outcome_leakage_policy": "freeze episode and selector before reading any evaluator outcome"
+  },
+  "model": {
+    "id": "RedHatAI/GLM-5.3-Flash-NVFP4",
+    "revision": "36c184c6cda000a481711306df5adde42f63321a",
+    "architecture": "Glm5NextForConditionalGeneration",
+    "vllm_commit": "878631b6079d2cf9fb80830ef9cb41b43aded098",
+    "tokenizer_sha256": "0cfe2c099a7702a0921abc315ee039deb51e4a34b4818fc509bd27fa3dc4acc1",
+    "chat_template_sha256": "34d5ee66b12fa6446cdae131c352b8f68cd85369e0e6fda115583805fada3891"
+  },
+  "edit": {
+    "scope": "system_message_only",
+    "operation": "single_equal_token_count_replacement",
+    "old_text": "Failure to follow these rules will cause your response to be rejected.",
+    "new_text": "Failure to follow these rules will cause your response to be accepted.",
+    "standalone_old_token_count_observed": 13,
+    "standalone_new_token_count_observed": 13,
+    "serialized_edit_position": null,
+    "serialized_edit_position_policy": "derive_after_exact_SYS_Q1_serialization; never hard-code a GLM-5.2 position"
+  },
+  "episode": {
+    "construction": "SYS_old+Q1 -> freeze A1; execute A1 -> freeze Q2; then SYS_new+Q1+frozen_A1+frozen_Q2 -> continuation",
+    "exact_a1_q2_replay": true,
+    "single_instance_only": true,
+    "frozen_episode_path": null,
+    "selector_path": null
+  },
+  "runtime": {
+    "mode": "default_off_full_target_prefill_then_donor_row_overwrite_accuracy_ablation",
+    "true_partial_prefill": false,
+    "data_parallel_rank_affinity": 0,
+    "main_cache_product": "fp8_ds_mla_656_byte_rows",
+    "indexer_cache_product": "fp8_e4m3_132_byte_complete_four_token_pool_rows",
+    "kda_policy": "target_computed_no_donor_row_transplant",
+    "indexer_tail_policy": "target_computed_never_transplanted",
+    "q2_policy": "excluded_from_donor_history_and computed normally in first post-edit request"
+  }
+}

@@ -5,6 +5,11 @@ three-GPU SM120 host without changing the canonical PutPocket runtime or the
 GLM-5.2 environment. It is task-local, offline at serve time, and fail-closed
 on model, runtime, GPU ownership, or parallel-layout drift.
 
+The separate default-OFF stateful-edit-v3 accuracy-ablation overlay is
+documented in [GLM53_STATEFUL_EDIT_V3.md](GLM53_STATEFUL_EDIT_V3.md). It uses
+this deployment lock as its immutable base and must not be confused with true
+partial prefill.
+
 ## Immutable selection and provenance
 
 The machine authority is

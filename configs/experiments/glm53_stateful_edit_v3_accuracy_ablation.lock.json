@@ -1,0 +1,338 @@
+{
+  "schema_version": 1,
+  "task_id": "T20260903-001__glm53-retarget-all",
+  "status": "cpu_static_port_gpu_validation_pending",
+  "source_branch": {
+    "base_commit": "61da82cf29c2c0319b7f90dba211713b15a2de06",
+    "branch": "agent/T20260903-001__glm53-retarget-all",
+    "glm52_historical_tip": "6450c21114fc58e6e68da273b8c0c7d8f1ee3571"
+  },
+  "deployment_authority": {
+    "path": "configs/models/glm53_flash_nvfp4_montblanc.lock.json",
+    "sha256": "3a65335b2c91346276b668c36ff8e6e77a6868bf8eb322c71d2501a682b517d0"
+  },
+  "model": {
+    "id": "RedHatAI/GLM-5.3-Flash-NVFP4",
+    "revision": "36c184c6cda000a481711306df5adde42f63321a",
+    "architecture": "Glm5NextForConditionalGeneration",
+    "quantization": "compressed-tensors NVFP4 W4A4",
+    "vllm_commit": "878631b6079d2cf9fb80830ef9cb41b43aded098",
+    "flashinfer_commit": "c2eec117219457e45126fa4fa87e7240dd4ea620",
+    "attention_backend": "FLASHINFER_MLA_SPARSE_SM120",
+    "kv_cache_dtype": "fp8_ds_mla",
+    "layer_count": 45,
+    "mla_layers": [
+      3,
+      7,
+      11,
+      15,
+      19,
+      23,
+      27,
+      31,
+      35,
+      39,
+      43
+    ],
+    "kda_layers": [
+      0,
+      1,
+      2,
+      4,
+      5,
+      6,
+      8,
+      9,
+      10,
+      12,
+      13,
+      14,
+      16,
+      17,
+      18,
+      20,
+      21,
+      22,
+      24,
+      25,
+      26,
+      28,
+      29,
+      30,
+      32,
+      33,
+      34,
+      36,
+      37,
+      38,
+      40,
+      41,
+      42,
+      44
+    ],
+    "indexer_layers": [
+      3,
+      7,
+      11,
+      15,
+      19,
+      23,
+      27,
+      31,
+      35,
+      39,
+      43
+    ],
+    "indexer_heads": 32,
+    "indexer_head_dim": 128,
+    "index_kpool": 4,
+    "index_topk": 2048,
+    "main_cache_row_bytes": 656,
+    "indexer_cache_row_bytes": 132,
+    "qk_rope_head_dim": 0,
+    "tokenizer_sha256": "0cfe2c099a7702a0921abc315ee039deb51e4a34b4818fc509bd27fa3dc4acc1",
+    "tokenizer_config_sha256": "77af7d4769cd62c107b90495cac9b0ba81573c86486821bfba2980c04285ec7a",
+    "chat_template_sha256": "34d5ee66b12fa6446cdae131c352b8f68cd85369e0e6fda115583805fada3891"
+  },
+  "runtime_semantics": {
+    "mode": "default_off_accuracy_ablation",
+    "production_default_enabled": false,
+    "full_target_prefill": true,
+    "donor_overwrite_after_native_write": true,
+    "true_partial_prefill": false,
+    "speedup_claim": false,
+    "skipped_flop_claim": false,
+    "prefix_caching": false,
+    "chunked_prefill": false,
+    "tensor_parallel_size": 1,
+    "data_parallel_size": 3,
+    "expert_parallel_size": 3,
+    "data_parallel_rank_affinity": 0,
+    "kda_policy": "target_computed_no_donor_row_transplant",
+    "indexer_pool_policy": "copy only complete 4-token pools whose positions are all selected and inside frozen history",
+    "indexer_tail_policy": "target_computed_never_transplanted",
+    "control_absent_policy": "default OFF",
+    "control_present_invalid_policy": "fail closed"
+  },
+  "patch_chain": [
+    {
+      "path": "patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/glm53_skip_unpublished_flashinfer_release.patch",
+      "apply_args": []
+    },
+    {
+      "path": "patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/glm53_nope_fp8_ds_mla_cache.patch",
+      "apply_args": [
+        "--unidiff-zero"
+      ]
+    },
+    {
+      "path": "patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/glm53_sm120_nope_topk_lens.patch",
+      "apply_args": [
+        "--unidiff-zero"
+      ]
+    },
+    {
+      "path": "patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/glm53_stateful_edit_v3_accuracy_ablation.patch",
+      "apply_args": [
+        "--unidiff-zero"
+      ]
+    }
+  ],
+  "stateful_patch_postimages": {
+    "vllm/model_executor/layers/attention/mla_attention.py": {
+      "pre_sha256": "6efbbb7f1913eb40516586a1a9dbfaa7be80e96c7135bf5a39a6cd6d3ce6f514",
+      "post_sha256": "ae008425588218b94628058988eadc0a39018ea92851dadb26a5ff9d2554d89a"
+    },
+    "vllm/model_executor/layers/sparse_attn_indexer_kpool.py": {
+      "pre_sha256": "c9e4055548742986beaa7e7cbae15707fa9eb7eb23fcaf91a660b07e86d25c02",
+      "post_sha256": "1accf858644f7ed08a9fa952d9b906f9a32e167a8c389ce0cfc4ecf0e54c9b5c"
+    },
+    "vllm/models/glm5next/nvidia/model.py": {
+      "pre_sha256": "b5189a6ee84021cecd0189fba2c6b40fd92c341452c5d0e9381b7041e02af0a8",
+      "post_sha256": "bce7d0fb2816715977b3b15d7c41adcbc3034b4aba094731996addefba9f8d0d"
+    }
+  },
+  "scenario": {
+    "benchmark_dataset": "ScaleAI/SWE-bench_Pro",
+    "benchmark_revision": "7ab5114912baf22bb098818e604c02fe7ad2c11f",
+    "split": "test",
+    "instance_id": "instance_ansible__ansible-cd473dfb2fdbc97acf3293c134b21cbbcfa89ec3-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+    "harness_commit": "ca10a60a5fcae51e6948ffe1485d4153d421e6c5",
+    "edit_kind": "single equal-token-count system replacement",
+    "episode": "SYS_old+Q1 -> frozen A1/action/Q2; edit; SYS_new+Q1+A1+Q2 -> continuation",
+    "serialized_edit_position": "derive under exact GLM-5.3 tokenizer and chat template",
+    "ratios_percent": [
+      0,
+      10,
+      20,
+      30,
+      40,
+      50,
+      60,
+      70,
+      80,
+      90,
+      100
+    ],
+    "benchmark_native": [
+      "problem",
+      "repository/container mapping",
+      "official evaluator"
+    ],
+    "putpocket_authored": [
+      "A1-execute-Q2 freeze",
+      "system edit",
+      "selector",
+      "ratio sweep"
+    ],
+    "benchmark_expansion": false
+  },
+  "cpu_metadata_audit": {
+    "config_sha256": "29c9f4171196910e99b9c069d6b76c56e3cdcd0f436dc1bacbc9513c9a7529ac",
+    "standalone_old_token_ids": [
+      17483,
+      311,
+      1795,
+      1493,
+      5601,
+      686,
+      5240,
+      697,
+      2033,
+      311,
+      387,
+      17526,
+      13
+    ],
+    "standalone_new_token_ids": [
+      17483,
+      311,
+      1795,
+      1493,
+      5601,
+      686,
+      5240,
+      697,
+      2033,
+      311,
+      387,
+      11660,
+      13
+    ],
+    "model_weights_loaded": false,
+    "gpu_used": false
+  },
+  "model_cache": {
+    "status": "absent_at_cpu_audit",
+    "expected_weight_bytes": 197881155500,
+    "download_performed": false,
+    "reason": "current free filesystem space was below the exact checkpoint size; prior deployment evidence is historical and not current cache success"
+  },
+  "artifacts": [
+    {
+      "path": "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json",
+      "size": 2767,
+      "sha256": "74a49b60b463f6539b1fac8494fce922091276f8bb5c74b226303c806f6b06ef"
+    },
+    {
+      "path": "configs/experiments/schemas/glm53_stateful_edit_v3_base_selector.schema.json",
+      "size": 2244,
+      "sha256": "038dd3637c90c02fbd4d8300875d3b41788517bb192176e19b2b4758da2015df"
+    },
+    {
+      "path": "configs/experiments/schemas/glm53_stateful_edit_v3_episode.schema.json",
+      "size": 2129,
+      "sha256": "cab795134a1491a6dcfd97b77f5d211f7e32101dd5e3da6ea319a40dca3144ce"
+    },
+    {
+      "path": "configs/experiments/schemas/glm53_stateful_edit_v3_indexer_capture.schema.json",
+      "size": 2245,
+      "sha256": "4dab6be0a0ee2e503899f4885bfbb749617c5a0899588d2cf0c798ddbc068fb3"
+    },
+    {
+      "path": "configs/experiments/schemas/glm53_stateful_edit_v3_selector_capture_control.schema.json",
+      "size": 1427,
+      "sha256": "36aafa449230ddbacbd3be66ef623f08889885bac67e7536a5c154e3dadf22c8"
+    },
+    {
+      "path": "configs/models/glm53_flash_nvfp4_montblanc.lock.json",
+      "size": 11981,
+      "sha256": "3a65335b2c91346276b668c36ff8e6e77a6868bf8eb322c71d2501a682b517d0"
+    },
+    {
+      "path": "docker/glm53_sm120/Dockerfile.stateful-edit-v3",
+      "size": 3191,
+      "sha256": "2681a110606401e63ced79133d73255abece7e6a53a86cc557eb3264ab95de4d"
+    },
+    {
+      "path": "instrumentation/vllm/glm53_stateful_edit_accuracy_ablation.py",
+      "size": 35951,
+      "sha256": "94cbc2d49f557236813156c439bb76c25f80f6b1537e15b44758958a9f1cd7f0"
+    },
+    {
+      "path": "patches/vllm/878631b6079d2cf9fb80830ef9cb41b43aded098/glm53_stateful_edit_v3_accuracy_ablation.patch",
+      "size": 4862,
+      "sha256": "7b43680b4c5aee1f33ccdbc9a247b56fc4af44b11337dccc6201ecdcc0477c5b"
+    },
+    {
+      "path": "scripts/glm53/build_stateful_edit_v3_image.sh",
+      "size": 1147,
+      "sha256": "dca737a2bdf14bfa9ba3a6cbee8a21cd9025ba87c1a70668b0c325ce2c31f21f"
+    },
+    {
+      "path": "scripts/glm53/launch_stateful_edit_v3_server.sh",
+      "size": 8656,
+      "sha256": "53e8227e75eac05e73ee5ab87cf8ecec6bdb29958856ed1b074f36337ea882d9"
+    },
+    {
+      "path": "scripts/glm53/prepare_stateful_edit_v3_overlay.sh",
+      "size": 4427,
+      "sha256": "902f60b5446b996ab2c353677b1731478f0a8043af512d70c432c4279054f53a"
+    },
+    {
+      "path": "scripts/glm53/run_stateful_edit_v3_harness.sh",
+      "size": 11888,
+      "sha256": "0054f4ffd736c0e8cc8b4113ac78550d30038e395537c2ab0376e1c933a0cf3a"
+    },
+    {
+      "path": "scripts/glm53/stop_stateful_edit_v3_server.sh",
+      "size": 1467,
+      "sha256": "f4920107cc3efa0f52531e5abda05aa419fb5f028dd481bb482b21f39b760173"
+    },
+    {
+      "path": "src/putpocket_dataset_mining/glm53_stateful_edit.py",
+      "size": 58486,
+      "sha256": "d1586b9fd3275928e3cbda97c2a110bac7db7918a1448ae208d6d3c5d99fc2a0"
+    },
+    {
+      "path": "src/putpocket_dataset_mining/glm53_stateful_proxy.py",
+      "size": 12213,
+      "sha256": "114c73c54812347849777e152f468d638509e9cdc3c6c3bfa47741de8411d221"
+    }
+  ],
+  "selector_capture": {
+    "mode": "separate_default_off_native_glm53_kpool_diagnostic",
+    "control_env": "PUTPOCKET_GLM53_BASE_SELECTOR_CAPTURE",
+    "token_count_minimum": 2049,
+    "query_sample": "prefill_last_query",
+    "raw_score_kind": "native_pre_topk_pre_normalization",
+    "layers": [
+      3,
+      7,
+      11,
+      15,
+      19,
+      23,
+      27,
+      31,
+      35,
+      39,
+      43
+    ],
+    "data_parallel_rank": 0,
+    "pool_score_expansion": "assign each compressed-pool score to its four constituent token positions",
+    "incomplete_tail_policy": "retain and mark unscored; sort last by absolute position",
+    "capture_and_accuracy_controls_mutually_exclusive": true,
+    "gpu_evidence_status": "pending"
+  }
+}

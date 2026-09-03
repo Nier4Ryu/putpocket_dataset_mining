@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "task_id": "T20260903-001__glm53-retarget-all",
+  "audited_at_utc": "2026-09-03T13:53:35Z",
+  "network_scope": "official Hugging Face immutable model revision metadata only",
+  "model": {
+    "repository": "RedHatAI/GLM-5.3-Flash-NVFP4",
+    "revision": "36c184c6cda000a481711306df5adde42f63321a",
+    "expected_weight_bytes": 197881155500,
+    "weights_downloaded": false,
+    "weights_loaded": false,
+    "inference_performed": false
+  },
+  "downloaded_metadata": [
+    {
+      "path": "config.json",
+      "bytes": 53876,
+      "sha256": "29c9f4171196910e99b9c069d6b76c56e3cdcd0f436dc1bacbc9513c9a7529ac"
+    },
+    {
+      "path": "tokenizer.json",
+      "bytes": 20217541,
+      "sha256": "0cfe2c099a7702a0921abc315ee039deb51e4a34b4818fc509bd27fa3dc4acc1"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "bytes": 790,
+      "sha256": "77af7d4769cd62c107b90495cac9b0ba81573c86486821bfba2980c04285ec7a"
+    },
+    {
+      "path": "chat_template.jinja",
+      "bytes": 10644,
+      "sha256": "34d5ee66b12fa6446cdae131c352b8f68cd85369e0e6fda115583805fada3891"
+    },
+    {
+      "path": "generation_config.json",
+      "bytes": 177,
+      "sha256": "e9e93ee323895fa5e8e160f1f9826fd98b6bd7b3935435f423c3554f88bfa3ac"
+    }
+  ],
+  "tokenization_observation": {
+    "scope": "sentences in isolation under exact tokenizer metadata",
+    "old_token_ids": [17483, 311, 1795, 1493, 5601, 686, 5240, 697, 2033, 311, 387, 17526, 13],
+    "new_token_ids": [17483, 311, 1795, 1493, 5601, 686, 5240, 697, 2033, 311, 387, 11660, 13],
+    "equal_token_count": true,
+    "full_serialized_position_frozen": false,
+    "reason": "must be derived from the future exact GLM-5.3 SYS+Q1 episode serialization"
+  },
+  "current_cache": {
+    "expected_model_directory_status": "absent",
+    "filesystem_available_bytes": 169755856896,
+    "filesystem_available_inodes": 117148206,
+    "download_decision": "not attempted because available bytes are below the exact checkpoint weight bytes even before transfer overhead"
+  },
+  "historical_deployment_evidence": {
+    "classification": "read-only prior GLM-5.3 deployment evidence; not current cache or stateful-edit success",
+    "model_verification_json_bytes": 7879,
+    "model_verification_json_sha256": "04514e470991e190d2b981c7b9bf87a38884f1827b2571929674b76f50c50d2f"
+  },
+  "gpu_actions": {
+    "nvidia_smi_invoked": false,
+    "cuda_invoked": false,
+    "model_import_or_load": false,
+    "gpu_process_started": false,
+    "job_submitted": false,
+    "nvidia_device_passed_to_docker": false
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/glm53_stateful_edit_v3_episode.schema.json",
+  "title": "GLM-5.3 stateful-edit-v3 single-instance authoring template",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "scenario_id",
+    "status",
+    "provenance",
+    "model",
+    "edit",
+    "episode",
+    "runtime"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": 3},
+    "artifact_kind": {"const": "authoring_template"},
+    "scenario_id": {"const": "glm53-swebench-pro-ansible-single-system-replacement-v3"},
+    "status": {"const": "requires_glm53_freeze"},
+    "provenance": {
+      "type": "object",
+      "required": [
+        "benchmark_dataset",
+        "benchmark_revision",
+        "benchmark_split",
+        "instance_id",
+        "harness_commit",
+        "benchmark_native_components",
+        "putpocket_authored_components",
+        "outcome_leakage_policy"
+      ]
+    },
+    "model": {
+      "type": "object",
+      "required": ["id", "revision", "architecture", "vllm_commit", "tokenizer_sha256", "chat_template_sha256"]
+    },
+    "edit": {
+      "type": "object",
+      "required": ["scope", "operation", "old_text", "new_text", "serialized_edit_position", "serialized_edit_position_policy"],
+      "properties": {
+        "scope": {"const": "system_message_only"},
+        "operation": {"const": "single_equal_token_count_replacement"},
+        "serialized_edit_position": {"type": "null"}
+      }
+    },
+    "episode": {
+      "type": "object",
+      "required": ["construction", "exact_a1_q2_replay", "single_instance_only", "frozen_episode_path", "selector_path"]
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["mode", "true_partial_prefill", "data_parallel_rank_affinity", "main_cache_product", "indexer_cache_product", "kda_policy", "indexer_tail_policy", "q2_policy"],
+      "properties": {
+        "true_partial_prefill": {"const": false},
+        "data_parallel_rank_affinity": {"const": 0}
+      }
+    }
+  }
+}

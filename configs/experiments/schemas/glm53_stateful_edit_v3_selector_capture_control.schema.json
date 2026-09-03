@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/glm53_stateful_edit_v3_selector_capture_control.schema.json",
+  "title": "GLM-5.3 stateful-edit-v3 native selector capture control",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "prompt_side",
+    "model",
+    "token_count",
+    "query_position",
+    "prompt_token_ids_sha256",
+    "layers",
+    "data_parallel_rank",
+    "raw_score_kind",
+    "outcome_independent",
+    "benchmark_outcomes_read",
+    "evidence_dir"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "mode": {"const": "CAPTURE"},
+    "prompt_side": {"enum": ["donor", "edited"]},
+    "model": {
+      "type": "object",
+      "required": ["id", "revision", "architecture", "vllm_commit", "attention_backend", "kv_cache_dtype", "index_kpool"]
+    },
+    "token_count": {"type": "integer", "minimum": 2049},
+    "query_position": {"type": "integer", "minimum": 2048},
+    "prompt_token_ids_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "layers": {"const": [3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43]},
+    "data_parallel_rank": {"const": 0},
+    "raw_score_kind": {"const": "native_pre_topk_pre_normalization"},
+    "outcome_independent": {"const": true},
+    "benchmark_outcomes_read": {"const": false},
+    "evidence_dir": {"type": "string", "minLength": 1}
+  }
+}

@@ -23,6 +23,8 @@ putpocket-dataset-mining = "putpocket_dataset_mining.cli:main"
 putpocket-remote-verifier = "putpocket_dataset_mining.remote_verifier.cli:main"
 putpocket-remote-workspace = "putpocket_dataset_mining.remote_workspace:main"
 putpocket-agent = "putpocket_dataset_mining.agent_cli:main"
+putpocket-glm53-stateful-edit = "putpocket_dataset_mining.glm53_stateful_edit:main"
+putpocket-glm53-stateful-proxy = "putpocket_dataset_mining.glm53_stateful_proxy:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

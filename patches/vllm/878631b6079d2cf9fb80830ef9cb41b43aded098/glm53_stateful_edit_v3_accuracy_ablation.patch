@@ -1,0 +1,107 @@
+diff --git a/vllm/model_executor/layers/attention/mla_attention.py b/vllm/model_executor/layers/attention/mla_attention.py
+index 4536d28..75ebcb9 100644
+--- a/vllm/model_executor/layers/attention/mla_attention.py
++++ b/vllm/model_executor/layers/attention/mla_attention.py
+@@ -245,0 +246,4 @@ from vllm.model_executor.layers.attention_layer_base import AttentionLayerBase
++from vllm.model_executor.layers.glm53_stateful_edit_accuracy_ablation import (
++    accuracy_ablation_armed,
++    maybe_apply_main_cache,
++)
+@@ -1301,0 +1306,16 @@ def unified_mla_kv_cache_update(
++        # Default-OFF stateful-edit accuracy emulation: the native target row
++        # write above must complete before selected donor bytes are restored.
++        if accuracy_ablation_armed():
++            if attn_metadata is None:
++                raise RuntimeError("GLM53_STATEFUL_EDIT_METADATA_UNAVAILABLE")
++            maybe_apply_main_cache(
++                layer_name=str(layer_name),
++                kv_cache=kv_cache,
++                slot_mapping=layer_slot_mapping,
++                num_prefills=attn_metadata.num_prefills,
++                num_decodes=attn_metadata.num_decodes,
++                num_prefill_tokens=(
++                    attn_metadata.num_actual_tokens
++                    - attn_metadata.num_decode_tokens
++                ),
++            )
+diff --git a/vllm/model_executor/layers/sparse_attn_indexer_kpool.py b/vllm/model_executor/layers/sparse_attn_indexer_kpool.py
+index 5924d9f..22085dc 100644
+--- a/vllm/model_executor/layers/sparse_attn_indexer_kpool.py
++++ b/vllm/model_executor/layers/sparse_attn_indexer_kpool.py
+@@ -15,0 +16,5 @@ from vllm.model_executor.custom_op import CustomOp
++from vllm.model_executor.layers.glm53_stateful_edit_accuracy_ablation import (
++    maybe_capture_base_selector_scores,
++    maybe_apply_indexer_cache,
++    selector_capture_armed,
++)
+@@ -434,0 +440,12 @@ def sparse_attn_indexer_kpool(
++    # Default-OFF stateful-edit accuracy emulation. This runs only after the
++    # native target pool write and never mutates the token-granular tail cache.
++    maybe_apply_indexer_cache(
++        layer_name=str(k_cache_prefix),
++        kv_cache=kv_cache,
++        slot_mapping=slot_mapping,
++        positions=positions,
++        num_prefills=attn_metadata_narrowed.num_prefills,
++        num_decodes=attn_metadata_narrowed.num_decodes,
++        num_prefill_tokens=attn_metadata_narrowed.num_prefill_tokens,
++    )
++
+@@ -550,0 +568,15 @@ def sparse_attn_indexer_kpool(
++            # Separate default-OFF diagnostic used only to freeze the GLM-5.3
++            # native base selector before benchmark outcomes are visible.
++            if selector_capture_armed():
++                if positions is None:
++                    raise RuntimeError("GLM53_BASE_SELECTOR_POSITIONS_UNAVAILABLE")
++                maybe_capture_base_selector_scores(
++                    layer_name=str(k_cache_prefix),
++                    logits=logits,
++                    query_positions=positions[chunk.token_start : chunk.token_end],
++                    key_starts=chunk.cu_seqlen_ks,
++                    key_ends=chunk.cu_seqlen_ke,
++                    num_prefills=attn_metadata_narrowed.num_prefills,
++                    num_decodes=attn_metadata_narrowed.num_decodes,
++                )
++
+diff --git a/vllm/models/glm5next/nvidia/model.py b/vllm/models/glm5next/nvidia/model.py
+index 2cff402..7702c0e 100644
+--- a/vllm/models/glm5next/nvidia/model.py
++++ b/vllm/models/glm5next/nvidia/model.py
+@@ -3,0 +4 @@
++import os
+@@ -30,0 +32,5 @@ from vllm.model_executor.layers.logits_processor import LogitsProcessor
++from vllm.model_executor.layers.glm53_stateful_edit_accuracy_ablation import (
++    CONTROL_ENV as STATEFUL_EDIT_CONTROL_ENV,
++    SELECTOR_CAPTURE_ENV,
++    maybe_attest_prompt,
++)
+@@ -85,0 +92 @@ from vllm.transformers_utils.configs.glm5_next import Glm5NextConfig
++from vllm.utils.torch_utils import direct_register_custom_op
+@@ -97,0 +105,20 @@ logger = init_logger(__name__)
++def glm53_stateful_edit_attest(
++    input_ids: torch.Tensor, positions: torch.Tensor
++) -> torch.Tensor:
++    maybe_attest_prompt(input_ids=input_ids, positions=positions)
++    return input_ids.clone()
++
++
++def glm53_stateful_edit_attest_fake(
++    input_ids: torch.Tensor, positions: torch.Tensor
++) -> torch.Tensor:
++    return torch.empty_like(input_ids)
++
++
++direct_register_custom_op(
++    op_name="glm53_stateful_edit_attest",
++    op_func=glm53_stateful_edit_attest,
++    fake_impl=glm53_stateful_edit_attest_fake,
++)
++
++
+@@ -662,0 +690,6 @@ class Glm5NextModel(nn.Module):
++        if input_ids is not None and (
++            os.getenv(STATEFUL_EDIT_CONTROL_ENV) or os.getenv(SELECTOR_CAPTURE_ENV)
++        ):
++            input_ids = torch.ops.vllm.glm53_stateful_edit_attest(
++                input_ids, positions
++            )

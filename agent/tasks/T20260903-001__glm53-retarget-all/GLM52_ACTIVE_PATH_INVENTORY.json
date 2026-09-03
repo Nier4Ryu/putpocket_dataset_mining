@@ -1,0 +1,665 @@
+{
+  "schema_version": 1,
+  "inventory_id": "glm52-active-stateful-lineage-to-glm53-20260903",
+  "source": {
+    "worktree": "/home/dyryu/putpocket_dataset_mining_worktrees/T20260826-001__glm52-stateful-edit-v3-port",
+    "branch": "agent/T20260826-001__glm52-stateful-edit-v3-port",
+    "base_commit": "b9d44af05a464993001ecaf19acc07f188f072a7",
+    "tip_commit": "6450c21114fc58e6e68da273b8c0c7d8f1ee3571",
+    "path_enumeration": "git diff --name-only base..tip",
+    "path_count": 97
+  },
+  "target": {
+    "branch": "agent/T20260903-001__glm53-retarget-all",
+    "base_commit": "61da82cf29c2c0319b7f90dba211713b15a2de06",
+    "task_id": "T20260903-001__glm53-retarget-all"
+  },
+  "semantic_boundary": {
+    "ported": "single pinned SWE-bench Pro instance; exact A1/Q2 replay; equal-token-count SYS replacement; full target prefill followed by selected donor-row overwrite accuracy ablation",
+    "not_ported": [
+      "true selective/partial prefill",
+      "new benchmark instances or edit meanings",
+      "GLM-5.2 score/result artifacts as GLM-5.3 evidence",
+      "scheduler submission"
+    ],
+    "historical_glm52_tip_is_read_only": true
+  },
+  "entries": [
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/TASK.md",
+      "source_sha256": "5954937f5da348fad3bfe39d5401fa834794f46188f83ca34a2aac87bb2b6efc",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-005948.md",
+      "source_sha256": "0f31f3f35ca083121b3b61954d04736465e663993af3c3fb3b0ef8a90c7a9b61",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-015959.md",
+      "source_sha256": "d2571972de5bc0ce3ce91dcdc36b156beaf5028f7416c08d1756d437a041b64f",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-033431.md",
+      "source_sha256": "d6fa53f3ebaefb30170148947bda80e8fea2ae32f8b58bedd765c4a6de3e77f2",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-041706.md",
+      "source_sha256": "3b157bdea6012ce1432107e77840960fce819943a1165c2a883c3907b8b38ce8",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-042851.md",
+      "source_sha256": "7892cc45672bbdd9035afed4a33c78ec6b79930645c8aa92105e2874588c2249",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-043649.md",
+      "source_sha256": "3725d9333216aaed7fe7ff2dd177d0b1fc2acb5ad7ae04dbfc3900cba7d50692",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-043953.md",
+      "source_sha256": "c2718d8fd6a9c0b51b4c0ad37e22cc691cd438d2eb39f80aab03e670bab9d2dd",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-045100.md",
+      "source_sha256": "34fb3fbbf3b6f6095091c258f917f8ba706a42ce3bff54a2c0d8152975d54b62",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-045500.md",
+      "source_sha256": "a79c6a4081e6e81640f529a5da7691924a32b7c734862933214027b43138f31d",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-055500.md",
+      "source_sha256": "b767050297cbad7aa8e1513ab0b5caace41caee895d157a5308cfef46b899597",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-065200.md",
+      "source_sha256": "46f98341acd72805a83cf30f48646805aaf95f23e18a7981f805b529c9f28324",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-072700.md",
+      "source_sha256": "b583069a0ce344c8e5a8319d8f8826dc8419f42d745eb02bd1ff331c5aec9ac5",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-074037.md",
+      "source_sha256": "d03ffc7567e0987cc253d1ade746649ea86d7354d40ac36c80abf77987f684ea",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-075344.md",
+      "source_sha256": "f79790bc1a574c8cc992a31f453b95165cca5cccf502a1e5662d79d9fb134bcb",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-080038.md",
+      "source_sha256": "aa45358d5c0eae7658cb1a4245099d4d9e26bb88439bb94683a1c32f5a251cf3",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-084555.md",
+      "source_sha256": "e96de47bcdcfd5809682e46af18b904dac64f7ff7877c3b89ecad6c6fd5c6b18",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-102925.md",
+      "source_sha256": "614293bd6063747665693ec7f44f1fb734ed00734f0edcfa4156d0beb87913d8",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-115046.md",
+      "source_sha256": "a8392abc610a108af6bb7497c216f2132e56b82480c78ee61f279b5e711c6930",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-202728.md",
+      "source_sha256": "56ae061a8fc83578354c78c48890d3f57a83a18d236e0ff170513703d3b18742",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-215354.md",
+      "source_sha256": "c0d1e10d14083604741c8155acdf50c104a742ab0646eba6c4ad902d71678dbf",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "agent/tasks/T20260826-001__glm52-stateful-edit-v3-port/handoffs/TO_GPT_20260826-222724.md",
+      "source_sha256": "07df9c2136441c3620a77ae434bc9375d0ea191b8d165358564d7dadf84ebcbf",
+      "disposition": "historical_task_provenance",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/cluster/glm52_forced_reuse_ablation.lock.json",
+      "source_sha256": "3c1d736d9e366593d1f3c9accf09c1f91fc02b34b775d93a11bba9580db2ec34",
+      "disposition": "ported_glm53",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_accuracy_ablation.lock.json"
+      ]
+    },
+    {
+      "source_path": "configs/cluster/glm52_true_partial_prefill.lock.json",
+      "source_sha256": "491eea105c0550f6d82eeb2c165873ad7bcbb4fb8e98aa78cebdfea343d5c723",
+      "disposition": "blocked_not_ported_true_partial_out_of_scope",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/cluster/schemas/stateful_edit_scenario_catalog.schema.json",
+      "source_sha256": "0fc5f57ff8dc76a4e4c385e2c77a10c2b9ed3ecf4b8b2935ee64bef424732f8d",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "configs/cluster/schemas/stateful_mid_trajectory_edit_scenario.schema.json",
+      "source_sha256": "c45c601d15a5c4d59333ec065c60c204ab05e1702d7449783c0a639311cdb644",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "configs/cluster/schemas/vllm_true_partial_prefill_server_manifest.schema.json",
+      "source_sha256": "0bf8c190e8c72cfb8160ad500cc16955ff9f8af9e276254ee25c45771b619bca",
+      "disposition": "blocked_not_ported_true_partial_out_of_scope",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/cluster/stateful_edit_scenarios/catalog.json",
+      "source_sha256": "064a38371a539fc5655060637cf21577a12a60f18ef3176a8477a8f34017b669",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "configs/cluster/stateful_edit_scenarios/scenarios/glm52-cache-block-boundary-replacement-v1.json",
+      "source_sha256": "2dc3febf554c9f5cb6a699c374ffe1713019126fdc14032a6f8cc883084fa560",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "configs/cluster/stateful_edit_scenarios/scenarios/glm52-delete-shifted-rope-diagnostic-v1.json",
+      "source_sha256": "bdd2e92c210745043d221b9e8fab851e0c899b5f7bd0f41db4acf5c2b5f01161",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "configs/cluster/stateful_edit_scenarios/scenarios/glm52-insert-shifted-rope-diagnostic-v1.json",
+      "source_sha256": "4bbad1b3767ebb1897605f7a8e5b21b366c2c75ebbf989b51bac18e59ab9cb34",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "configs/cluster/stateful_edit_scenarios/scenarios/glm52-multi-disjoint-equal-replacement-v1.json",
+      "source_sha256": "73c1a8120e677f0123b61fe99542e879afb4a41b4526dbbb6a5433d96cd2b994",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "configs/cluster/stateful_edit_scenarios/scenarios/glm52-sys-interior-equal-replacement-smoke-v1.json",
+      "source_sha256": "91fb8bb9e355ac2e5296a61603772762a6cb37911e93a0395f3e8b29b930d087",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "configs/cluster/stateful_edit_scenarios/scenarios/glm52-sys-policy-equal-replacement-v1.json",
+      "source_sha256": "f1769f464befbe2482e200521b98ffd4a59044d8abad0f5bc0d946a9bc713484",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "configs/cluster/stateful_mid_trajectory_edit_scenario.example.yaml",
+      "source_sha256": "3fff0a164060aa4ed814b17adca9cfcd5c5ae742b58f2f252458e2100666d7db",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "configs/runpod/glm52_attention_indexer_package.lock.json",
+      "source_sha256": "ec6ed9d79a4cbc7e5528503a9247e08e94fcbd967e1244c6013bc6325065c34d",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/glm52_attention_indexer_schedule.json",
+      "source_sha256": "ef9f2dac3d243a216f2d4c778903c0f092050b76c63f898dd9ab506d5dd1770e",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_attention_indexer_report.schema.json",
+      "source_sha256": "483b81e7f8e3c702266d730f3a5617d1c888259e5d9d1fd99e81c41c78b7cab7",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_attention_indexer_schedule.schema.json",
+      "source_sha256": "4e7e997882ff86a79f881d5941312e5338b1028f9a7818fe9ae24bcffc38c20c",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_indexer_matrix_episode.schema.json",
+      "source_sha256": "5369179a68296e4d9c003d3fcb8b31fd615e8a476382059be579de8bcd3cf309",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_indexer_matrix_row.schema.json",
+      "source_sha256": "78457883923160af14d0359d1ef1bd6e7f6f2ca14636018544115ae302a28a27",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_indexer_multihop_report.schema.json",
+      "source_sha256": "55c63c9bc4577a24c506c5088e6347a7a247e688f49019a6e326d6ff0f6c6d7b",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_indexer_multihop_token_row.schema.json",
+      "source_sha256": "cf903e66764030e949ce7a5af960298997a7d7b9e63a105524558e8fa1fa0db5",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_montblanc_evidence_inventory.schema.json",
+      "source_sha256": "5edfe3676a2d765cdbb3f80f0199c90223e45de721555b607e8a88b3c8f577a6",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_query_sum_report.schema.json",
+      "source_sha256": "4138512463fb8ebb6a4287d4ed81efadc7bbfe8cb51b21e2a822110803a5f23b",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_rank_normalized_full_distribution_input_attestation.schema.json",
+      "source_sha256": "d5d8ed7deb5dc7969e2ac791f3fe34d7f78985ad67069806b937955365d35741",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_rank_normalized_full_distribution_summary.schema.json",
+      "source_sha256": "460960739a526bb634c2effbf49e9216b7287136b577ffc88c664a3f267073e9",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_rank_normalized_input_attestation.schema.json",
+      "source_sha256": "c32af311f3fd40ce1d0d0e3b19ce6bb9d60fb6ab13d932ff10e5bf39ba208d53",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_rank_normalized_multihop_report.schema.json",
+      "source_sha256": "5ded3159ddd49e1077c04db41e3267bfd65a9b0db3b0a068dba344b2ed799da1",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_rank_normalized_multihop_token_row.schema.json",
+      "source_sha256": "5da7431cd71b6c9eef42eb547ce4dbcd0433bee061ce46e0b9996b12f36c094d",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_rank_normalized_plot_summary.schema.json",
+      "source_sha256": "fc55a210f02ee15fb9f0099ec4d2a0af467a580697f249e856876d8fb09e51a2",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_runpod_doctor.schema.json",
+      "source_sha256": "324ef1edd0e7b3af78df5bab8e0010ef8d6559248e99a26c00b9792d2689a02a",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "configs/runpod/schemas/glm52_score_plot_summary.schema.json",
+      "source_sha256": "7d1aa5f76848c719d4bb4e5e100684751640f01c29fc2706338003b9e0080d12",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "docs/CLUSTER_GLM52_STATEFUL_EDIT_V3.md",
+      "source_sha256": "fc6061dceaf6fa8b6b5a7eb060a3dd6327a8ed985798925388cadb1ffc1c2b7a",
+      "disposition": "ported_glm53",
+      "target_paths": [
+        "docs/GLM53_STATEFUL_EDIT_V3.md"
+      ]
+    },
+    {
+      "source_path": "docs/RUNPOD_GLM52_ATTENTION_INDEXER.md",
+      "source_sha256": "8c9dd12ed151fed467efa61ef1e70378c9a198babd4cf8db08654cfe606c6d7a",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "docs/STATEFUL_EDIT_SCENARIO_CATALOG.md",
+      "source_sha256": "c4149c05bad08ac322afad143030f6568751681e712f4476defa4db7f702a44e",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "docs/STATEFUL_MID_TRAJECTORY_EDIT_SCENARIO_CONTRACT.md",
+      "source_sha256": "cb393cc5391b46e5fac799452acca97c7eaa1c31b0c379d882b51b7bb91bcc96",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "instrumentation/vllm/glm52_attention_indexer_scores.py",
+      "source_sha256": "50494e69c21ab86e9312540c66c71a0da464dd3f05380a90b1e98c3e0989cfe3",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "instrumentation/vllm/glm52_forced_edit_reuse.py",
+      "source_sha256": "d3bb32c706e902931c2a19948ed56ba9aac03a8fc86c591a7ebaba2fcdf65c1b",
+      "disposition": "ported_glm53",
+      "target_paths": [
+        "instrumentation/vllm/glm53_stateful_edit_accuracy_ablation.py"
+      ]
+    },
+    {
+      "source_path": "instrumentation/vllm/putpocket_true_partial_prefill.py",
+      "source_sha256": "dc14e1ccf08969ed684381128ad22360204b40075fc32c59979a26004ebb5f32",
+      "disposition": "blocked_not_ported_true_partial_out_of_scope",
+      "target_paths": []
+    },
+    {
+      "source_path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/glm52_attention_indexer_score_diagnostic.patch",
+      "source_sha256": "ab3867ecf22d9c62bf702cf3520e7c97b7035e03849ea10d7ef717050d5b2f51",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "patches/vllm/4a3447d200e5aa428d68d1a00aa00f1a19a1a729/putpocket_true_partial_prefill.patch",
+      "source_sha256": "78dc0b9a6cde73974e1522d9e7af0e17df26094ca17c0d82b641bcdfccf680ba",
+      "disposition": "blocked_not_ported_true_partial_out_of_scope",
+      "target_paths": []
+    },
+    {
+      "source_path": "pyproject.toml",
+      "source_sha256": "af43bc78c64d1848970220d42288b76e2e86e99819d409e9c9a5c0826d6468c9",
+      "disposition": "ported_glm53",
+      "target_paths": [
+        "pyproject.toml"
+      ]
+    },
+    {
+      "source_path": "scripts/analysis/plot_glm52_rank_normalized_full_distribution.py",
+      "source_sha256": "f7dcda1eb4966f0ef9b010aba63b5f6560ebca759afd7411bd0f130084379c81",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "scripts/analysis/plot_glm52_rank_normalized_multihop.py",
+      "source_sha256": "a5994d3e71323f9f857c0e65a40fb83369092a022f7224645787ca199e5a39f1",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "scripts/analysis/plot_glm52_score_evidence.py",
+      "source_sha256": "bbd900c65c359729d16f76ae857fa5052f659db2d08f39dabaebcc66dfef6e04",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "scripts/cluster/package_glm52_forced_reuse_ablation.sh",
+      "source_sha256": "0f35651299af3bdf4df6478d5331c341a0cb79e36e72a22e3c1056236ed8e093",
+      "disposition": "ported_glm53",
+      "target_paths": [
+        "scripts/glm53/prepare_stateful_edit_v3_overlay.sh"
+      ]
+    },
+    {
+      "source_path": "scripts/cluster/run_glm52_forced_reuse_ablation.sh",
+      "source_sha256": "60d45c68ae2b668316d8a0771b9e2ae1d52aeac8feffa906ac3cd408b7cff548",
+      "disposition": "ported_glm53",
+      "target_paths": [
+        "scripts/glm53/run_stateful_edit_v3_harness.sh"
+      ]
+    },
+    {
+      "source_path": "scripts/cluster/submit_glm52_forced_reuse_ablation.sh",
+      "source_sha256": "c763ce66f7bff504fbd26619b1fc70294c8e01ecdea28fa07497d51d8090cc7b",
+      "disposition": "not_ported_scheduler_submission_forbidden",
+      "target_paths": []
+    },
+    {
+      "source_path": "scripts/runpod/bootstrap_glm52_attention_indexer.sh",
+      "source_sha256": "9842e08c4338725379e7d373b915aae21ebb74d72bd365255f35073cc5dcbeff",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "scripts/runpod/run_glm52_attention_indexer_score_test.sh",
+      "source_sha256": "72e08a485fe57bd66a66f427f6627530163087a05d8e71ae73800afb19c0ae52",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "scripts/runpod/run_glm52_indexer_matrix_multihop.sh",
+      "source_sha256": "2b54abd5074be116b4d7cd17c5b407998400b61cf1180f9e9d3ef632d91afcc5",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "scripts/runpod/run_glm52_runpod_doctor.sh",
+      "source_sha256": "9c2f961455635a55076e3d7f3dc04634c11fdb0bd3568a2ba5c60ec9004274d2",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "scripts/runpod/transfer_framed_file.sh",
+      "source_sha256": "5a34a8d18fb7b07ddd040aa8fb521818f25e712340226d8eef2c814a520be69f",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/evidence_inventory.py",
+      "source_sha256": "f134f37a335adfe97eb609d4d0d84e91d42a23e4e74b0a9eb507bea8fd10cabf",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/glm52_attention_indexer.py",
+      "source_sha256": "81daf3533514d381bd95cf9bfc5576d1ede2ae0eff09c6d2663653c8d62f37cd",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/glm52_forced_reuse.py",
+      "source_sha256": "59314b67c12c5f86ac9dbb008dc01eb3ff271aa5b8f99c52c05506c624f5a0e0",
+      "disposition": "ported_glm53",
+      "target_paths": [
+        "src/putpocket_dataset_mining/glm53_stateful_edit.py"
+      ]
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/glm52_indexer_propagation.py",
+      "source_sha256": "eeb0fbe400f43439e93770be7e1d8bf4f83bed23da18938d610775becf6cc58d",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/glm52_rank_normalized_full_distribution.py",
+      "source_sha256": "3be4a4aa71844ac816f095f4c44a17de46ab3b825e04b6287f67651a525a4c0b",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/glm52_rank_normalized_propagation.py",
+      "source_sha256": "b3903088207f9485cef8a747712276372e5b216c0fb5cff8f40f9b69501166ed",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/glm52_runpod.py",
+      "source_sha256": "8a01a7dc50539947543bf7d68e7d0e5f241f44561a18b35b72c32226aa016413",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/glm52_runpod_cli.py",
+      "source_sha256": "b2181fec906963cc6904c00e39444adb753295c21ed982116f52db9ec579f1ae",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/glm52_stateful_cli.py",
+      "source_sha256": "8fa25ec1b9454616805a5e83da3a3bec3279beb654066e71372fa27cf02b3d6f",
+      "disposition": "ported_glm53",
+      "target_paths": [
+        "src/putpocket_dataset_mining/glm53_stateful_edit.py"
+      ]
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/glm52_stateful_proxy.py",
+      "source_sha256": "512ff6026e6cb61b4f636d0addb2e4a47b08a4e2d9330336186b7be237aee73b",
+      "disposition": "ported_glm53",
+      "target_paths": [
+        "src/putpocket_dataset_mining/glm53_stateful_proxy.py"
+      ]
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/stateful_edit_scenarios.py",
+      "source_sha256": "3fe957cccdde9ac0eccb463cb274440aae34543b910eead9b6f245ef22148c71",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "src/putpocket_dataset_mining/stateful_edit_scenarios_cli.py",
+      "source_sha256": "1e3a9b9911b3895f2bbfaa5af7bc1202aac903a754c714890e126d6ec9cfd447",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "tests/test_evidence_inventory.py",
+      "source_sha256": "e8f5b53bcdae7e0894714bf9df8df64cc1398ffb0e21bef1619de8d6461dc771",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "tests/test_glm52_forced_reuse.py",
+      "source_sha256": "f5d05b8e9a00f7f548f50f11cd91e4a9d1ee24ff0cfcfebbe5f05339c0e05be9",
+      "disposition": "ported_glm53",
+      "target_paths": [
+        "tests/test_glm53_stateful_edit.py"
+      ]
+    },
+    {
+      "source_path": "tests/test_glm52_indexer_propagation.py",
+      "source_sha256": "f5722b4ca1ba037632630bb38bdaedeceec943139886dd1588813b89ffd97747",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "tests/test_glm52_rank_normalized_full_distribution.py",
+      "source_sha256": "28e625e63bb596577af08e2640d4a307c5f30b864c17df41bbd59893f00c4b17",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "tests/test_glm52_rank_normalized_propagation.py",
+      "source_sha256": "f8a9fdd930814ed13d63154937b8e39f134e3eb7e6a9198edbcad7549d9ec7ce",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "tests/test_glm52_runpod.py",
+      "source_sha256": "d96b0693613c7fc9fcbc31afb772963cb24ab7a6cad14a95e3f63d5d7532c152",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "tests/test_glm52_score_plots.py",
+      "source_sha256": "5199b78cc193e5dcbed9e60cf3ddb9f5f72834b6729f6b6edaf7e14de8a48db9",
+      "disposition": "historical_glm52_analysis_not_runtime_evidence",
+      "target_paths": []
+    },
+    {
+      "source_path": "tests/test_glm52_stateful_cli.py",
+      "source_sha256": "828a523368717eecd142faab3435a039a18db72712f9ef32af651605e98d2e8a",
+      "disposition": "ported_glm53",
+      "target_paths": [
+        "tests/test_glm53_stateful_edit.py"
+      ]
+    },
+    {
+      "source_path": "tests/test_stateful_edit_scenario_catalog.py",
+      "source_sha256": "74568468404c0ac0ea6a0ed0528dd5851a0cc51c8d12287b77a06c98ed407ca2",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "tests/test_stateful_mid_trajectory_edit_contract.py",
+      "source_sha256": "e4e46cb7fa7686fa39c65c11735c132f9e6bf55ecd5f8b95f1f54900ee1305f7",
+      "disposition": "model_neutral_reference_reviewed_single_instance_only",
+      "target_paths": [
+        "configs/experiments/glm53_stateful_edit_v3_single_instance.template.json"
+      ]
+    },
+    {
+      "source_path": "tests/test_vllm_true_partial_prefill.py",
+      "source_sha256": "047e4a270f1770933f0f9b84ddaaa8916b2c547e9c07c2a6799d79eec3ec7476",
+      "disposition": "blocked_not_ported_true_partial_out_of_scope",
+      "target_paths": []
+    }
+  ]
+}

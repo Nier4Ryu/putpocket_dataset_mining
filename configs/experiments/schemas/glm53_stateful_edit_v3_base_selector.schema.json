@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/glm53_stateful_edit_v3_base_selector.schema.json",
+  "title": "Frozen GLM-5.3 native-indexer base selector",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "status",
+    "model",
+    "prompt",
+    "selection_definition",
+    "source_evidence",
+    "ranking",
+    "token_metrics"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "status": {"const": "attested_before_benchmark_outcomes"},
+    "model": {
+      "type": "object",
+      "required": ["id", "revision", "vllm_commit", "indexer_kind", "tokenizer_sha256"],
+      "properties": {
+        "id": {"const": "RedHatAI/GLM-5.3-Flash-NVFP4"},
+        "revision": {"const": "36c184c6cda000a481711306df5adde42f63321a"},
+        "vllm_commit": {"const": "878631b6079d2cf9fb80830ef9cb41b43aded098"},
+        "indexer_kind": {"const": "glm53_native_raw_pre_topk"}
+      }
+    },
+    "prompt": {
+      "type": "object",
+      "required": ["donor_token_ids_sha256", "edited_token_ids_sha256", "edit_positions", "token_count"]
+    },
+    "selection_definition": {
+      "type": "object",
+      "required": ["algorithm", "query_sample", "pool_score_expansion"],
+      "properties": {
+        "algorithm": {"const": "lexicographic_prefill_only_layer_stability_v2_glm53_kpool"},
+        "query_sample": {"const": "prefill_last_query"},
+        "pool_score_expansion": {"const": "assign_each_native_compressed_pool_score_to_its_four_constituent_token_positions"}
+      }
+    },
+    "source_evidence": {
+      "type": "object",
+      "required": ["outcome_independent", "benchmark_outcomes_read", "native_raw_pre_topk_scores", "layers", "data_parallel_rank"],
+      "properties": {
+        "outcome_independent": {"const": true},
+        "benchmark_outcomes_read": {"const": false},
+        "native_raw_pre_topk_scores": {"const": true},
+        "layers": {"const": [3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43]},
+        "data_parallel_rank": {"const": 0}
+      }
+    },
+    "ranking": {
+      "type": "array",
+      "items": {"type": "integer", "minimum": 0},
+      "uniqueItems": true
+    },
+    "token_metrics": {"type": "object"}
+  }
+}

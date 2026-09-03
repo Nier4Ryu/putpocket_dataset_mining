@@ -1,0 +1,37 @@
+ARG GLM53_BASE_IMAGE
+FROM ${GLM53_BASE_IMAGE}
+
+LABEL putpocket.glm53.deployment_base_image_id="sha256:b79bacf76a107fc9ddd67fcc84851e3f5ae222fe6fd6a2f187723297e1400b1e"
+LABEL putpocket.glm53.stateful_edit_semantics="default-off-full-target-prefill-then-donor-overwrite"
+LABEL putpocket.glm53.true_partial_prefill="false"
+
+# Build context must be the exact output of
+# scripts/glm53/prepare_stateful_edit_v3_overlay.sh. This layer contains only
+# three Python vLLM postimages plus the default-OFF instrumentation module; it
+# does not rebuild kernels or alter the pinned GLM-5.3 deployment base.
+COPY vllm/model_executor/layers/attention/mla_attention.py /tmp/post/mla_attention.py
+COPY vllm/model_executor/layers/sparse_attn_indexer_kpool.py /tmp/post/sparse_attn_indexer_kpool.py
+COPY vllm/models/glm5next/nvidia/model.py /tmp/post/model.py
+COPY vllm/model_executor/layers/glm53_stateful_edit_accuracy_ablation.py /tmp/post/glm53_stateful_edit_accuracy_ablation.py
+
+RUN set -eux; \
+    VLLM_ROOT="$(python3 -c 'import pathlib,vllm; print(pathlib.Path(vllm.__file__).resolve().parent)')"; \
+    test "$(sha256sum "${VLLM_ROOT}/model_executor/layers/attention/mla_attention.py" | awk '{print $1}')" = "6efbbb7f1913eb40516586a1a9dbfaa7be80e96c7135bf5a39a6cd6d3ce6f514"; \
+    test "$(sha256sum "${VLLM_ROOT}/model_executor/layers/sparse_attn_indexer_kpool.py" | awk '{print $1}')" = "c9e4055548742986beaa7e7cbae15707fa9eb7eb23fcaf91a660b07e86d25c02"; \
+    test "$(sha256sum "${VLLM_ROOT}/models/glm5next/nvidia/model.py" | awk '{print $1}')" = "b5189a6ee84021cecd0189fba2c6b40fd92c341452c5d0e9381b7041e02af0a8"; \
+    install -m 0644 /tmp/post/mla_attention.py "${VLLM_ROOT}/model_executor/layers/attention/mla_attention.py"; \
+    install -m 0644 /tmp/post/sparse_attn_indexer_kpool.py "${VLLM_ROOT}/model_executor/layers/sparse_attn_indexer_kpool.py"; \
+    install -m 0644 /tmp/post/model.py "${VLLM_ROOT}/models/glm5next/nvidia/model.py"; \
+    install -m 0644 /tmp/post/glm53_stateful_edit_accuracy_ablation.py "${VLLM_ROOT}/model_executor/layers/glm53_stateful_edit_accuracy_ablation.py"; \
+    test "$(sha256sum "${VLLM_ROOT}/model_executor/layers/attention/mla_attention.py" | awk '{print $1}')" = "ae008425588218b94628058988eadc0a39018ea92851dadb26a5ff9d2554d89a"; \
+    test "$(sha256sum "${VLLM_ROOT}/model_executor/layers/sparse_attn_indexer_kpool.py" | awk '{print $1}')" = "1accf858644f7ed08a9fa952d9b906f9a32e167a8c389ce0cfc4ecf0e54c9b5c"; \
+    test "$(sha256sum "${VLLM_ROOT}/models/glm5next/nvidia/model.py" | awk '{print $1}')" = "bce7d0fb2816715977b3b15d7c41adcbc3034b4aba094731996addefba9f8d0d"; \
+    test "$(sha256sum "${VLLM_ROOT}/model_executor/layers/glm53_stateful_edit_accuracy_ablation.py" | awk '{print $1}')" = "94cbc2d49f557236813156c439bb76c25f80f6b1537e15b44758958a9f1cd7f0"; \
+    python3 -m py_compile \
+      "${VLLM_ROOT}/model_executor/layers/attention/mla_attention.py" \
+      "${VLLM_ROOT}/model_executor/layers/sparse_attn_indexer_kpool.py" \
+      "${VLLM_ROOT}/models/glm5next/nvidia/model.py" \
+      "${VLLM_ROOT}/model_executor/layers/glm53_stateful_edit_accuracy_ablation.py"; \
+    rm -rf /tmp/post
+
+ENV PUTPOCKET_GLM53_STATEFUL_EDIT_CONTROL=

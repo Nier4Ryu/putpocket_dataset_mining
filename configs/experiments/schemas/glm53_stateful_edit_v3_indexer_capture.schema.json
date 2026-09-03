@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://putpocket.invalid/schemas/glm53_stateful_edit_v3_indexer_capture.schema.json",
+  "title": "One GLM-5.3 native kpool selector capture row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capture_kind",
+    "prompt_side",
+    "model",
+    "layer",
+    "query_position",
+    "token_count",
+    "prompt_token_ids_sha256",
+    "index_kpool",
+    "pool_ids",
+    "raw_pool_scores",
+    "raw_score_kind",
+    "native_scale",
+    "data_parallel_rank",
+    "tp_rank",
+    "head_aggregation",
+    "incomplete_tail_token_count",
+    "record_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "capture_kind": {"const": "glm53_native_raw_pre_topk_kpool"},
+    "prompt_side": {"enum": ["donor", "edited"]},
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision", "architecture", "vllm_commit"],
+      "properties": {
+        "id": {"const": "RedHatAI/GLM-5.3-Flash-NVFP4"},
+        "revision": {"const": "36c184c6cda000a481711306df5adde42f63321a"},
+        "architecture": {"const": "Glm5NextForConditionalGeneration"},
+        "vllm_commit": {"const": "878631b6079d2cf9fb80830ef9cb41b43aded098"}
+      }
+    },
+    "layer": {"enum": [3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43]},
+    "query_position": {"type": "integer", "minimum": 2048},
+    "token_count": {"type": "integer", "minimum": 2049},
+    "prompt_token_ids_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "index_kpool": {"const": 4},
+    "pool_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}, "uniqueItems": true},
+    "raw_pool_scores": {"type": "array", "items": {"type": "number"}},
+    "raw_score_kind": {"const": "native_pre_topk_pre_normalization"},
+    "native_scale": {"const": "fp8_fp4_mqa_logits_output_before_top_k_per_row_prefill"},
+    "data_parallel_rank": {"const": 0},
+    "tp_rank": {"const": 0},
+    "head_aggregation": {"const": "native_lightning_indexer_weights_fused_by_vllm"},
+    "incomplete_tail_token_count": {"type": "integer", "minimum": 0, "maximum": 3},
+    "record_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

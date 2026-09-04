@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "putpocket://schemas/glm53-a6000-stateful-edit-control-v4",
+  "title": "GLM-5.3 A6000 compatibility-gated stateful-edit control",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "mode",
+    "model",
+    "target_compute_capability",
+    "sm86_runtime_supported"
+  ],
+  "properties": {
+    "schema_version": {"const": 4},
+    "mode": {
+      "enum": [
+        "STATEFUL_EDIT_ACCURACY_ABLATION",
+        "NATIVE_INDEXER_SELECTOR_CAPTURE"
+      ]
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "architecture",
+        "vllm_commit",
+        "attention_backend_policy",
+        "kv_cache_dtype",
+        "index_kpool"
+      ],
+      "properties": {
+        "id": {"const": "zai-org/GLM-5.3-Flash-BF16"},
+        "revision": {"const": "a5b45eb41df6402735dedc900be14a42e8d5e538"},
+        "architecture": {"const": "Glm5NextForConditionalGeneration"},
+        "vllm_commit": {"const": "9cd956c7e6cf54efa366b803cafa15ec6c2df827"},
+        "attention_backend_policy": {
+          "const": "official_sparse_mla_required_but_unavailable_on_sm86"
+        },
+        "kv_cache_dtype": {"const": "bfloat16"},
+        "index_kpool": {"const": 4}
+      }
+    },
+    "target_compute_capability": {"const": "8.6"},
+    "sm86_runtime_supported": {"const": false}
+  },
+  "additionalProperties": true
+}

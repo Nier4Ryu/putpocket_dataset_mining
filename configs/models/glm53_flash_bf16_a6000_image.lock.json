@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "task_id": "T20260904-001__glm53-a6000-image",
+  "status": "image_built_cpu_static_verified_runtime_intentionally_blocked",
+  "model": {
+    "id": "zai-org/GLM-5.3-Flash-BF16",
+    "revision": "a5b45eb41df6402735dedc900be14a42e8d5e538",
+    "source_url": "https://huggingface.co/zai-org/GLM-5.3-Flash-BF16",
+    "license": "MIT",
+    "architecture": "Glm5NextForConditionalGeneration",
+    "weight_format": "safetensors bfloat16",
+    "weight_bytes": 642646653816,
+    "weight_shards": 120,
+    "weights_in_image": false,
+    "silent_download_allowed": false,
+    "metadata_sha256": {
+      "config.json": "33e63ec7fe607658be712bd6dd3c16c6549960d8e7f0483d34b939881b55f943",
+      "tokenizer_config.json": "98b1271574f41abf89427ae2dda030d94dc9478f0edc5a8bd240db213c6fd5fc",
+      "chat_template.jinja": "0c4099f3382d6c92700dfb99725025360966fd73032f0ecf32377c0d9e6309c5",
+      "model.safetensors.index.json": "e6007bd58fb7e07f9fe69544257ee2713f252ef5855bbf685b48c991d524ef0f",
+      "README.md": "5c48ce1a84c5901ab96d602333e9201fa385a73e9c298fab3467183b8b95a549",
+      "LICENSE": "30b85b6b9659f2e78aa259f8faf5d920a68dee7c9ced3fa6dba1f19f2bc4fca1"
+    }
+  },
+  "runtime": {
+    "target_gpu": "NVIDIA RTX A6000",
+    "target_compute_capability": "8.6",
+    "vllm_version": "0.29.0.dev",
+    "vllm_commit": "9cd956c7e6cf54efa366b803cafa15ec6c2df827",
+    "vllm_source_url": "https://github.com/vllm-project/vllm",
+    "comparison_release": {
+      "version": "0.28.0",
+      "commit": "2cf0a6915ce544dc493a0990f2ea38d81601128a",
+      "disposition": "evidence_only_not_runtime_source",
+      "reason": "does not register Glm5NextForConditionalGeneration"
+    },
+    "torch_cuda_arch_list": "8.6",
+    "cmake_cuda_architectures": "86",
+    "putpocket_sm86_only": true,
+    "task_built_cuda_scope": {
+      "exclusive_architecture": "8.6",
+      "audit_method": "static cuobjdump --list-elf and --list-ptx over every vLLM wheel shared object",
+      "deepep_included": false,
+      "bundled_fa2_included": false,
+      "non_sm86_optional_extensions_included": false,
+      "excluded_optional_extensions": [
+        "vLLM FA2 (upstream emits SM80 SASS and compute_80 PTX for an SM86 target)",
+        "FA3",
+        "FA4",
+        "FlashMLA",
+        "FlashKDA",
+        "DeepGEMM",
+        "QuTLASS",
+        "CUTLASS-DSL runtime distributions (removed in compatibility wrapper)",
+        "fmha_sm100",
+        "tml_fa4"
+      ]
+    },
+    "vendor_binary_scope": {
+      "single_architecture_claim": false,
+      "may_be_multi_arch": true,
+      "excluded_from_task_built_binary_audit": [
+        "PyTorch wheels",
+        "CUDA toolkit/runtime libraries",
+        "NVIDIA Python dependency wheels"
+      ]
+    },
+    "runtime_supported": false,
+    "attention_backend_policy": "official_sparse_mla_required_but_unavailable_on_sm86",
+    "kv_cache_dtype_if_supported": "bfloat16",
+    "block_reason_codes": [
+      "official_sparse_mla_backend_requires_hopper_or_newer",
+      "no_official_sm86_glm5next_indexer_kernel"
+    ],
+    "forbidden_fallbacks": [
+      "dense attention presented as sparse GLM-5.3 attention",
+      "Blackwell-only weight format",
+      "unmerged research kernel",
+      "implicit backend selection",
+      "implicit KV dtype conversion"
+    ],
+    "topology": {
+      "single_a6000_fit_claim": false,
+      "configured_gpu_count": null,
+      "configured_tensor_parallel_size": null,
+      "configured_aggregate_vram_gb": null,
+      "reason": "no official SM86 execution backend exists; capacity alone cannot make the runtime supported"
+    },
+    "vllm_source_attestations": {
+      "CMakeLists.txt_sha256": "476e5698f02ed01dce1b360dd54cb7ceaf7251554ef42bac9d3e1350b71504a6",
+      "docker_Dockerfile_sha256": "cc2f7297361b41e5ba61a16c6bcb63331084324065efb6b56b7551af9b1f5c0e",
+      "registry.py_sha256": "55a2d9c42bceee843242f4e56865d928506340fe8987dfc61dace146abbeaa69",
+      "support_snapshot_path": "vendor/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/support_snapshot.txt",
+      "support_snapshot_sha256": "6e737cf2adab9dc1511eb8d4864924e2826e2c1d0ca4ad8497bb0879e1c1151e"
+    }
+  },
+  "hybrid_cache_contract": {
+    "layer_count": 45,
+    "mla_indexer_layers": [3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43],
+    "kda_layer_count": 34,
+    "kda_policy": "target_computed_no_token_addressable_donor_transplant",
+    "index_heads": 32,
+    "index_head_dim": 128,
+    "index_kpool": 4,
+    "index_topk": 2048,
+    "indexer_pool_policy": "complete four-token pools only",
+    "indexer_tail_policy": "target_computed_never_transplanted",
+    "main_cache_product_if_supported": "512-element bfloat16 latent rows",
+    "indexer_cache_product": "132-byte compressed pool rows"
+  },
+  "stateful_edit": {
+    "default_enabled": false,
+    "full_target_prefill": true,
+    "donor_overwrite_after_native_write": true,
+    "true_partial_prefill": false,
+    "speedup_claim": false,
+    "selector_provenance_required": true,
+    "selector_digest_required": true,
+    "control_invalid_policy": "fail_closed",
+    "runtime_activation_on_this_image": "forbidden"
+  },
+  "overlay": {
+    "patch_order": [
+      "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_a6000_sm86_only_build.patch",
+      "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_a6000_compatibility_gate.patch"
+    ],
+    "build_patch_path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_a6000_sm86_only_build.patch",
+    "build_patch_sha256": "b9e71fedf22f8c6692570e754903cef3c1ae8a5852a50a314a04560cb9a77d65",
+    "patch_path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_a6000_compatibility_gate.patch",
+    "patch_sha256": "b1a1bac5bccb9650bcd5892f99883c7d215ac7253b4f9b6ecd7cf812a78086f9",
+    "apply_args": [],
+    "hook_source": "instrumentation/vllm/glm53_a6000_stateful_edit_accuracy_ablation.py",
+    "hook_destination": "vllm/model_executor/layers/glm53_stateful_edit_accuracy_ablation.py",
+    "postimages": {
+      "CMakeLists.txt": "7bd3d444de5175bf40bd0bea98a7973b3f241c4a567db8407c4bbd71d2db84b0",
+      "cmake/utils.cmake": "796c0512644b0e7013da684f3ea6df224ec196f18be263960797a3edbd721acc",
+      "docker/Dockerfile": "87d919e4d87d2db8c96af5c09450afab33d8c071f9ebddd5c09d0caec55d89d2",
+      "setup.py": "489595124dcd6b72c3549fc9a8c1f58065de0e5341b0583a4e2b25818c4f6ce9",
+      "vllm/model_executor/layers/attention/mla_attention.py": "dfc416c4257c3f3dc5a99f9fa508fa8335f6b7e0690ef993516c6e7d221c0c10",
+      "vllm/model_executor/layers/sparse_attn_indexer_kpool.py": "22f6438c6c310e6c17588f7e84487411cffb5eaa04f1ca8549273610834692dd",
+      "vllm/models/glm5next/nvidia/model.py": "4449c5b04abf189fd7a867447a4131701ff81fd2b9f716fb50c55fee133890aa"
+    },
+    "activation_note": "hook signatures are source-wired and default OFF; any control activation fails closed on SM86 before cache mutation"
+  },
+  "image": {
+    "tag": "putpocket/glm53-a6000-gated:9cd956c7-sm86-v1",
+    "base_tag": "putpocket/vllm-glm53-sm86:9cd956c7-v8",
+    "build_status": "built_cpu_static_verified_runtime_intentionally_blocked",
+    "image_id": null,
+    "repo_digest": null,
+    "size_bytes": null,
+    "archive": null,
+    "identity_evidence": "recorded outside the self-contained image lock to avoid a recursive image identity"
+  },
+  "artifacts": [
+    {"path": "configs/execution/glm53_a6000_compatibility_gated.example.yaml", "sha256": "64e6c5aded760898f45d4954305811d09ac73cd85d7dc2befada2e173af8c45f"},
+    {"path": "configs/experiments/schemas/glm53_a6000_stateful_edit_control.schema.json", "sha256": "a0367ec840fb85bf60c17917aa897af4b35f706b6303f982ca625523326c97a1"},
+    {"path": "docker/glm53_sm86/Dockerfile", "sha256": "ad6285c7c221b764a2d7d4c013e935057f531ad6f894df9909a125f75ebbd0f5"},
+    {"path": "instrumentation/vllm/glm53_a6000_compatibility_gate.py", "sha256": "3d3fb42c7870af7051159f021a4262eb6631f02902a7f01d3c0c59e32dd04e31"},
+    {"path": "instrumentation/vllm/glm53_a6000_stateful_edit_accuracy_ablation.py", "sha256": "ba055bccdbe3909a5a3439f97075c22ecd1e606eeb7b933fba9e6250c5fde007"},
+    {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_a6000_compatibility_gate.patch", "sha256": "b1a1bac5bccb9650bcd5892f99883c7d215ac7253b4f9b6ecd7cf812a78086f9"},
+    {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_a6000_sm86_only_build.patch", "sha256": "b9e71fedf22f8c6692570e754903cef3c1ae8a5852a50a314a04560cb9a77d65"},
+    {"path": "scripts/glm53_a6000/audit_sm86_build_log.py", "sha256": "ddbda16829360f1dd812789592b9117b2d57f56660d58618b907e1800cffebb8"},
+    {"path": "scripts/glm53_a6000/audit_sm86_wheel.py", "sha256": "df373d13f87bdcc8e8860cc27494fa6c84e56d3fcc24f3cc6fc54dca8a8639b1"},
+    {"path": "scripts/glm53_a6000/build_image.sh", "sha256": "2eddb76841e6e82c641a727573afd66b351fc4ebe7ea02e3e428b63aa91011ff"},
+    {"path": "scripts/glm53_a6000/doctor.py", "sha256": "b6441d4340f6e6cb55a4d5f443dcf0d358dfb82167b2d7fd13b07b8f837175a2"},
+    {"path": "scripts/glm53_a6000/entrypoint.sh", "sha256": "b2e9244388a102b31c10c2dd62cb84af1ebc109f968f77cc45337de174c0af72"},
+    {"path": "scripts/glm53_a6000/launch_template.sh", "sha256": "6c24656ca47b37b39cfeb83ed6ce404eecdafafcfbb5bb2cc49e009544aa9bbb"},
+    {"path": "scripts/glm53_a6000/prepare_vllm_source.sh", "sha256": "d9851b8950fff44005d6f62fccc428520953c975b961ea394c3fa168d554087b"},
+    {"path": "scripts/glm53_a6000/run_stateful_harness.sh", "sha256": "8009624905385ac548d44f8323590146bfffec2f9dfd03023e226ee2957ca673"},
+    {"path": "scripts/glm53_a6000/stop_server.sh", "sha256": "42beb51a52a59f2f433749cae87b681d40c8c74871f7ef6137cff242daa4b9fe"},
+    {"path": "src/putpocket_dataset_mining/glm53_a6000_image.py", "sha256": "61d12f6592b21fbf656b5dea13557bcfd0c4eb0cfd9008debd662ec681d537da"},
+    {"path": "src/putpocket_dataset_mining/glm53_a6000_stateful_edit.py", "sha256": "b09ebc988670e2b43a33bd872ce8da0a1c5fbf30ce82092fab725de56ef92244"},
+    {"path": "src/putpocket_dataset_mining/glm53_stateful_proxy.py", "sha256": "114c73c54812347849777e152f468d638509e9cdc3c6c3bfa47741de8411d221"},
+    {"path": "vendor/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/support_snapshot.txt", "sha256": "6e737cf2adab9dc1511eb8d4864924e2826e2c1d0ca4ad8497bb0879e1c1151e"},
+    {"path": "docs/GLM53_A6000_COMPATIBILITY_GATED_IMAGE.md", "sha256": "5189840a8ef2cc64d329edce360614798b351f4addd2eaba4f2bef7ff62f4059"}
+  ]
+}

@@ -1,0 +1,164 @@
+diff --git a/vllm/model_executor/layers/attention/mla_attention.py b/vllm/model_executor/layers/attention/mla_attention.py
+--- a/vllm/model_executor/layers/attention/mla_attention.py
++++ b/vllm/model_executor/layers/attention/mla_attention.py
+@@ -244,6 +244,10 @@ from vllm.model_executor.layers.attention.kv_transfer_utils import (
+     maybe_transfer_kv_layer,
+ )
+ from vllm.model_executor.layers.attention_layer_base import AttentionLayerBase
++from vllm.model_executor.layers.glm53_stateful_edit_accuracy_ablation import (
++    accuracy_ablation_armed,
++    maybe_apply_main_cache,
++)
+ from vllm.model_executor.layers.linear import (
+     ColumnParallelLinear,
+ )
+@@ -1351,6 +1355,22 @@ def unified_mla_kv_cache_update(
+             kv_cache_dtype,
+             k_scale,
+         )
++        # Default-OFF stateful-edit accuracy emulation: the native target row
++        # write above must complete before selected donor bytes are restored.
++        if accuracy_ablation_armed():
++            if attn_metadata is None:
++                raise RuntimeError("GLM53_STATEFUL_EDIT_METADATA_UNAVAILABLE")
++            maybe_apply_main_cache(
++                layer_name=str(layer_name),
++                kv_cache=kv_cache,
++                slot_mapping=layer_slot_mapping,
++                num_prefills=attn_metadata.num_prefills,
++                num_decodes=attn_metadata.num_decodes,
++                num_prefill_tokens=(
++                    attn_metadata.num_actual_tokens
++                    - attn_metadata.num_decode_tokens
++                ),
++            )
+ 
+     return torch.empty(0, device=kv_c_normed.device, dtype=kv_c_normed.dtype)
+ 
+diff --git a/vllm/model_executor/layers/sparse_attn_indexer_kpool.py b/vllm/model_executor/layers/sparse_attn_indexer_kpool.py
+--- a/vllm/model_executor/layers/sparse_attn_indexer_kpool.py
++++ b/vllm/model_executor/layers/sparse_attn_indexer_kpool.py
+@@ -13,5 +13,10 @@ from vllm.forward_context import get_forward_context
+ from vllm.logger import init_logger
+ from vllm.model_executor.custom_op import CustomOp
++from vllm.model_executor.layers.glm53_stateful_edit_accuracy_ablation import (
++    maybe_apply_indexer_cache,
++    maybe_capture_base_selector_scores,
++    selector_capture_armed,
++)
+ from vllm.platforms import current_platform
+ 
+ if TYPE_CHECKING:
+@@ -425,6 +430,18 @@ def sparse_attn_indexer_kpool(
+                     scale_fmt,
+                 )
+ 
++    # Default-OFF stateful-edit accuracy emulation. This runs only after the
++    # native target pool write and never mutates the token-granular tail cache.
++    maybe_apply_indexer_cache(
++        layer_name=str(k_cache_prefix),
++        kv_cache=kv_cache,
++        slot_mapping=slot_mapping,
++        positions=positions,
++        num_prefills=attn_metadata_narrowed.num_prefills,
++        num_decodes=attn_metadata_narrowed.num_decodes,
++        num_prefill_tokens=(num_tokens - num_decode_tokens),
++    )
++
+     topk_indices_buffer[: hidden_states.shape[0]] = -1
+     if has_prefill:
+         prefill_metadata = attn_metadata_narrowed.prefill
+@@ -553,6 +570,22 @@ def sparse_attn_indexer_kpool(
+                     clean_logits=False,
+                 )
+             num_rows = logits.shape[0]
++            # Separate default-OFF diagnostic used only to freeze the GLM-5.3
++            # native base selector before benchmark outcomes are visible.
++            if selector_capture_armed():
++                if positions is None:
++                    raise RuntimeError("GLM53_BASE_SELECTOR_POSITIONS_UNAVAILABLE")
++                maybe_capture_base_selector_scores(
++                    layer_name=str(k_cache_prefix),
++                    logits=logits,
++                    query_positions=positions[
++                        chunk.token_start : chunk.token_end
++                    ],
++                    key_starts=chunk.cu_seqlen_ks,
++                    key_ends=chunk.cu_seqlen_ke,
++                    num_prefills=attn_metadata_narrowed.num_prefills,
++                    num_decodes=attn_metadata_narrowed.num_decodes,
++                )
+ 
+             # kpool: logits are pool-granular (compress_ratio == index_kpool),
+             # so topk selects pools. We pick topk_tokens // kpool pools then
+diff --git a/vllm/models/glm5next/nvidia/model.py b/vllm/models/glm5next/nvidia/model.py
+--- a/vllm/models/glm5next/nvidia/model.py
++++ b/vllm/models/glm5next/nvidia/model.py
+@@ -2,6 +2,7 @@
+ # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+ 
+ from collections.abc import Iterable
++import os
+ from typing import ClassVar, Literal
+ 
+ import torch
+@@ -28,6 +29,11 @@ from vllm.model_executor.layers.linear import (
+     RowParallelLinear,
+ )
+ from vllm.model_executor.layers.logits_processor import LogitsProcessor
++from vllm.model_executor.layers.glm53_stateful_edit_accuracy_ablation import (
++    CONTROL_ENV as STATEFUL_EDIT_CONTROL_ENV,
++    SELECTOR_CAPTURE_ENV,
++    maybe_attest_prompt,
++)
+ from vllm.model_executor.layers.mamba.mamba_utils import (
+     MambaStateCopyFunc,
+     MambaStateCopyFuncCalculator,
+@@ -71,6 +77,7 @@ from vllm.multimodal import MULTIMODAL_REGISTRY
+ from vllm.platforms import current_platform
+ from vllm.sequence import IntermediateTensors
+ from vllm.transformers_utils.configs.glm5_next import Glm5NextConfig
++from vllm.utils.torch_utils import direct_register_custom_op
+ 
+ from .attention import Glm5NextMLAAttention
+ from .kda import Glm5NextLinearAttention
+@@ -84,6 +91,26 @@ from .multimodal import (
+ logger = init_logger(__name__)
+ 
+ 
++def glm53_stateful_edit_attest(
++    input_ids: torch.Tensor, positions: torch.Tensor
++) -> torch.Tensor:
++    maybe_attest_prompt(input_ids=input_ids, positions=positions)
++    return input_ids.clone()
++
++
++def glm53_stateful_edit_attest_fake(
++    input_ids: torch.Tensor, positions: torch.Tensor
++) -> torch.Tensor:
++    return torch.empty_like(input_ids)
++
++
++direct_register_custom_op(
++    op_name="glm53_stateful_edit_attest",
++    op_func=glm53_stateful_edit_attest,
++    fake_impl=glm53_stateful_edit_attest_fake,
++)
++
++
+ class Glm5NextMLP(nn.Module):
+     def __init__(
+         self,
+@@ -663,6 +689,12 @@ class Glm5NextModel(nn.Module):
+         inputs_embeds: torch.Tensor | None = None,
+         **kwargs,
+     ) -> torch.Tensor:
++        if input_ids is not None and (
++            os.getenv(STATEFUL_EDIT_CONTROL_ENV) or os.getenv(SELECTOR_CAPTURE_ENV)
++        ):
++            input_ids = torch.ops.vllm.glm53_stateful_edit_attest(
++                input_ids, positions
++            )
+         if get_pp_group().is_first_rank:
+             if inputs_embeds is not None:
+                 hidden_states = inputs_embeds

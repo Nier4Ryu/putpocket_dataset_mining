@@ -1,0 +1,18 @@
+Source: https://github.com/vllm-project/vllm
+Commit: 9cd956c7e6cf54efa366b803cafa15ec6c2df827
+
+registry.py:
+    "Glm5NextForCausalLM": (...)
+    "Glm5NextForConditionalGeneration": (...)
+
+vllm/v1/attention/backends/mla/flashattn_mla_sparse.py:
+    def supports_compute_capability(cls, capability):
+        return capability.major == 9
+
+vllm/v1/attention/backends/mla/flashmla_sparse.py:
+    def supports_compute_capability(cls, capability):
+        return capability.major in [9, 10]
+
+The hardware-specific FlashInfer sparse implementation targets newer GPUs only.
+Dense TRITON_MLA is not sparse and fails use_sparse compatibility matching.
+Conclusion: SM86 has no official sparse MLA backend at this source pin.

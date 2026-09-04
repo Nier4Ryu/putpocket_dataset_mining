@@ -1,0 +1,28 @@
+schema_version: 1
+status: blocked_pending_official_sm86_sparse_backend
+image: putpocket/glm53-a6000-gated:9cd956c7
+model_lock: configs/models/glm53_flash_bf16_a6000_image.lock.json
+model:
+  id: zai-org/GLM-5.3-Flash-BF16
+  revision: a5b45eb41df6402735dedc900be14a42e8d5e538
+  directory: /models/glm53-flash-bf16
+  mount_mode: read_only
+runtime:
+  target_compute_capability: "8.6"
+  attention_backend_policy: official_sparse_mla_required_but_unavailable_on_sm86
+  kv_cache_dtype: bfloat16
+  tensor_parallel_size: null
+  gpu_count: null
+  minimum_aggregate_vram_gb: null
+  endpoint: http://127.0.0.1:8000/v1
+  launch_allowed: false
+  no_silent_download: true
+  no_backend_fallback: true
+  no_quantization_fallback: true
+  no_kv_dtype_fallback: true
+stateful_edit:
+  enabled: false
+  semantics: full_target_prefill_then_selected_donor_cache_overwrite
+  true_partial_prefill: false
+  speedup_claim: false
+  proxy_endpoint_if_runtime_is_ever_unblocked: http://127.0.0.1:18000/v1

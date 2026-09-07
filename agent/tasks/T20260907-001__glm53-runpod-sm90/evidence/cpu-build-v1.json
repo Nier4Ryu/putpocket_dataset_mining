@@ -14,11 +14,19 @@
     "vllm_wheel_sha256": "e10759de34d48932278bc896841ef0c1ca217dfd1e0204cdb9d8212e7fa9584e"
   },
   "local_image": {
-    "tag": "putpocket/glm53-runpod-sm90-sm120-w4a16:9cd956c7-v1",
-    "id": "sha256:296a0c0156114aac7475d31cc290a69861e16cfda46e9e4f8f5937b09faec0f7",
-    "size_bytes": 8183896130,
+    "tag": "putpocket/glm53-runpod-sm90-sm120-w4a16:9964b170-9cd956c7-v1",
+    "id": "sha256:1410ccdb3a3418ebbeb9124ed6977eeb6570cd4af09cbfeec0ac1b5a14b231ef",
+    "size_bytes": 8183896733,
     "platform": "linux/amd64",
-    "weights_in_image": false
+    "weights_in_image": false,
+    "putpocket_source_commit": "9964b1705972fcf208e48d57696a066c493355b1"
+  },
+  "registry_image": {
+    "reference": "docker.io/nier4ryu/putpocket-glm53-runpod-sm90-sm120-w4a16:9964b170-9cd956c7-v1",
+    "index_digest": "sha256:1410ccdb3a3418ebbeb9124ed6977eeb6570cd4af09cbfeec0ac1b5a14b231ef",
+    "linux_amd64_manifest_digest": "sha256:f63c7f741c09573a065e66b97f5c4581d2a09d843685fd10f7b4cf1275e7f2eb",
+    "platform": "linux/amd64",
+    "push_policy": "new_tag_normal_push_no_overwrite"
   },
   "static_validation": {
     "doctor": "pass",
@@ -33,12 +41,14 @@
       "out_of_scope_architectures": []
     },
     "fresh_patch_chain": "pass_with_exact_postimage_hashes",
+    "final_static_doctor_sha256": "cee4a8bd6793413bab4dfe5aa7281f6da4a6d1638006e47d16a756a03640ecb5",
     "runtime_gpu_validated": false
   },
   "external_evidence": {
-    "artifact_root": "/home/dyryu/.cache/putpocket-artifacts/T20260907-001__glm53-runpod-sm90/image-sm90-sm120-w4a16-9cd956c7-v1",
-    "checksum_manifest": "SHA256SUMS",
-    "checksum_manifest_sha256": "1ff76760615a150946b22a69c75a6fffbb649db637167815f9afe393dc5fb2b2"
+    "build_artifact_root": "/home/dyryu/.cache/putpocket-artifacts/T20260907-001__glm53-runpod-sm90/image-sm90-sm120-w4a16-9cd956c7-v1",
+    "build_checksum_manifest_sha256": "1ff76760615a150946b22a69c75a6fffbb649db637167815f9afe393dc5fb2b2",
+    "final_image_artifact_root": "/home/dyryu/.cache/putpocket-artifacts/T20260907-001__glm53-runpod-sm90/final-image-9964b170-9cd956c7-v1",
+    "final_image_checksum_manifest_sha256": "9740b77a5c6b922052999ca02f13c188fc33b49353a6a127dc703a021f294add"
   },
   "scientific_boundary": {
     "stateful_edit_default_enabled": false,

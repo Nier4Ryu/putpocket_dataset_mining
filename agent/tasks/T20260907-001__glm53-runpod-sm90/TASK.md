@@ -2,7 +2,7 @@
 
 task identity: T20260907-001__glm53-runpod-sm90
 objective: package the latest GLM-5.3 PutPocket stateful-edit-v3 accuracy-ablation stack as one CPU-built RunPod image for H100/H200 SM90 and RTX PRO 6000 Blackwell SM120 using an under-200GB checkpoint
-status: in_progress
+status: completed_cpu_package_gpu_validation_pending
 base tip: cf6e02a529eea92ada871c1a90e0a45a3a643ad0
 branch: agent/T20260907-001__glm53-runpod-sm90
 worktree: /home/dyryu/putpocket_dataset_mining_worktrees/T20260907-001__glm53-runpod-sm90
@@ -44,6 +44,7 @@ validation:
   - CPU-only vLLM build passed with MAX_JOBS=4 and NVCC_THREADS=1; native targets were 9.0a and 12.0a
   - task-built wheel audit passed for required SM90/SM120 native code and declared SM80/SM89 W4A16 compatibility objects
   - static doctor, no-device PutPocket imports, exact INC AutoRound loader source inspection, no-weight check, and fresh patch-chain hashes passed
+  - immutable linux/amd64 image was pushed under a new Docker Hub tag; local/registry index digest is sha256:1410ccdb3a3418ebbeb9124ed6977eeb6570cd4af09cbfeec0ac1b5a14b231ef
   - focused tests passed: 24 tests and 204 subtests
   - full CPU/static tests passed: 243 tests and 268 subtests; GPU-probing collection was explicitly excluded
   - runtime GPU validation remains pending separately on SM90 and SM120 RunPod hosts
@@ -51,6 +52,8 @@ artifacts:
   - agent/tasks/T20260907-001__glm53-runpod-sm90/
   - agent/tasks/T20260907-001__glm53-runpod-sm90/evidence/cpu-build-v1.json
   - /home/dyryu/.cache/putpocket-artifacts/T20260907-001__glm53-runpod-sm90/image-sm90-sm120-w4a16-9cd956c7-v1 (external build evidence; not committed)
+  - /home/dyryu/.cache/putpocket-artifacts/T20260907-001__glm53-runpod-sm90/final-image-9964b170-9cd956c7-v1 (final image/registry evidence; not committed)
 commits:
-  - pending
-final handoff link: pending
+  - 9964b1705972fcf208e48d57696a066c493355b1 (implementation and CPU-built package)
+  - final task metadata/handoff commit: see branch tip
+final handoff link: agent/tasks/T20260907-001__glm53-runpod-sm90/handoffs/TO_GPT_20260907.md

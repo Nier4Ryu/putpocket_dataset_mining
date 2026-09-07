@@ -7,6 +7,17 @@ compressed-pool indexer path, PutPocket selector attestations, proxy, and the
 stateful-edit-v3 accuracy ablation. The Montblanc build is CPU-only. Neither
 GPU profile is considered validated until its separate RunPod smoke passes.
 
+## FA import-dependency repair
+
+The immutable v1 image (`9964b170-9cd956c7-v1`, OCI index
+`sha256:1410ccdb3a3418ebbeb9124ed6977eeb6570cd4af09cbfeec0ac1b5a14b231ef`)
+failed the RunPod runtime doctor before model load: importing the pinned INC
+path reached `vllm.vllm_flash_attn`, but the package did not contain
+`_vllm_fa2_C` or `_vllm_fa3_C`. The v2 repair packages both upstream common
+import extensions and keeps the failed v1 tag unchanged. This correction does
+not select FlashAttention for GLM inference and does not alter stateful-edit
+semantics.
+
 ## Frozen model and runtime
 
 The default model is `Intel/GLM-5.3-Flash-W4A16-AutoRound` at revision
@@ -51,16 +62,25 @@ The source overlay builds task-owned vLLM code for `9.0a 12.0a`. DeepGEMM is
 required for native pre-top-k indexer logits and FlashKDA for the 34 KDA
 layers. FlashInfer 0.6.18 provides the sparse MLA backends/JIT cache. The
 validated SM120 NoPE cache and active-top-k-length fixes are applied to the
-current source. Bundled FA2/FA3, FlashMLA, QuTLASS, fmha_sm100, tml_fa4, and
-DeepEP are omitted because the forced GLM profiles do not use them. Vendor
-PyTorch/CUDA/FlashInfer distributions can themselves be multi-architecture;
-the SM90+SM120 binary audit is scoped to task-built vLLM/PutPocket shared
-objects. DeepGEMM's native binding is built only for the image's Python 3.12
-runtime rather than packaging unused bindings for every supported Python.
-The audit requires native SM90 and SM120 code and rejects unknown targets; it
-also records the upstream-supported SM80 Marlin/Marlin-MoE and SM89 c2x
-compatibility SASS/PTX used by the W4A16 path. Those compatibility objects are
-not described as native Hopper or Blackwell kernels.
+current source. Upstream's bundled `_vllm_fa2_C` and `_vllm_fa3_C` libraries
+are included because common vLLM imports, including the INC quantization path,
+require them. They are import dependencies only: neither is selected as the
+GLM sparse-attention backend. The runtime profiles continue to force the two
+FlashInfer sparse-MLA backends above. Static doctor requires both extension
+ELF files, and runtime doctor emits `VLLM_FLASH_ATTN_EXTENSION_MISSING` before
+loading torch or probing CUDA when either is absent.
+
+FlashMLA, QuTLASS, fmha_sm100, tml_fa4, and DeepEP remain omitted because the
+forced GLM profiles do not use them. Vendor PyTorch/CUDA/FlashInfer
+distributions can themselves be multi-architecture; the SM90+SM120 binary
+audit is scoped to task-built vLLM/PutPocket shared objects. DeepGEMM's native
+binding is built only for the image's Python 3.12 runtime rather than
+packaging unused bindings for every supported Python. The audit requires
+native SM90 and SM120 code, both vLLM FlashAttention extension prefixes, and
+rejects unknown targets; it also records the upstream-supported SM80
+Marlin/Marlin-MoE and SM89 c2x compatibility SASS/PTX used by the W4A16 path.
+Those compatibility objects are not described as native Hopper or Blackwell
+kernels.
 
 ## Build without a GPU
 
@@ -68,14 +88,17 @@ not described as native Hopper or Blackwell kernels.
 ./scripts/glm53_runpod/prepare_vllm_source.sh \
   /path/to/clean/vllm-9cd956c7 \
   /new/task-local/vllm-glm53-sm90-sm120
-GLM53_RUNPOD_IMAGE_TAG=putpocket/glm53-runpod-sm90-sm120-w4a16:9cd956c7-v1 \
+GLM53_RUNPOD_IMAGE_TAG=putpocket/glm53-runpod-sm90-sm120-w4a16:9cd956c7-v2 \
   ./scripts/glm53_runpod/build_image.sh \
   /new/task-local/vllm-glm53-sm90-sm120
-docker run --rm putpocket/glm53-runpod-sm90-sm120-w4a16:9cd956c7-v1 doctor
+docker run --rm --network none \
+  putpocket/glm53-runpod-sm90-sm120-w4a16:9cd956c7-v2 doctor
 ```
 
 The final command is a static hash/source/install check. It does not import
-torch, invoke a CUDA runtime API, inspect devices, or load weights.
+torch, invoke a CUDA runtime API, inspect devices, load shared CUDA objects,
+or load weights. It verifies both bundled vLLM FlashAttention extension files
+by path and ELF header; actual shared-object import remains a RunPod GPU gate.
 
 ## RunPod start commands
 

@@ -2,7 +2,7 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index cd6f253..ece8c6f 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -1555,13 +1555,21 @@ endif()
+@@ -1555,13 +1555,26 @@ endif()
  
  # For CUDA we also build and ship some external projects.
  if (VLLM_GPU_LANG STREQUAL "CUDA")
@@ -18,9 +18,14 @@ index cd6f253..ece8c6f 100644
 +    if("$ENV{PUTPOCKET_GLM53_DUAL_ARCH}" STREQUAL "1")
 +        message(STATUS "PutPocket GLM-5.3 dual-arch build: SM90a and SM120a")
 +        message(STATUS "PutPocket GLM-5.3 dual-arch build: DeepGEMM and FlashKDA enabled")
-+        message(STATUS "PutPocket GLM-5.3 dual-arch build: bundled FA2/FA3, FlashMLA, QuTLASS, fmha_sm100, and tml_fa4 omitted")
++        message(STATUS "PutPocket GLM-5.3 dual-arch build: common FA2/FA3 import extensions enabled")
++        message(STATUS "PutPocket GLM-5.3 dual-arch build: FlashMLA, QuTLASS, fmha_sm100, and tml_fa4 omitted")
 +        include(cmake/external_projects/deepgemm.cmake)
 +        include(cmake/external_projects/flashkda.cmake)
++
++        # Common vLLM imports require both FA2 and FA3 even though the GLM
++        # runtime profiles force FlashInfer sparse MLA. This must remain last.
++        include(cmake/external_projects/vllm_flash_attn.cmake)
 +    else()
 +        include(cmake/external_projects/deepgemm.cmake)
 +        include(cmake/external_projects/fmha_sm100.cmake)
@@ -162,19 +167,17 @@ diff --git a/setup.py b/setup.py
 index 81ff499..6a4d0fe 100644
 --- a/setup.py
 +++ b/setup.py
-@@ -1360,20 +1360,23 @@ if _is_hip():
+@@ -1360,20 +1360,22 @@ if _is_hip():
      ext_modules.append(CMakeExtension(name="vllm._rocm_C"))
  
  if _is_cuda():
 -    ext_modules.append(CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa2_C"))
 -    if USE_PRECOMPILED_EXTENSIONS or (
 +    putpocket_dual_arch = os.getenv("PUTPOCKET_GLM53_DUAL_ARCH") == "1"
-+    if not putpocket_dual_arch:
-+        ext_modules.append(CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa2_C"))
-+    if not putpocket_dual_arch and (USE_PRECOMPILED_EXTENSIONS or (
++    ext_modules.append(CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa2_C"))
++    if putpocket_dual_arch or USE_PRECOMPILED_EXTENSIONS or (
          CUDA_HOME and get_nvcc_cuda_version() >= Version("12.3")
--    ):
-+    )):
+     ):
          # FA3 requires CUDA 12.3 or later
          ext_modules.append(CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa3_C"))
      # FA4 CuteDSL - Python-only component for FA4's cute DSL support

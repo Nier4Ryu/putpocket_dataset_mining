@@ -6,6 +6,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import jsonschema
 
@@ -14,6 +15,8 @@ from putpocket_dataset_mining.glm53_runpod_image import (
     MODEL_REVISION,
     PROFILES,
     RunPodContractError,
+    locate_vllm_flash_attn_extensions,
+    runtime_doctor,
     static_doctor,
     validate_lock,
     validate_model_metadata,
@@ -66,6 +69,12 @@ class GLM53RunPodImageTests(unittest.TestCase):
         self.assertEqual(self.lock["runtime"]["default_gpu_count"], 4)
         self.assertFalse(self.lock["runtime"]["weights_in_image"])
         self.assertFalse(self.lock["runtime"]["silent_download_allowed"])
+        self.assertEqual(
+            self.lock["runtime"]["common_import_dependencies"][
+                "vllm_flash_attn_extensions"
+            ],
+            ["_vllm_fa2_C", "_vllm_fa3_C"],
+        )
 
     def test_hybrid_and_accuracy_ablation_boundaries(self) -> None:
         hybrid = self.lock["hybrid_cache_contract"]
@@ -143,6 +152,48 @@ class GLM53RunPodImageTests(unittest.TestCase):
         self.assertIn("glm53_runpod_stateful_proxy.py", dockerfile)
         self.assertIn('putpocket.source.commit="${PUTPOCKET_SOURCE_COMMIT}"', dockerfile)
         self.assertIn('--build-arg "PUTPOCKET_SOURCE_COMMIT=${PUTPOCKET_SOURCE_COMMIT}"', build_script)
+        self.assertIn('putpocket.task_id="T20260907-002__glm53-runpod-fa-fix"', dockerfile)
+        self.assertIn('putpocket.vllm.flash_attn_import_extensions="fa2,fa3"', dockerfile)
+
+    def test_flash_attention_extensions_are_located_without_import(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            extension_root = root / "vllm_flash_attn"
+            extension_root.mkdir()
+            (extension_root / "_vllm_fa2_C.test.so").write_bytes(b"\x7fELFfa2")
+            missing = locate_vllm_flash_attn_extensions(root)
+            self.assertTrue(missing["vllm_fa2_extension"]["ok"])
+            self.assertFalse(missing["vllm_fa3_extension"]["ok"])
+            (extension_root / "_vllm_fa3_C.test.so").write_bytes(b"\x7fELFfa3")
+            complete = locate_vllm_flash_attn_extensions(root)
+            self.assertTrue(all(result["ok"] for result in complete.values()))
+            self.assertTrue(complete["vllm_fa2_extension"]["path"].endswith(".so"))
+            self.assertTrue(complete["vllm_fa3_extension"]["path"].endswith(".so"))
+
+    def test_runtime_doctor_fails_before_torch_when_flash_extensions_missing(self) -> None:
+        class FakeDistribution:
+            def __init__(self, root: Path):
+                self.root = root
+
+            def locate_file(self, path: str) -> Path:
+                return self.root / path
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "vllm/vllm_flash_attn").mkdir(parents=True)
+            with mock.patch(
+                "putpocket_dataset_mining.glm53_runpod_image.importlib.metadata.distribution",
+                return_value=FakeDistribution(root),
+            ):
+                with self.assertRaisesRegex(
+                    RunPodContractError, "VLLM_FLASH_ATTN_EXTENSION_MISSING"
+                ) as raised:
+                    runtime_doctor(LOCK_PATH, "sm90", root / "model")
+            diagnostic = str(raised.exception)
+            self.assertIn("vllm_fa2_extension", diagnostic)
+            self.assertIn("vllm_fa3_extension", diagnostic)
+            self.assertIn("_vllm_fa2_C*.so", diagnostic)
+            self.assertIn("_vllm_fa3_C*.so", diagnostic)
 
     def test_new_package_has_no_a6000_sm86_or_old_model_binding(self) -> None:
         forbidden = ("A6000", "SM86", "RedHatAI/GLM-5.3", "878631b6079d")
@@ -176,7 +227,9 @@ class GLM53RunPodImageTests(unittest.TestCase):
         patch = (ROOT / f"patches/vllm/{COMMIT}/glm53_sm90_sm120_build.patch").read_text()
         self.assertIn("include(cmake/external_projects/deepgemm.cmake)", patch)
         self.assertIn("include(cmake/external_projects/flashkda.cmake)", patch)
-        self.assertIn("bundled FA2/FA3", patch)
+        self.assertIn("include(cmake/external_projects/vllm_flash_attn.cmake)", patch)
+        self.assertIn("common FA2/FA3 import extensions enabled", patch)
+        self.assertNotIn("bundled FA2/FA3, FlashMLA", patch)
         self.assertIn("DeepEP intentionally omitted", patch)
         self.assertIn("putpocket_audit_dual_arch_wheel.py", patch)
         self.assertIn("printf '%s\\n' /opt/venv/bin/python3", patch)
@@ -187,6 +240,22 @@ class GLM53RunPodImageTests(unittest.TestCase):
         self.assertEqual(audit.architectures_from_cuobjdump("arch = sm_90a code=compute_120a"), {"90", "120"})
         self.assertEqual(audit.REQUIRED_NATIVE_ARCHITECTURES, ("90", "120"))
         self.assertEqual(audit.ALLOWED_COMPATIBILITY_ARCHITECTURES, ("80", "89"))
+        self.assertEqual(
+            audit.REQUIRED_EXTENSION_PREFIXES,
+            (
+                "vllm/vllm_flash_attn/_vllm_fa2_C",
+                "vllm/vllm_flash_attn/_vllm_fa3_C",
+            ),
+        )
+        with self.assertRaisesRegex(audit.DualArchAuditError, "missing required"):
+            audit.required_extension_members([])
+        members = audit.required_extension_members(
+            [
+                "vllm/vllm_flash_attn/_vllm_fa2_C.test.so",
+                "vllm/vllm_flash_attn/_vllm_fa3_C.test.so",
+            ]
+        )
+        self.assertEqual(set(members), set(audit.REQUIRED_EXTENSION_PREFIXES))
 
     def test_overlay_and_artifact_hashes_are_exact(self) -> None:
         for item in self.lock["overlay"]["patches"]:

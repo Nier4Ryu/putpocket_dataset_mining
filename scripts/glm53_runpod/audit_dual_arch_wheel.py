@@ -20,6 +20,10 @@ from pathlib import Path
 
 SCHEMA_VERSION = 1
 REQUIRED_NATIVE_ARCHITECTURES = ("90", "120")
+REQUIRED_EXTENSION_PREFIXES = (
+    "vllm/vllm_flash_attn/_vllm_fa2_C",
+    "vllm/vllm_flash_attn/_vllm_fa3_C",
+)
 # Upstream's supported W4A16 Marlin and c2x compatibility kernels deliberately
 # ship lower-architecture SASS/PTX for forward compatibility on newer GPUs.
 ALLOWED_COMPATIBILITY_ARCHITECTURES = ("80", "89")
@@ -41,6 +45,22 @@ def sha256_file(path: Path) -> str:
 
 def architectures_from_cuobjdump(text: str) -> set[str]:
     return {match.group(1) for match in ARCH_PATTERN.finditer(text)}
+
+
+def required_extension_members(member_names: list[str]) -> dict[str, list[str]]:
+    """Resolve every mandatory extension prefix without loading a shared object."""
+    matches = {
+        prefix: sorted(
+            name for name in member_names if name.startswith(prefix) and name.endswith(".so")
+        )
+        for prefix in REQUIRED_EXTENSION_PREFIXES
+    }
+    missing = [prefix for prefix, names in matches.items() if not names]
+    if missing:
+        raise DualArchAuditError(
+            "missing required vLLM FlashAttention extensions: " + ",".join(missing)
+        )
+    return matches
 
 
 def inspect_shared_object(path: Path, cuobjdump: str) -> dict[str, object]:
@@ -78,6 +98,7 @@ def audit_wheels(wheels: list[Path], cuobjdump: str) -> dict[str, object]:
     if not wheels:
         raise DualArchAuditError("at least one wheel is required")
     members: dict[str, dict[str, object]] = {}
+    wheel_member_names: list[str] = []
     wheel_records = []
     with tempfile.TemporaryDirectory(prefix="putpocket-sm90-sm120-wheel-audit-") as temp:
         root = Path(temp)
@@ -91,6 +112,7 @@ def audit_wheels(wheels: list[Path], cuobjdump: str) -> dict[str, object]:
                     for name in archive.namelist()
                     if name.startswith("vllm/") and name.endswith(".so")
                 )
+                wheel_member_names.extend(shared_names)
                 for name in shared_names:
                     archive.extract(name, extract_root)
                     members[f"{wheel.name}:{name}"] = inspect_shared_object(
@@ -115,12 +137,15 @@ def audit_wheels(wheels: list[Path], cuobjdump: str) -> dict[str, object]:
         raise DualArchAuditError(
             f"missing required native target architectures {missing}; found {found}"
         )
+    extension_members = required_extension_members(wheel_member_names)
     return {
         "schema_version": SCHEMA_VERSION,
         "audit_scope": "task-built vLLM/PutPocket wheel shared objects only",
         "method": "cuobjdump --list-elf and --list-ptx; no CUDA runtime",
         "allowed_architectures": list(ALLOWED_ARCHITECTURES),
         "required_native_architectures": list(REQUIRED_NATIVE_ARCHITECTURES),
+        "required_extension_prefixes": list(REQUIRED_EXTENSION_PREFIXES),
+        "required_extension_members": extension_members,
         "allowed_upstream_compatibility_architectures": list(ALLOWED_COMPATIBILITY_ARCHITECTURES),
         "observed_architectures": found,
         "out_of_scope_architectures": sorted(set(found).difference(ALLOWED_ARCHITECTURES)),

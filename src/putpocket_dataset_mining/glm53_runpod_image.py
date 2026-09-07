@@ -34,6 +34,10 @@ PROFILES = {
         "block_size": 512,
     },
 }
+VLLM_FLASH_ATTN_EXTENSIONS = {
+    "vllm_fa2_extension": "_vllm_fa2_C",
+    "vllm_fa3_extension": "_vllm_fa3_C",
+}
 
 
 class RunPodContractError(RuntimeError):
@@ -46,6 +50,40 @@ def sha256_file(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def has_elf_magic(path: Path) -> bool:
+    with path.open("rb") as stream:
+        return stream.read(4) == b"\x7fELF"
+
+
+def locate_vllm_flash_attn_extensions(vllm_root: str | Path) -> dict[str, dict[str, Any]]:
+    """Locate required extension files without importing vLLM, torch, or CUDA."""
+    extension_root = Path(vllm_root) / "vllm_flash_attn"
+    results: dict[str, dict[str, Any]] = {}
+    for component, prefix in VLLM_FLASH_ATTN_EXTENSIONS.items():
+        matches = sorted(extension_root.glob(f"{prefix}*.so"))
+        results[component] = {
+            "prefix": prefix,
+            "search_path": str(extension_root / f"{prefix}*.so"),
+            "path": str(matches[0]) if len(matches) == 1 else None,
+            "matches": [str(path) for path in matches],
+            "ok": len(matches) == 1 and has_elf_magic(matches[0]),
+            "validation": "filesystem_and_elf_magic_only_no_shared_object_load",
+        }
+    return results
+
+
+def require_vllm_flash_attn_extensions(
+    components: dict[str, dict[str, Any]],
+) -> None:
+    missing = [name for name, result in components.items() if not result["ok"]]
+    if missing:
+        payload = {"missing": missing, "components": components}
+        raise RunPodContractError(
+            "VLLM_FLASH_ATTN_EXTENSION_MISSING: "
+            + json.dumps(payload, sort_keys=True)
+        )
 
 
 def load_lock(path: str | Path) -> dict[str, Any]:
@@ -89,6 +127,13 @@ def validate_lock(lock: dict[str, Any]) -> None:
         failures.append("runtime.weights_in_image")
     if runtime.get("silent_download_allowed") is not False:
         failures.append("runtime.silent_download_allowed")
+    required_components = set(runtime.get("required_components", []))
+    for component in (
+        "vllm.vllm_flash_attn._vllm_fa2_C",
+        "vllm.vllm_flash_attn._vllm_fa3_C",
+    ):
+        if component not in required_components:
+            failures.append(f"runtime.required_components.{component}")
     if hybrid.get("mla_indexer_layers") != list(range(3, 45, 4)):
         failures.append("hybrid_cache_contract.mla_indexer_layers")
     if hybrid.get("kda_layer_count") != 34:
@@ -161,6 +206,14 @@ def static_doctor(lock_path: str | Path, root: str | Path) -> dict[str, Any]:
             distribution = None
             version = None
         checks.append({"name": "vllm_installed", "version": version, "ok": version is not None})
+        vllm_root = (
+            Path(distribution.locate_file("vllm"))
+            if distribution is not None
+            else Path("/__missing_vllm__")
+        )
+        extension_components = locate_vllm_flash_attn_extensions(vllm_root)
+        for name, result in extension_components.items():
+            checks.append({"name": name, **result})
         installed_hook = (
             Path(distribution.locate_file("vllm/model_executor/layers/glm53_stateful_edit_accuracy_ablation.py"))
             if distribution is not None
@@ -187,6 +240,18 @@ def runtime_doctor(lock_path: str | Path, profile: str, model_path: str | Path) 
     lock = load_lock(lock_path)
     if profile not in PROFILES:
         raise RunPodContractError("RUNTIME_PROFILE_INVALID")
+    try:
+        distribution = importlib.metadata.distribution("vllm")
+    except importlib.metadata.PackageNotFoundError:
+        distribution = None
+    vllm_root = (
+        Path(distribution.locate_file("vllm"))
+        if distribution is not None
+        else Path("/__missing_vllm__")
+    )
+    flash_attn_extensions = locate_vllm_flash_attn_extensions(vllm_root)
+    require_vllm_flash_attn_extensions(flash_attn_extensions)
+
     import torch
     from vllm.model_executor.layers.quantization.inc.inc import INCConfig
     from vllm.utils.deep_gemm import fp8_fp4_mqa_logits
@@ -208,6 +273,7 @@ def runtime_doctor(lock_path: str | Path, profile: str, model_path: str | Path) 
     expected = PROFILES[profile]["compute_capability"]
     metadata = validate_model_metadata(model_path, lock)
     components = {
+        **flash_attn_extensions,
         "backend_registered": backend_registered,
         "sparse_backend_available": sparse_backend_available,
         "inc_autoround_loader": callable(getattr(INCConfig, "override_quantization_method", None)),
@@ -215,7 +281,10 @@ def runtime_doctor(lock_path: str | Path, profile: str, model_path: str | Path) 
         "flashkda_extension": importlib.util.find_spec("vllm._flashkda_C") is not None,
         "deepgemm_extension": importlib.util.find_spec("vllm.third_party.deep_gemm._C") is not None,
     }
-    component_ok = all(components.values())
+    component_ok = all(
+        value["ok"] if isinstance(value, dict) else value
+        for value in components.values()
+    )
     return {
         "schema_version": 1,
         "mode": "runtime_device_and_model_gate",
@@ -239,7 +308,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model-path", default=os.getenv("MODEL_PATH", "/models/glm53-flash-w4a16-autoround"))
     parser.add_argument("--output")
     args = parser.parse_args(argv)
-    report = static_doctor(args.lock, args.root) if args.command == "static" else runtime_doctor(args.lock, args.profile, args.model_path)
+    try:
+        report = static_doctor(args.lock, args.root) if args.command == "static" else runtime_doctor(args.lock, args.profile, args.model_path)
+    except RunPodContractError as exc:
+        report = {
+            "schema_version": 1,
+            "mode": "runtime_or_static_fail_closed",
+            "ok": False,
+            "error": str(exc),
+        }
     text = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.output:
         Path(args.output).write_text(text, encoding="utf-8")

@@ -37,8 +37,12 @@ PACKAGE_PATHS = (
     ROOT / "configs/models/glm53_flash_bf16_a6000_image.lock.json",
     ROOT / "configs/execution/glm53_a6000_compatibility_gated.example.yaml",
     ROOT / "configs/experiments/schemas/glm53_a6000_stateful_edit_control.schema.json",
-    ROOT / f"patches/vllm/{COMMIT}",
-    ROOT / f"vendor/vllm/{COMMIT}",
+    # The vLLM commit directory is shared by independent deployment packages.
+    # Keep this historical SM86 assertion scoped to the two A6000 overlays;
+    # later SM90/SM120 overlays legitimately contain terms forbidden here.
+    ROOT / f"patches/vllm/{COMMIT}/glm53_a6000_sm86_only_build.patch",
+    ROOT / f"patches/vllm/{COMMIT}/glm53_a6000_compatibility_gate.patch",
+    ROOT / f"vendor/vllm/{COMMIT}/support_snapshot.txt",
 )
 
 

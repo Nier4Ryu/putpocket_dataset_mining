@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "task_id": "T20260907-001__glm53-runpod-sm90",
+  "captured_at_utc": "2026-09-07T05:49:36Z",
+  "build": {
+    "gpu_devices_used": false,
+    "vllm_commit": "9cd956c7e6cf54efa366b803cafa15ec6c2df827",
+    "max_jobs": 4,
+    "nvcc_threads": 1,
+    "torch_cuda_arch_list": "9.0a 12.0a",
+    "cmake_cuda_architectures": "90a;120a",
+    "vllm_version": "0.1.dev1+g9cd956c7e.d20260907",
+    "vllm_wheel": "vllm-0.1.dev1+g9cd956c7e.d20260907-cp38-abi3-linux_x86_64.whl",
+    "vllm_wheel_sha256": "e10759de34d48932278bc896841ef0c1ca217dfd1e0204cdb9d8212e7fa9584e"
+  },
+  "local_image": {
+    "tag": "putpocket/glm53-runpod-sm90-sm120-w4a16:9cd956c7-v1",
+    "id": "sha256:296a0c0156114aac7475d31cc290a69861e16cfda46e9e4f8f5937b09faec0f7",
+    "size_bytes": 8183896130,
+    "platform": "linux/amd64",
+    "weights_in_image": false
+  },
+  "static_validation": {
+    "doctor": "pass",
+    "putpocket_imports": "pass_without_torch_or_cuda_device_probe",
+    "inc_autoround_loader_registration": "pass_by_installed_source_inspection_without_vllm_import",
+    "wheel_cuda_audit": {
+      "status": "pass",
+      "scope": "task-built vLLM/PutPocket wheel shared objects",
+      "required_native_architectures": ["90", "120"],
+      "allowed_upstream_w4a16_compatibility_architectures": ["80", "89"],
+      "observed_architectures": ["80", "89", "90", "120"],
+      "out_of_scope_architectures": []
+    },
+    "fresh_patch_chain": "pass_with_exact_postimage_hashes",
+    "runtime_gpu_validated": false
+  },
+  "external_evidence": {
+    "artifact_root": "/home/dyryu/.cache/putpocket-artifacts/T20260907-001__glm53-runpod-sm90/image-sm90-sm120-w4a16-9cd956c7-v1",
+    "checksum_manifest": "SHA256SUMS",
+    "checksum_manifest_sha256": "1ff76760615a150946b22a69c75a6fffbb649db637167815f9afe393dc5fb2b2"
+  },
+  "scientific_boundary": {
+    "stateful_edit_default_enabled": false,
+    "semantics": "full_target_prefill_then_selected_donor_cache_overwrite_accuracy_ablation",
+    "true_partial_prefill": false,
+    "compute_saving_claim": false
+  },
+  "remaining_validation": [
+    "RunPod H100/H200 SM90 runtime doctor, model load, API, proxy, and frozen stateful episode",
+    "RunPod RTX PRO 6000 Blackwell SM120 runtime doctor, model load, NoPE warmup, API, proxy, and frozen stateful episode"
+  ]
+}

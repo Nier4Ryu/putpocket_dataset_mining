@@ -1,0 +1,35 @@
+schema_version: 1
+image: putpocket/glm53-runpod-sm90-sm120-w4a16:9cd956c7-v1
+runtime_profile: sm90  # use sm120 only on RTX PRO 6000 Blackwell
+model:
+  id: Intel/GLM-5.3-Flash-W4A16-AutoRound
+  revision: 5eee1846f0321058ed73745f9aa16f2aaf0fc0a0
+  path: /models/glm53-flash-w4a16-autoround
+  weights_in_image: false
+  silent_download: false
+parallelism:
+  gpu_count: 4
+  tensor_parallel_size: 4
+  pipeline_parallel_size: 1
+  data_parallel_size: 1
+  enable_expert_parallel: true
+  expert_parallel_size: 4
+  all2all_backend: allgather_reducescatter
+server:
+  host: 0.0.0.0
+  port: 8000
+  max_model_len: 4096
+  dtype: bfloat16
+  gpu_memory_utilization: 0.92
+proxy:
+  listen_host: 127.0.0.1
+  port: 18000
+volumes:
+  models: /models:ro
+  data: /data:ro
+  results: /results:rw
+stateful_edit:
+  default_enabled: false
+  semantics: full_target_prefill_then_selected_donor_cache_overwrite
+  true_partial_prefill: false
+  speedup_claim: false

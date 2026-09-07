@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "putpocket://schemas/glm53-runpod-stateful-edit-control-v3",
+  "title": "GLM-5.3 RunPod stateful-edit-v3 accuracy-ablation control",
+  "type": "object",
+  "required": ["schema_version", "mode", "model", "runtime", "production_default_enabled", "compute_semantics", "true_partial_prefill"],
+  "properties": {
+    "schema_version": {"const": 3},
+    "mode": {"enum": ["OFF", "SNAPSHOT", "TRANSPLANT"]},
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision", "architecture", "vllm_commit", "attention_backend", "kv_cache_dtype", "index_kpool"],
+      "properties": {
+        "id": {"const": "Intel/GLM-5.3-Flash-W4A16-AutoRound"},
+        "revision": {"const": "5eee1846f0321058ed73745f9aa16f2aaf0fc0a0"},
+        "architecture": {"const": "Glm5NextForConditionalGeneration"},
+        "vllm_commit": {"const": "9cd956c7e6cf54efa366b803cafa15ec6c2df827"},
+        "attention_backend": {"enum": ["FLASHINFER_MLA_SPARSE_SM90", "FLASHINFER_MLA_SPARSE_SM120"]},
+        "kv_cache_dtype": {"enum": ["fp8_e4m3", "fp8_ds_mla"]},
+        "index_kpool": {"const": 4}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["tensor_parallel_size", "data_parallel_size", "expert_parallel_size", "data_parallel_rank_affinity", "prefix_caching", "chunked_prefill"],
+      "properties": {
+        "tensor_parallel_size": {"const": 4},
+        "data_parallel_size": {"const": 1},
+        "expert_parallel_size": {"const": 4},
+        "data_parallel_rank_affinity": {"const": 0},
+        "prefix_caching": {"const": false},
+        "chunked_prefill": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "production_default_enabled": {"const": false},
+    "compute_semantics": {"const": "full_target_prefill_then_selected_donor_cache_overwrite"},
+    "true_partial_prefill": {"const": false},
+    "speedup_claim": {"const": false}
+  },
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": {"properties": {"model": {"properties": {"attention_backend": {"const": "FLASHINFER_MLA_SPARSE_SM90"}}}}},
+      "then": {"properties": {"model": {"properties": {"kv_cache_dtype": {"const": "fp8_e4m3"}}}}}
+    },
+    {
+      "if": {"properties": {"model": {"properties": {"attention_backend": {"const": "FLASHINFER_MLA_SPARSE_SM120"}}}}},
+      "then": {"properties": {"model": {"properties": {"kv_cache_dtype": {"const": "fp8_ds_mla"}}}}}
+    }
+  ]
+}

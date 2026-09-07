@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "task_id": "T20260907-001__glm53-runpod-sm90",
+  "status": "cpu_built_gpu_runtime_validation_pending",
+  "selection": {
+    "repository": "Intel/GLM-5.3-Flash-W4A16-AutoRound",
+    "revision": "5eee1846f0321058ed73745f9aa16f2aaf0fc0a0",
+    "source_url": "https://huggingface.co/Intel/GLM-5.3-Flash-W4A16-AutoRound",
+    "license": "MIT",
+    "architecture": "Glm5NextForConditionalGeneration",
+    "base_model": "zai-org/GLM-5.3-Flash",
+    "payload_bytes": 181505393058,
+    "weight_bytes": 181472931028,
+    "weight_file_count": 36,
+    "payload_limit_bytes": 200000000000,
+    "quant_method": "auto-round",
+    "runtime_quantization": "inc",
+    "packing_format": "auto_round:auto_gptq",
+    "bits": 4,
+    "activation_dtype": "bfloat16",
+    "group_size": 128,
+    "symmetric": true,
+    "weights_in_image": false,
+    "silent_download_allowed": false,
+    "metadata_sha256": {
+      "chat_template.jinja": "34d5ee66b12fa6446cdae131c352b8f68cd85369e0e6fda115583805fada3891",
+      "config.json": "d4deaf40986cf029e17a46a123a76f82aa5bd4072ac7a283b22b8013c26d5692",
+      "model.safetensors.index.json": "a250db4f48cc0b437cfc177003e96e50cf8092ca428fda0f13f5eb3f9bf45102",
+      "quantization_config.json": "289e8d2a90575efac27d9ad1330250b7cc235480f75129c2946e6b211e5fd585",
+      "tokenizer.json": "19e773648cb4e65de8660ea6365e10acca112d42a854923df93db4a6f333a82d",
+      "tokenizer_config.json": "21848631f494177b449db5fab804cfb52e38077e0802dd4a8568978c010c3d3b"
+    },
+    "accuracy_reference": {
+      "source": "model card",
+      "bf16_average": 0.8399,
+      "w4a16_average": 0.8386,
+      "relative_percent": 99.84,
+      "claim_scope": "publisher-reported benchmark average; not independently reproduced by PutPocket"
+    }
+  },
+  "runtime": {
+    "vllm_version": "0.29.0.dev",
+    "vllm_commit": "9cd956c7e6cf54efa366b803cafa15ec6c2df827",
+    "vllm_source_url": "https://github.com/vllm-project/vllm",
+    "torch_cuda_arch_list": "9.0a 12.0a",
+    "cmake_cuda_architectures": "90a;120a",
+    "task_built_cuda_scope": {
+      "required_native_architectures": ["9.0a", "12.0a"],
+      "allowed_upstream_compatibility_code": ["8.0 Marlin/Marlin-MoE SASS+PTX", "8.9 c2x compatibility SASS+PTX"],
+      "reason": "current upstream W4A16 kernels intentionally use forward-compatible lower-architecture code; they are not relabeled as native Hopper/Blackwell kernels",
+      "vendor_scope": "PyTorch, CUDA, FlashInfer and other distribution wheels may be multi-arch"
+    },
+    "required_components": [
+      "vllm._C",
+      "vllm._moe_C",
+      "vllm._deep_gemm_C",
+      "vllm._flashkda_C",
+      "flashinfer-python==0.6.18",
+      "flashinfer-jit-cache==0.6.18"
+    ],
+    "omitted_components": {
+      "DeepEP": "validated topology uses allgather_reducescatter expert parallelism",
+      "bundled_vllm_FA2_FA3": "GLM-5.3 sparse MLA profiles force FlashInfer",
+      "FlashMLA": "not the selected sparse MLA backend",
+      "QuTLASS_fmha_sm100_tml_fa4": "not required by the selected GLM-5.3 profiles"
+    },
+    "profiles": {
+      "sm90": {
+        "compute_capability": "9.0",
+        "attention_backend": "FLASHINFER_MLA_SPARSE_SM90",
+        "kv_cache_dtype": "fp8_e4m3",
+        "block_size": 128
+      },
+      "sm120": {
+        "compute_capability": "12.0",
+        "attention_backend": "FLASHINFER_MLA_SPARSE_SM120",
+        "kv_cache_dtype": "fp8_ds_mla",
+        "block_size": 512
+      }
+    },
+    "default_profile": "sm90",
+    "default_gpu_count": 4,
+    "parallelism": {
+      "tensor_parallel_size": 4,
+      "pipeline_parallel_size": 1,
+      "data_parallel_size": 1,
+      "expert_parallel": true,
+      "expert_parallel_size": 4,
+      "all2all_backend": "allgather_reducescatter"
+    },
+    "weights_in_image": false,
+    "silent_download_allowed": false,
+    "runtime_gpu_validated": false,
+    "runpod_smoke_required": [
+      "SM90 H100 or H200 model load, health, deterministic OpenAI request, proxy and frozen stateful episode",
+      "SM120 RTX PRO 6000 Blackwell model load, NoPE cache warmup, active top-k lengths, health, deterministic OpenAI request, proxy and frozen stateful episode"
+    ]
+  },
+  "hybrid_cache_contract": {
+    "layer_count": 45,
+    "mla_indexer_layers": [3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43],
+    "kda_layer_count": 34,
+    "kda_policy": "target_computed_no_token_addressable_donor_transplant",
+    "index_heads": 32,
+    "index_head_dim": 128,
+    "index_topk": 2048,
+    "index_kpool": 4,
+    "indexer_pool_policy": "complete four-token pools only",
+    "indexer_tail_policy": "target_computed_never_transplanted",
+    "qk_rope_head_dim": 0,
+    "kv_lora_rank": 512
+  },
+  "stateful_edit": {
+    "default_enabled": false,
+    "full_target_prefill": true,
+    "donor_overwrite_after_native_write": true,
+    "true_partial_prefill": false,
+    "speedup_claim": false,
+    "selector_provenance_required": true,
+    "selector_digest_required": true,
+    "control_invalid_policy": "fail_closed",
+    "rope_behavior": "unchanged from native full target prefill before donor overwrite"
+  },
+  "overlay": {
+    "patches": [
+      {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm90_sm120_build.patch", "apply_args": [], "sha256": "509b4bb96e4c1cd07da642ff6ca3e9d69936d11974058224122df152ea6ba24b"},
+      {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_nope_fp8_ds_mla_cache.patch", "apply_args": ["--unidiff-zero"], "sha256": "2920ff70e8e2445b3a7cd197b8fc17a1234771158fbfcc1f0723454508ab2632"},
+      {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_topk_lens.patch", "apply_args": ["--unidiff-zero"], "sha256": "99d0c7d6aed3d9e50c602760931fe9e1bdf8adc42142149f8e6d4b7b3b703629"},
+      {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_stateful_edit_v3_accuracy_ablation.patch", "apply_args": [], "sha256": "b1a1bac5bccb9650bcd5892f99883c7d215ac7253b4f9b6ecd7cf812a78086f9"}
+    ],
+    "hook_source": "instrumentation/vllm/glm53_runpod_stateful_edit_accuracy_ablation.py",
+    "hook_destination": "vllm/model_executor/layers/glm53_stateful_edit_accuracy_ablation.py",
+    "postimages": {
+      "CMakeLists.txt": "6783d7189699bcdf801e7b12045c77fe327be036961233248da709255b8aab74",
+      "setup.py": "9c74a93c323f0bd64acdab36e4cd8402e0c7c3f2f91aed5bcae831fb6baff8d1",
+      "docker/Dockerfile": "17c4a1b75a606739e98b4119f0498f67248f8700c346f528332f8c06cfcfdbc0",
+      "csrc/libtorch_stable/cache_kernels.cu": "965bd8492068f9704201b41bfff1b648444e9e73f0302c7506305368e583a416",
+      "vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py": "3b2ff18d2db7196f53c143acdbce146e0fd904ab4d797f0356c99a52c5823b50",
+      "vllm/model_executor/layers/attention/mla_attention.py": "dfc416c4257c3f3dc5a99f9fa508fa8335f6b7e0690ef993516c6e7d221c0c10",
+      "vllm/model_executor/layers/sparse_attn_indexer_kpool.py": "22f6438c6c310e6c17588f7e84487411cffb5eaa04f1ca8549273610834692dd",
+      "vllm/models/glm5next/nvidia/model.py": "4449c5b04abf189fd7a867447a4131701ff81fd2b9f716fb50c55fee133890aa",
+      "vllm/model_executor/layers/glm53_stateful_edit_accuracy_ablation.py": "dea79847b05c01424b9264b28d2340c98cc3a4661ae4dc03a8b6fe7010fc4348",
+      "tools/putpocket_audit_dual_arch_wheel.py": "bce3632ecd688ae5c8adfe10269060820f6311b5c7a75664ad7f507b43ff2263"
+    }
+  },
+  "artifacts": [
+    {"path": "configs/execution/glm53_runpod_sm90_sm120_w4a16.example.yaml", "sha256": "f80cd06a971a2dfaffa74dcfbd4de4f08a34488b0bb97547e6f6aaa6673d91db"},
+    {"path": "configs/experiments/schemas/glm53_runpod_stateful_edit_control.schema.json", "sha256": "2cbb0971e4b04d77a2d0b7f5d165b8ffb2e81f3686e77356b0f95f692a1a292a"},
+    {"path": "docker/glm53_sm90_sm120/Dockerfile", "sha256": "97bdd4701afc01a4ba00bd1aceb7aaf4c967e31edc0789993a3810a842826506"},
+    {"path": "docs/GLM53_RUNPOD_SM90_SM120_IMAGE.md", "sha256": "207391ba354e8fc300055a0431b168bd9e875e8afa2baac245c26a4f9d9ba0cc"},
+    {"path": "instrumentation/vllm/glm53_runpod_stateful_edit_accuracy_ablation.py", "sha256": "dea79847b05c01424b9264b28d2340c98cc3a4661ae4dc03a8b6fe7010fc4348"},
+    {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm90_sm120_build.patch", "sha256": "509b4bb96e4c1cd07da642ff6ca3e9d69936d11974058224122df152ea6ba24b"},
+    {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_nope_fp8_ds_mla_cache.patch", "sha256": "2920ff70e8e2445b3a7cd197b8fc17a1234771158fbfcc1f0723454508ab2632"},
+    {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_topk_lens.patch", "sha256": "99d0c7d6aed3d9e50c602760931fe9e1bdf8adc42142149f8e6d4b7b3b703629"},
+    {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_stateful_edit_v3_accuracy_ablation.patch", "sha256": "b1a1bac5bccb9650bcd5892f99883c7d215ac7253b4f9b6ecd7cf812a78086f9"},
+    {"path": "scripts/glm53_runpod/audit_dual_arch_wheel.py", "sha256": "bce3632ecd688ae5c8adfe10269060820f6311b5c7a75664ad7f507b43ff2263"},
+    {"path": "scripts/glm53_runpod/build_image.sh", "sha256": "fac213ef161aa4fdbeee13cf4d45506c3d350fc1110551680e53929f289ad06f"},
+    {"path": "scripts/glm53_runpod/doctor.py", "sha256": "c0d6ac4f74d4d4c51ae6924d438cc6b07b3ec565e3a0162e15321f2234aa8d09"},
+    {"path": "scripts/glm53_runpod/entrypoint.sh", "sha256": "bbabe3ddeba2b565a791c7f7fd4f4158d74cbbae66fa04f4323e08eac3cba9cc"},
+    {"path": "scripts/glm53_runpod/launch_proxy.sh", "sha256": "65139733e689dc05af830eadbc3b31867aa0c0c18fcbfd58b63865baaa11fb36"},
+    {"path": "scripts/glm53_runpod/launch_server.sh", "sha256": "ed0694c9640b588d136f6de41423f106a00cd39dd3eccbdb092cec8f8dd8a501"},
+    {"path": "scripts/glm53_runpod/prepare_vllm_source.sh", "sha256": "305b8d2c695070d34e1b09d067a1843db15148678250b302e95a8ea07939bf28"},
+    {"path": "scripts/glm53_runpod/run_experiment.sh", "sha256": "b7dad4051950365f526fbeae211be794276bf77a522040e5d0d881f89f97efa9"},
+    {"path": "src/putpocket_dataset_mining/glm53_runpod_image.py", "sha256": "fad1b15b3770e4c50c6d7cf5256d585a741c3c2990241c1b858be391b060363d"},
+    {"path": "src/putpocket_dataset_mining/glm53_runpod_stateful_edit.py", "sha256": "f51aeb0d6a34d965ec4b9e446d4798b9c521d2584a43ba53d4ed8b7722c354d7"},
+    {"path": "src/putpocket_dataset_mining/glm53_runpod_stateful_proxy.py", "sha256": "71bf286210998d272ce9c5174735ee352ae457dbe141385078581b8077096468"}
+  ]
+}

@@ -1,0 +1,214 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index cd6f253..ece8c6f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1555,13 +1555,21 @@ endif()
+ 
+ # For CUDA we also build and ship some external projects.
+ if (VLLM_GPU_LANG STREQUAL "CUDA")
+-    include(cmake/external_projects/deepgemm.cmake)
+-    include(cmake/external_projects/fmha_sm100.cmake)
+-    include(cmake/external_projects/flashmla.cmake)
+-    include(cmake/external_projects/flashkda.cmake)
+-    include(cmake/external_projects/qutlass.cmake)
+-    include(cmake/external_projects/tml_fa4.cmake)
+-
+-    # vllm-flash-attn should be last as it overwrites some CMake functions
+-    include(cmake/external_projects/vllm_flash_attn.cmake)
++    if("$ENV{PUTPOCKET_GLM53_DUAL_ARCH}" STREQUAL "1")
++        message(STATUS "PutPocket GLM-5.3 dual-arch build: SM90a and SM120a")
++        message(STATUS "PutPocket GLM-5.3 dual-arch build: DeepGEMM and FlashKDA enabled")
++        message(STATUS "PutPocket GLM-5.3 dual-arch build: bundled FA2/FA3, FlashMLA, QuTLASS, fmha_sm100, and tml_fa4 omitted")
++        include(cmake/external_projects/deepgemm.cmake)
++        include(cmake/external_projects/flashkda.cmake)
++    else()
++        include(cmake/external_projects/deepgemm.cmake)
++        include(cmake/external_projects/fmha_sm100.cmake)
++        include(cmake/external_projects/flashmla.cmake)
++        include(cmake/external_projects/flashkda.cmake)
++        include(cmake/external_projects/qutlass.cmake)
++        include(cmake/external_projects/tml_fa4.cmake)
++
++        # vllm-flash-attn should be last as it overwrites some CMake functions
++        include(cmake/external_projects/vllm_flash_attn.cmake)
++    endif()
+ endif ()
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+index aba7b17..9eafe58 100644
+--- a/docker/Dockerfile
++++ b/docker/Dockerfile
+@@ -28,6 +28,7 @@ ARG UBUNTU_VERSION=24.04
+ ARG INSTALL_RUBIN_PRERELEASE=false
+ ARG TRITON_INSTALL_FROM_SOURCE_REPO=
+ ARG TRITON_INSTALL_FROM_SOURCE_REVISION=
++ARG putpocket_glm53_dual_arch=0
+ # DeepEPv2 requires NCCL >= 2.30.4 (GIN backend).
+ # This version is used for CUDA 12+ builds to keep the DeepEP build and
+ # runtime NCCL versions compatible.
+@@ -96,6 +97,9 @@ ARG INSTALL_KV_CONNECTORS=false
+ # prepare basic build environment
+ FROM ${BUILD_BASE_IMAGE} AS base
+ 
++ARG putpocket_glm53_dual_arch
++ENV PUTPOCKET_GLM53_DUAL_ARCH=${putpocket_glm53_dual_arch} \
++    CMAKE_CUDA_ARCHITECTURES="90a;120a"
+ ARG TARGETPLATFORM
+ ARG INSTALL_RUBIN_PRERELEASE
+ ARG CUDA_VERSION
+@@ -433,7 +437,11 @@ RUN --mount=type=cache,target=/opt/uv/cache \
+ COPY tools/setup_deepgemm_pythons.sh tools/build_deepgemm_C.py tools/
+ ENV DEEPGEMM_VENV_PREFIX=/opt/dgenv
+ RUN --mount=type=cache,target=/root/.cache/uv \
+-    tools/setup_deepgemm_pythons.sh > /tmp/dg_pythons.txt
++    if [ "${PUTPOCKET_GLM53_DUAL_ARCH}" = "1" ]; then \
++        printf '%s\n' /opt/venv/bin/python3 > /tmp/dg_pythons.txt; \
++    else \
++        tools/setup_deepgemm_pythons.sh > /tmp/dg_pythons.txt; \
++    fi
+ 
+ # Build the vLLM wheel
+ # if USE_SCCACHE is set, use sccache to speed up compilation
+@@ -489,41 +497,12 @@ ENV UV_LINK_MODE=copy
+ 
+ WORKDIR /workspace
+ 
+-# Build DeepEP wheels
+-COPY tools/ep_kernels/install_python_libraries.sh /tmp/install_python_libraries.sh
+-# Defaults moved here from tools/ep_kernels/install_python_libraries.sh for centralized version management
+-ARG DEEPEP_COMMIT_HASH=d4f41e4e93
+-ARG NVSHMEM_VER
+-ARG NCCL_VERSION
+-RUN --mount=type=cache,target=/opt/uv/cache \
+-    mkdir -p /tmp/ep_kernels_workspace/dist && \
+-    if [ "${INSTALL_RUBIN_PRERELEASE}" = "true" ]; then \
+-        # The Rubin CUDA builder provides NCCL in its architecture-specific \
+-        # toolkit directory rather than as a Python package. Give DeepEP a \
+-        # stable prefix that also exists in the Ubuntu runtime image. \
+-        NCCL_HEADER=$(find /usr/local/cuda/targets -name nccl.h -print -quit) \
+-        && test -n "${NCCL_HEADER}" \
+-        && NCCL_LIBRARY=$(find -H /usr/local/cuda/targets \
+-            -name libnccl.so.2 -print -quit) \
+-        && test -n "${NCCL_LIBRARY}" \
+-        && ln -sf "${NCCL_HEADER}" /usr/include/nccl.h \
+-        && ln -sf "${NCCL_LIBRARY}" /usr/lib/libnccl.so.2 \
+-        && ln -sf libnccl.so.2 /usr/lib/libnccl.so \
+-        && export EP_NCCL_ROOT_DIR=/usr; \
+-    fi && \
+-    CUDA_MAJOR=$(echo $CUDA_VERSION | cut -d. -f1) && \
+-    if [ -n "$NCCL_VERSION" ]; then \
+-        echo "nvidia-nccl-cu${CUDA_MAJOR}==${NCCL_VERSION}" \
+-            > /tmp/nccl-override.txt && \
+-        export UV_OVERRIDE=/tmp/nccl-override.txt; \
+-    fi && \
+-    export TORCH_CUDA_ARCH_LIST='9.0a 10.0a' && \
+-    /tmp/install_python_libraries.sh \
+-        --workspace /tmp/ep_kernels_workspace \
+-        --mode wheel \
+-        ${DEEPEP_COMMIT_HASH:+--deepep-ref "$DEEPEP_COMMIT_HASH"} \
+-        ${NVSHMEM_VER:+--nvshmem-ver "$NVSHMEM_VER"} && \
+-    find /tmp/ep_kernels_workspace/nvshmem -name '*.a' -delete
++# This image uses the deterministic TP4 allgather/reduce-scatter EP path.
++# DeepEP is not required and its upstream build has a different architecture
++# contract, so keep an explicit omission record instead of compiling it.
++RUN mkdir -p /tmp/ep_kernels_workspace/dist && \
++    printf '%s\n' '{"component":"DeepEP","included":false,"reason":"PutPocket TP4 allgather_reducescatter profile"}' \
++      > /tmp/ep_kernels_workspace/dist/omission.json
+ 
+ # Build Triton from source when a repository is configured. Triton 3.8 pins
+ # ptxas-blackwell 13.3, which cannot assemble SM107. Rubin CUDA 13.4 and 13.5
+@@ -653,6 +632,9 @@ RUN --mount=type=cache,target=/opt/uv/cache \
+     fi && \
+     python3 setup.py bdist_wheel --dist-dir=dist --py-limited-api=cp38
+ 
++RUN python3 tools/putpocket_audit_dual_arch_wheel.py \
++      --output dist/sm90-sm120-cuda-audit.json dist/*.whl
++
+ # Record the wheel checksum so downstream stages can bust their layer cache
+ # when the wheel changes, without copying the wheel itself into the image.
+ RUN sha256sum dist/*.whl > dist/wheel.sha256
+@@ -661,8 +643,9 @@ RUN sha256sum dist/*.whl > dist/wheel.sha256
+ COPY --from=extensions-build /tmp/ep_kernels_workspace/dist /tmp/ep_kernels_workspace/dist
+ 
+ # Record the EP kernels wheel checksum for the same cache-busting purpose.
+-RUN sha256sum /tmp/ep_kernels_workspace/dist/*.whl \
+-    > /tmp/ep_kernels_workspace/dist/wheels.sha256
++RUN cd /tmp/ep_kernels_workspace/dist && \
++    test -z "$(find . -maxdepth 1 -type f -name '*.whl' -print -quit)" && \
++    sha256sum omission.json > wheels.sha256
+ 
+ # Check the size of the CUDA 13 wheel uploaded to PyPI
+ COPY .buildkite/check-wheel-size.py check-wheel-size.py
+@@ -1007,6 +990,7 @@ COPY --from=base /workspace/torch_lib_versions.txt torch_lib_versions.txt
+ # image. Without this the bind mount is not part of the layer cache key, so a
+ # warm BuildKit agent can skip the install and ship a stale wheel.
+ COPY --from=build /workspace/dist/wheel.sha256 /tmp/vllm-wheel.sha256
++COPY --from=build /workspace/dist/sm90-sm120-cuda-audit.json /opt/vllm-build-evidence/sm90-sm120-cuda-audit.json
+ RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist \
+     --mount=type=cache,target=/opt/uv/cache \
+     if [ "${PYTORCH_NIGHTLY}" = "1" ]; then \
+@@ -1034,9 +1018,8 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+ # and bind-mount the wheel for the actual install to keep it out of the image.
+ COPY --from=build /tmp/ep_kernels_workspace/dist/wheels.sha256 /tmp/ep-kernels-wheels.sha256
+ RUN --mount=type=bind,from=build,src=/tmp/ep_kernels_workspace/dist,target=/vllm-workspace/ep_kernels/dist \
+-    --mount=type=cache,target=/opt/uv/cache \
+-    uv pip install --system ep_kernels/dist/*.whl --verbose \
+-        --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
++    test -z "$(find /vllm-workspace/ep_kernels/dist -maxdepth 1 -type f -name '*.whl' -print -quit)" && \
++    echo "PutPocket GLM-5.3 dual-arch build: DeepEP intentionally omitted"
+ 
+ # CUDA image changed from /usr/local/nvidia to /usr/local/cuda in 12.8 but will
+ # return to /usr/local/nvidia in 13.0 to allow container providers to mount drivers
+diff --git a/setup.py b/setup.py
+index 81ff499..6a4d0fe 100644
+--- a/setup.py
++++ b/setup.py
+@@ -1360,20 +1360,23 @@ if _is_hip():
+     ext_modules.append(CMakeExtension(name="vllm._rocm_C"))
+ 
+ if _is_cuda():
+-    ext_modules.append(CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa2_C"))
+-    if USE_PRECOMPILED_EXTENSIONS or (
++    putpocket_dual_arch = os.getenv("PUTPOCKET_GLM53_DUAL_ARCH") == "1"
++    if not putpocket_dual_arch:
++        ext_modules.append(CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa2_C"))
++    if not putpocket_dual_arch and (USE_PRECOMPILED_EXTENSIONS or (
+         CUDA_HOME and get_nvcc_cuda_version() >= Version("12.3")
+-    ):
++    )):
+         # FA3 requires CUDA 12.3 or later
+         ext_modules.append(CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa3_C"))
+     # FA4 CuteDSL - Python-only component for FA4's cute DSL support
+     # Optional since this doesn't produce a .so file, just copies Python files
+-    ext_modules.append(
+-        CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa4_cutedsl_C", optional=True)
+-    )
+-    if USE_PRECOMPILED_EXTENSIONS or (
++    if not putpocket_dual_arch:
++        ext_modules.append(
++            CMakeExtension(name="vllm.vllm_flash_attn._vllm_fa4_cutedsl_C", optional=True)
++        )
++    if not putpocket_dual_arch and (USE_PRECOMPILED_EXTENSIONS or (
+         CUDA_HOME and get_nvcc_cuda_version() >= Version("12.9")
+-    ):
++    )):
+         # FlashMLA requires CUDA 12.9 or later
+         # Optional since this doesn't get built (produce an .so file) when
+         # not targeting a hopper system
+@@ -1391,11 +1394,14 @@ if _is_cuda():
+         # DeepGEMM requires CUDA 12.3+ (SM90/SM100)
+         # Optional since it won't build on unsupported architectures
+         ext_modules.append(CMakeExtension(name="vllm._deep_gemm_C", optional=True))
+-        ext_modules.append(CMakeExtension(name="vllm._qutlass_C", optional=True))
++        if not putpocket_dual_arch:
++            ext_modules.append(CMakeExtension(name="vllm._qutlass_C", optional=True))
+     # fmha_sm100 is a Python/CuTe-DSL package installed into vllm.third_party.
+-    ext_modules.append(CMakeExtension(name="vllm.fmha_sm100", optional=True))
++    if not putpocket_dual_arch:
++        ext_modules.append(CMakeExtension(name="vllm.fmha_sm100", optional=True))
+     # tml-fa4 is copied into an isolated vllm.third_party package.
+-    ext_modules.append(CMakeExtension(name="vllm.tml_fa4", optional=True))
++    if not putpocket_dual_arch:
++        ext_modules.append(CMakeExtension(name="vllm.tml_fa4", optional=True))
+ 
+ if _is_cpu():
+     import platform

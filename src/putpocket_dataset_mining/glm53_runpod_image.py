@@ -128,6 +128,7 @@ def validate_lock(lock: dict[str, Any]) -> None:
         "cache_bytes_per_token": 656,
         "kernel_qk_rope_head_dim": 64,
         "kv_scale_format": "arbitrary_fp32",
+        "active_topk_length_argument": "seq_lens",
         "attention_semantics": "unchanged_nope_zero_dot_product_tail",
     }
     if runtime.get("sm120_nope_query_adapter") != expected_sm120_nope_adapter:

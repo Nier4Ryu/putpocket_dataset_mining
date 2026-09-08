@@ -87,7 +87,10 @@ zeros, and the NoPE cache writer never writes the 64-position tail; therefore
 the added query channels contribute a zero dot product while selecting the
 GLM arbitrary-FP32 scale and 656-byte layout rather than the incompatible
 DSv4 584-byte layout. Static doctor verifies the exact installed backend
-postimage. This is a kernel ABI adapter, not a change from NoPE to RoPE.
+postimage. Active sparse lengths are passed through the GLM v32 entry point's
+`seq_lens`; the native-NoPE TRTLLM-GEN-only `sparse_mla_top_k_lens` argument is
+not forwarded after selecting the 576-wide GLM ABI. This is a kernel ABI
+adapter, not a change from NoPE to RoPE.
 
 FlashMLA, QuTLASS, fmha_sm100, tml_fa4, and DeepEP remain omitted because the
 forced GLM profiles do not use them. Vendor PyTorch/CUDA/FlashInfer

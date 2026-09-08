@@ -45,12 +45,12 @@ RUN set -eux; \
     target="${VLLM_ROOT}/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py"; \
     adapter_patch="/opt/putpocket/patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_query_padding.patch"; \
     test "$(sha256sum "${adapter_patch}" | awk '{print $1}')" = "7cadf1f3fcf031cd018a53d5a0e63c3d4568a87a5e24345101277e87e2d1cc59"; \
-    test "$(sha256sum "${target}" | awk '{print $1}')" = "3b2ff18d2db7196f53c143acdbce146e0fd904ab4d797f0356c99a52c5823b50"; \
+    test "$(sha256sum "${target}" | awk '{print $1}')" = "9f6a7a84f861190e0b1ca4cea7fb407e4aa670a2ece89a5149bcc3144475599f"; \
     patch --batch --forward --no-backup-if-mismatch --dry-run \
       --strip=1 --directory="${VLLM_ROOT%/vllm}" --input="${adapter_patch}"; \
     patch --batch --forward --no-backup-if-mismatch \
       --strip=1 --directory="${VLLM_ROOT%/vllm}" --input="${adapter_patch}"; \
-    test "$(sha256sum "${target}" | awk '{print $1}')" = "0d19b195944327c91eed281530b1f3a9985237815d271a7e67d693d07e5cd3b8"; \
+    test "$(sha256sum "${target}" | awk '{print $1}')" = "d58819b3b0dc7c4fe9b195f415c60588fe589cc27dff37043b32f9a8d7e2b24e"; \
     python3 -m py_compile "${target}"
 
 ENV PYTHONPATH=/opt/putpocket/src \

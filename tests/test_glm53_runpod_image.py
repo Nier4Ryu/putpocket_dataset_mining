@@ -98,6 +98,7 @@ class GLM53RunPodImageTests(unittest.TestCase):
         self.assertEqual(adapter["cache_bytes_per_token"], 656)
         self.assertEqual(adapter["kernel_qk_rope_head_dim"], 64)
         self.assertEqual(adapter["kv_scale_format"], "arbitrary_fp32")
+        self.assertEqual(adapter["active_topk_length_argument"], "seq_lens")
         self.assertEqual(
             adapter["attention_semantics"],
             "unchanged_nope_zero_dot_product_tail",
@@ -111,6 +112,13 @@ class GLM53RunPodImageTests(unittest.TestCase):
             "qk_rope_head_dim=flashinfer_qk_rope_head_dim", adapter_patch
         )
         self.assertNotIn("self.qk_rope_head_dim = 64", adapter_patch)
+
+        topk_patch = (
+            ROOT
+            / f"patches/vllm/{COMMIT}/glm53_sm120_nope_topk_lens.patch"
+        ).read_text()
+        self.assertIn("seq_lens=active_topk_lens", topk_patch)
+        self.assertNotIn("sparse_mla_top_k_lens=active_topk_lens", topk_patch)
 
     def test_static_doctor_has_no_torch_or_device_probe_and_passes(self) -> None:
         source = (ROOT / "src/putpocket_dataset_mining/glm53_runpod_image.py").read_text()

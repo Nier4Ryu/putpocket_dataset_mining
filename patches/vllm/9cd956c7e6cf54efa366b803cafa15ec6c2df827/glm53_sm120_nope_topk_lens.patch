@@ -30,7 +30,7 @@ index 4de2c2f..89bd51a 100644
          output = q.new_empty(
              (num_actual_toks, self.num_heads, self.kv_lora_rank),
              dtype=q.dtype,
-@@ -149,12 +157,15 @@ class FlashInferMLASparseSM120Impl(MLAAttentionImpl[FlashInferMLASparseMetadata]
+@@ -149,12 +157,14 @@ class FlashInferMLASparseSM120Impl(MLAAttentionImpl[FlashInferMLASparseMetadata]
              kv_lora_rank=self.kv_lora_rank,
              qk_rope_head_dim=self.qk_rope_head_dim,
              block_tables=topk_indices_physical.unsqueeze(1),
@@ -43,7 +43,6 @@ index 4de2c2f..89bd51a 100644
              bmm2_scale=1.0,
 -            sparse_mla_top_k=attn_metadata.topk_tokens,
 +            sparse_mla_top_k=sparse_topk_capacity,
-+            sparse_mla_top_k_lens=active_topk_lens,
              kv_scale_format=self.kv_scale_format,
          )
 -        return out.squeeze(1), None

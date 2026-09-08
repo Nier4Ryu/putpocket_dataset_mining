@@ -15,6 +15,7 @@ LABEL org.opencontainers.image.title="PutPocket GLM-5.3 RunPod SM90+SM120 W4A16"
       putpocket.source.commit="${PUTPOCKET_SOURCE_COMMIT}" \
       putpocket.runtime.gpu_validated="false" \
       putpocket.vllm.flash_attn_import_extensions="fa2,fa3" \
+      putpocket.vllm.sm120_nope_query_adapter="zero-pad-512-to-576-glm-layout" \
       putpocket.glm53.stateful_edit_default="off" \
       putpocket.glm53.stateful_edit_semantics="full-target-prefill-then-donor-overwrite-accuracy-ablation" \
       putpocket.glm53.true_partial_prefill="false"
@@ -35,9 +36,22 @@ COPY configs/models/glm53_flash_w4a16_runpod_sm90_sm120.lock.json /opt/putpocket
 COPY configs/execution/glm53_runpod_sm90_sm120_w4a16.example.yaml /opt/putpocket/configs/execution/glm53_runpod_sm90_sm120_w4a16.example.yaml
 COPY configs/experiments/schemas/glm53_runpod_stateful_edit_control.schema.json /opt/putpocket/configs/experiments/schemas/glm53_runpod_stateful_edit_control.schema.json
 COPY scripts/glm53_runpod /opt/putpocket/scripts/glm53_runpod
-COPY patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm90_sm120_build.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_nope_fp8_ds_mla_cache.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_topk_lens.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_stateful_edit_v3_accuracy_ablation.patch /opt/putpocket/patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/
+COPY patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm90_sm120_build.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_nope_fp8_ds_mla_cache.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_topk_lens.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_query_padding.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_stateful_edit_v3_accuracy_ablation.patch /opt/putpocket/patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/
 COPY docker/glm53_sm90_sm120/Dockerfile /opt/putpocket/docker/glm53_sm90_sm120/Dockerfile
 COPY docs/GLM53_RUNPOD_SM90_SM120_IMAGE.md /opt/putpocket/docs/GLM53_RUNPOD_SM90_SM120_IMAGE.md
+
+RUN set -eux; \
+    VLLM_ROOT="$(python3 -c 'import pathlib,vllm; print(pathlib.Path(vllm.__file__).resolve().parent)')"; \
+    target="${VLLM_ROOT}/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py"; \
+    adapter_patch="/opt/putpocket/patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_query_padding.patch"; \
+    test "$(sha256sum "${adapter_patch}" | awk '{print $1}')" = "7cadf1f3fcf031cd018a53d5a0e63c3d4568a87a5e24345101277e87e2d1cc59"; \
+    test "$(sha256sum "${target}" | awk '{print $1}')" = "3b2ff18d2db7196f53c143acdbce146e0fd904ab4d797f0356c99a52c5823b50"; \
+    patch --batch --forward --no-backup-if-mismatch --dry-run \
+      --strip=1 --directory="${VLLM_ROOT%/vllm}" --input="${adapter_patch}"; \
+    patch --batch --forward --no-backup-if-mismatch \
+      --strip=1 --directory="${VLLM_ROOT%/vllm}" --input="${adapter_patch}"; \
+    test "$(sha256sum "${target}" | awk '{print $1}')" = "0d19b195944327c91eed281530b1f3a9985237815d271a7e67d693d07e5cd3b8"; \
+    python3 -m py_compile "${target}"
 
 ENV PYTHONPATH=/opt/putpocket/src \
     MODEL_PATH=/models/glm53-flash-w4a16-autoround \

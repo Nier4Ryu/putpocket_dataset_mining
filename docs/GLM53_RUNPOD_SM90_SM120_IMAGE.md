@@ -29,7 +29,8 @@ card reports 99.84% relative average accuracy to BF16; that publisher result
 has not been reproduced by PutPocket.
 
 Weights are never in the image and silent downloads are disabled. Download
-the exact revision into a persistent RunPod Network Volume before launch:
+the exact revision once into either a RunPod Network Volume or a Pod-persistent
+`/workspace` volume before launch:
 
 ```bash
 hf download Intel/GLM-5.3-Flash-W4A16-AutoRound \
@@ -40,6 +41,13 @@ hf download Intel/GLM-5.3-Flash-W4A16-AutoRound \
 Authentication, if Hugging Face requires it, is supplied by the operator; no
 token is embedded. Compare metadata hashes against
 `configs/models/glm53_flash_w4a16_runpod_sm90_sm120.lock.json` before loading.
+An image-only retry reuses the existing model directory instead of downloading
+the 181 GB checkpoint again. A stopped Pod retains its Pod-persistent volume,
+so the Pod may be stopped to halt GPU compute billing, updated to a corrected
+immutable image, and restarted during one explicitly retained retry lineage.
+The Pod and its attached volume are terminated after final success or
+abandonment. Use a separately managed Network Volume only when model storage
+must outlive the Pod itself, and track its independent storage cost and expiry.
 
 The validated topology contract is TP=4, PP=1, DP=1, EP=4 using
 `allgather_reducescatter`. Sixty-four attention heads, 32 indexer heads, and
@@ -69,6 +77,17 @@ GLM sparse-attention backend. The runtime profiles continue to force the two
 FlashInfer sparse-MLA backends above. Static doctor requires both extension
 ELF files, and runtime doctor emits `VLLM_FLASH_ATTN_EXTENSION_MISSING` before
 loading torch or probing CUDA when either is absent.
+
+The SM120 FlashInfer GLM kernel consumes the 656-byte GLM cache layout through
+its 576-wide query entry point, while this model natively emits a 512-wide
+absorbed NoPE query. The runtime adapter appends 64 zero query channels and
+passes the kernel-facing RoPE width as 64 without changing the model's
+`qk_rope_head_dim=0` configuration. vLLM allocates the cache backing with
+zeros, and the NoPE cache writer never writes the 64-position tail; therefore
+the added query channels contribute a zero dot product while selecting the
+GLM arbitrary-FP32 scale and 656-byte layout rather than the incompatible
+DSv4 584-byte layout. Static doctor verifies the exact installed backend
+postimage. This is a kernel ABI adapter, not a change from NoPE to RoPE.
 
 FlashMLA, QuTLASS, fmha_sm100, tml_fa4, and DeepEP remain omitted because the
 forced GLM profiles do not use them. Vendor PyTorch/CUDA/FlashInfer

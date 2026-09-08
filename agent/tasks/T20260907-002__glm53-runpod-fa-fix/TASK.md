@@ -1,7 +1,7 @@
 # T20260907-002__glm53-runpod-fa-fix
 
 task identity: T20260907-002__glm53-runpod-fa-fix
-objective: repair the dual SM90/SM120 GLM-5.3 RunPod image by packaging the upstream common vLLM FA2 and FA3 import dependencies while preserving the forced FlashInfer sparse-MLA runtime path
+objective: repair the dual SM90/SM120 GLM-5.3 RunPod image by packaging the upstream common vLLM FA2 and FA3 import dependencies and adapting the SM120 FlashInfer GLM entry point to the model's native NoPE query while preserving the forced sparse-MLA runtime path
 status: in_progress
 base tip: 96c59224e79bc5589c977439717badf92864947e
 branch: agent/T20260907-002__glm53-runpod-fa-fix
@@ -26,6 +26,8 @@ fixed decisions:
   - task-built CUDA audit requires SM90 and SM120 native products and both FA extension prefixes while retaining documented upstream W4A16 compatibility products
   - runtime doctor must fail early with VLLM_FLASH_ATTN_EXTENSION_MISSING when either installed extension is absent
   - preserve default-OFF full-target-prefill then donor-row-overwrite accuracy-ablation semantics; do not claim true partial prefill or compute saving
+  - preserve the model's qk_rope_head_dim=0 setting; the SM120 adapter may append zero query channels only to select FlashInfer's 656-byte GLM kernel ABI and must not change RoPE/model semantics
+  - reuse the explicitly retained stopped RunPod Pod volume for image-only retries so the exact 181 GB model is not downloaded again; terminate the Pod and attached volume after final success or abandonment
   - failed Docker v1 tag/digest is immutable and must not be overwritten
   - Docker and Git pushes are normal, non-force, and limited to the new tag and this task branch
 plan:
@@ -33,6 +35,7 @@ plan:
   - update the pinned source patch, audit, doctor, lock, labels, and documentation
   - validate a fresh exact patch chain and commit/push source repair
   - rebuild CPU-only from existing Docker cache with MAX_JOBS=4 and NVCC_THREADS=1
+  - overlay the hash-locked Python-only SM120 NoPE query adapter without rebuilding unchanged native CUDA products
   - validate static doctor, no-device imports/preflight, INC registration, both FA extensions, CUDA architecture audit, platform, size, and no weights
   - publish a collision-free v2 image and record local/registry evidence
 completion criteria:

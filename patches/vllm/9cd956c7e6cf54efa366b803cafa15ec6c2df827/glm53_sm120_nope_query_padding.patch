@@ -1,0 +1,35 @@
+diff --git a/vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py b/vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py
+--- a/vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py
++++ b/vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py
+@@ -112,6 +112,22 @@ class FlashInferMLASparseSM120Impl(MLAAttentionImpl[FlashInferMLASparseMetadata]
+     ) -> tuple[torch.Tensor, torch.Tensor | None]:
+         if isinstance(q, tuple):
+             q = torch.cat(q, dim=-1)
++
++        flashinfer_qk_rope_head_dim = self.qk_rope_head_dim
++        if self.qk_rope_head_dim == 0:
++            if self.kv_lora_rank != 512 or q.shape[-1] != self.kv_lora_rank:
++                raise ValueError(
++                    "FLASHINFER_MLA_SPARSE_SM120 NoPE expects a 512-wide "
++                    f"absorbed query; got kv_lora_rank={self.kv_lora_rank}, "
++                    f"query dim={q.shape[-1]}"
++                )
++            # FlashInfer's GLM SM120 kernel consumes the 656-byte GLM cache
++            # layout through its 576-wide entry point. The cache backing is
++            # zero-initialized and the NoPE writer leaves the 64-position tail
++            # untouched, so appending 64 zero query channels preserves NoPE
++            # attention while selecting the GLM scale/layout semantics.
++            q = torch.nn.functional.pad(q, (0, 64), value=0.0)
++            flashinfer_qk_rope_head_dim = 64
+ 
+         num_actual_toks = q.shape[0]
+ 
+@@ -155,7 +171,7 @@ class FlashInferMLASparseSM120Impl(MLAAttentionImpl[FlashInferMLASparseMetadata]
+             workspace_buffer=self._workspace_buffer,
+             qk_nope_head_dim=self.qk_nope_head_dim,
+             kv_lora_rank=self.kv_lora_rank,
+-            qk_rope_head_dim=self.qk_rope_head_dim,
++            qk_rope_head_dim=flashinfer_qk_rope_head_dim,
+             block_tables=topk_indices_physical.unsqueeze(1),
+             seq_lens=active_topk_lens,
+             max_seq_len=sparse_topk_capacity,

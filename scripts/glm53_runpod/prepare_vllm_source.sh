@@ -40,6 +40,7 @@ apply_patch_checked() {
 apply_patch_checked "${PATCH_ROOT}/glm53_sm90_sm120_build.patch"
 apply_patch_checked "${PATCH_ROOT}/glm53_nope_fp8_ds_mla_cache.patch" --unidiff-zero
 apply_patch_checked "${PATCH_ROOT}/glm53_sm120_nope_topk_lens.patch" --unidiff-zero
+apply_patch_checked "${PATCH_ROOT}/glm53_sm120_nope_query_padding.patch"
 apply_patch_checked "${PATCH_ROOT}/glm53_stateful_edit_v3_accuracy_ablation.patch"
 
 install -D -m 0755 "${REPO_ROOT}/scripts/glm53_runpod/audit_dual_arch_wheel.py" "${stage}/tools/putpocket_audit_dual_arch_wheel.py"

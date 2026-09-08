@@ -39,6 +39,7 @@ PACKAGE_PATHS = (
     ROOT / f"patches/vllm/{COMMIT}/glm53_sm90_sm120_build.patch",
     ROOT / f"patches/vllm/{COMMIT}/glm53_nope_fp8_ds_mla_cache.patch",
     ROOT / f"patches/vllm/{COMMIT}/glm53_sm120_nope_topk_lens.patch",
+    ROOT / f"patches/vllm/{COMMIT}/glm53_sm120_nope_query_padding.patch",
     ROOT / f"patches/vllm/{COMMIT}/glm53_stateful_edit_v3_accuracy_ablation.patch",
     ROOT / "docs/GLM53_RUNPOD_SM90_SM120_IMAGE.md",
 )
@@ -88,6 +89,28 @@ class GLM53RunPodImageTests(unittest.TestCase):
         self.assertTrue(stateful["donor_overwrite_after_native_write"])
         self.assertFalse(stateful["true_partial_prefill"])
         self.assertFalse(stateful["speedup_claim"])
+
+    def test_sm120_nope_adapter_preserves_model_semantics(self) -> None:
+        adapter = self.lock["runtime"]["sm120_nope_query_adapter"]
+        self.assertEqual(adapter["model_query_width"], 512)
+        self.assertEqual(adapter["kernel_query_width"], 576)
+        self.assertEqual(adapter["zero_padding_width"], 64)
+        self.assertEqual(adapter["cache_bytes_per_token"], 656)
+        self.assertEqual(adapter["kernel_qk_rope_head_dim"], 64)
+        self.assertEqual(adapter["kv_scale_format"], "arbitrary_fp32")
+        self.assertEqual(
+            adapter["attention_semantics"],
+            "unchanged_nope_zero_dot_product_tail",
+        )
+        adapter_patch = (
+            ROOT
+            / f"patches/vllm/{COMMIT}/glm53_sm120_nope_query_padding.patch"
+        ).read_text()
+        self.assertIn("torch.nn.functional.pad(q, (0, 64), value=0.0)", adapter_patch)
+        self.assertIn(
+            "qk_rope_head_dim=flashinfer_qk_rope_head_dim", adapter_patch
+        )
+        self.assertNotIn("self.qk_rope_head_dim = 64", adapter_patch)
 
     def test_static_doctor_has_no_torch_or_device_probe_and_passes(self) -> None:
         source = (ROOT / "src/putpocket_dataset_mining/glm53_runpod_image.py").read_text()
@@ -154,6 +177,10 @@ class GLM53RunPodImageTests(unittest.TestCase):
         self.assertIn('--build-arg "PUTPOCKET_SOURCE_COMMIT=${PUTPOCKET_SOURCE_COMMIT}"', build_script)
         self.assertIn('putpocket.task_id="T20260907-002__glm53-runpod-fa-fix"', dockerfile)
         self.assertIn('putpocket.vllm.flash_attn_import_extensions="fa2,fa3"', dockerfile)
+        self.assertIn(
+            'putpocket.vllm.sm120_nope_query_adapter="zero-pad-512-to-576-glm-layout"',
+            dockerfile,
+        )
 
     def test_flash_attention_extensions_are_located_without_import(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

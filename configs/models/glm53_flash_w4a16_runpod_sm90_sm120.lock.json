@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "task_id": "T20260907-002__glm53-runpod-fa-fix",
-  "status": "source_repair_cpu_build_pending",
+  "status": "sm120_nope_runtime_repair_pending",
   "selection": {
     "repository": "Intel/GLM-5.3-Flash-W4A16-AutoRound",
     "revision": "5eee1846f0321058ed73745f9aa16f2aaf0fc0a0",
@@ -84,6 +84,15 @@
         "block_size": 512
       }
     },
+    "sm120_nope_query_adapter": {
+      "model_query_width": 512,
+      "kernel_query_width": 576,
+      "zero_padding_width": 64,
+      "cache_bytes_per_token": 656,
+      "kernel_qk_rope_head_dim": 64,
+      "kv_scale_format": "arbitrary_fp32",
+      "attention_semantics": "unchanged_nope_zero_dot_product_tail"
+    },
     "default_profile": "sm90",
     "default_gpu_count": 4,
     "parallelism": {
@@ -132,6 +141,7 @@
       {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm90_sm120_build.patch", "apply_args": [], "sha256": "f60656fb783f92109b80b5c65cfb58333d5bb9b47c725a1f98d1743335f30c24"},
       {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_nope_fp8_ds_mla_cache.patch", "apply_args": ["--unidiff-zero"], "sha256": "2920ff70e8e2445b3a7cd197b8fc17a1234771158fbfcc1f0723454508ab2632"},
       {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_topk_lens.patch", "apply_args": ["--unidiff-zero"], "sha256": "99d0c7d6aed3d9e50c602760931fe9e1bdf8adc42142149f8e6d4b7b3b703629"},
+      {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_query_padding.patch", "apply_args": [], "sha256": "7cadf1f3fcf031cd018a53d5a0e63c3d4568a87a5e24345101277e87e2d1cc59"},
       {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_stateful_edit_v3_accuracy_ablation.patch", "apply_args": [], "sha256": "b1a1bac5bccb9650bcd5892f99883c7d215ac7253b4f9b6ecd7cf812a78086f9"}
     ],
     "hook_source": "instrumentation/vllm/glm53_runpod_stateful_edit_accuracy_ablation.py",
@@ -141,7 +151,7 @@
       "setup.py": "74528eb61f30bc58bdab0b75d1e4a6532a592046264c3f88a8559723b900cfc3",
       "docker/Dockerfile": "17c4a1b75a606739e98b4119f0498f67248f8700c346f528332f8c06cfcfdbc0",
       "csrc/libtorch_stable/cache_kernels.cu": "965bd8492068f9704201b41bfff1b648444e9e73f0302c7506305368e583a416",
-      "vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py": "3b2ff18d2db7196f53c143acdbce146e0fd904ab4d797f0356c99a52c5823b50",
+      "vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py": "0d19b195944327c91eed281530b1f3a9985237815d271a7e67d693d07e5cd3b8",
       "vllm/model_executor/layers/attention/mla_attention.py": "dfc416c4257c3f3dc5a99f9fa508fa8335f6b7e0690ef993516c6e7d221c0c10",
       "vllm/model_executor/layers/sparse_attn_indexer_kpool.py": "22f6438c6c310e6c17588f7e84487411cffb5eaa04f1ca8549273610834692dd",
       "vllm/models/glm5next/nvidia/model.py": "4449c5b04abf189fd7a867447a4131701ff81fd2b9f716fb50c55fee133890aa",
@@ -152,12 +162,13 @@
   "artifacts": [
     {"path": "configs/execution/glm53_runpod_sm90_sm120_w4a16.example.yaml", "sha256": "f80cd06a971a2dfaffa74dcfbd4de4f08a34488b0bb97547e6f6aaa6673d91db"},
     {"path": "configs/experiments/schemas/glm53_runpod_stateful_edit_control.schema.json", "sha256": "2cbb0971e4b04d77a2d0b7f5d165b8ffb2e81f3686e77356b0f95f692a1a292a"},
-    {"path": "docker/glm53_sm90_sm120/Dockerfile", "sha256": "e5ee66b5828fbce22f41b9d9a77cde82135c859f054593b40e87dc58961a9309"},
-    {"path": "docs/GLM53_RUNPOD_SM90_SM120_IMAGE.md", "sha256": "5e5a8f044d4bd7bb5e0277130c2265ca64f8bce9a1f07bd6d47943a30d7c2581"},
+    {"path": "docker/glm53_sm90_sm120/Dockerfile", "sha256": "7047dabcde67bc9229051edbc3d5b031f7b78aef9ea724d509ee4ffd1cdef506"},
+    {"path": "docs/GLM53_RUNPOD_SM90_SM120_IMAGE.md", "sha256": "61c88dfc0f3086f35fd74052c3775c711843ed2729f71bafef9b71a53d580877"},
     {"path": "instrumentation/vllm/glm53_runpod_stateful_edit_accuracy_ablation.py", "sha256": "dea79847b05c01424b9264b28d2340c98cc3a4661ae4dc03a8b6fe7010fc4348"},
     {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm90_sm120_build.patch", "sha256": "f60656fb783f92109b80b5c65cfb58333d5bb9b47c725a1f98d1743335f30c24"},
     {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_nope_fp8_ds_mla_cache.patch", "sha256": "2920ff70e8e2445b3a7cd197b8fc17a1234771158fbfcc1f0723454508ab2632"},
     {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_topk_lens.patch", "sha256": "99d0c7d6aed3d9e50c602760931fe9e1bdf8adc42142149f8e6d4b7b3b703629"},
+    {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_query_padding.patch", "sha256": "7cadf1f3fcf031cd018a53d5a0e63c3d4568a87a5e24345101277e87e2d1cc59"},
     {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_stateful_edit_v3_accuracy_ablation.patch", "sha256": "b1a1bac5bccb9650bcd5892f99883c7d215ac7253b4f9b6ecd7cf812a78086f9"},
     {"path": "scripts/glm53_runpod/audit_dual_arch_wheel.py", "sha256": "662dc188def60acf2117e63994d6b20de0b9314c52a91924a3dbb70dee510f79"},
     {"path": "scripts/glm53_runpod/build_image.sh", "sha256": "4119d3ec663d60ecef39b633b629dd1f4e7f9aadb5e15f1e1a4e172cc33f2994"},
@@ -165,9 +176,9 @@
     {"path": "scripts/glm53_runpod/entrypoint.sh", "sha256": "bbabe3ddeba2b565a791c7f7fd4f4158d74cbbae66fa04f4323e08eac3cba9cc"},
     {"path": "scripts/glm53_runpod/launch_proxy.sh", "sha256": "65139733e689dc05af830eadbc3b31867aa0c0c18fcbfd58b63865baaa11fb36"},
     {"path": "scripts/glm53_runpod/launch_server.sh", "sha256": "ed0694c9640b588d136f6de41423f106a00cd39dd3eccbdb092cec8f8dd8a501"},
-    {"path": "scripts/glm53_runpod/prepare_vllm_source.sh", "sha256": "305b8d2c695070d34e1b09d067a1843db15148678250b302e95a8ea07939bf28"},
+    {"path": "scripts/glm53_runpod/prepare_vllm_source.sh", "sha256": "85280da1662e37cbe45b24519bbe5fabfffe0fb76bbb2d3b249a96ed1aeba9a6"},
     {"path": "scripts/glm53_runpod/run_experiment.sh", "sha256": "b7dad4051950365f526fbeae211be794276bf77a522040e5d0d881f89f97efa9"},
-    {"path": "src/putpocket_dataset_mining/glm53_runpod_image.py", "sha256": "e91adce391217e403d548653a78ee7fc21b7b43153d3d775648cc7483e7bf200"},
+    {"path": "src/putpocket_dataset_mining/glm53_runpod_image.py", "sha256": "f86b5b9bf74d1cc55f671d3d3d8d0834c9b8ec7b9c9d3f646a5ad03888358ea3"},
     {"path": "src/putpocket_dataset_mining/glm53_runpod_stateful_edit.py", "sha256": "f51aeb0d6a34d965ec4b9e446d4798b9c521d2584a43ba53d4ed8b7722c354d7"},
     {"path": "src/putpocket_dataset_mining/glm53_runpod_stateful_proxy.py", "sha256": "71bf286210998d272ce9c5174735ee352ae457dbe141385078581b8077096468"}
   ]

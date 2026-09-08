@@ -121,6 +121,17 @@ def validate_lock(lock: dict[str, Any]) -> None:
         failures.append("runtime.cmake_cuda_architectures")
     if runtime.get("profiles") != PROFILES:
         failures.append("runtime.profiles")
+    expected_sm120_nope_adapter = {
+        "model_query_width": 512,
+        "kernel_query_width": 576,
+        "zero_padding_width": 64,
+        "cache_bytes_per_token": 656,
+        "kernel_qk_rope_head_dim": 64,
+        "kv_scale_format": "arbitrary_fp32",
+        "attention_semantics": "unchanged_nope_zero_dot_product_tail",
+    }
+    if runtime.get("sm120_nope_query_adapter") != expected_sm120_nope_adapter:
+        failures.append("runtime.sm120_nope_query_adapter")
     if runtime.get("default_gpu_count") != 4:
         failures.append("runtime.default_gpu_count")
     if runtime.get("weights_in_image") is not False:
@@ -221,6 +232,28 @@ def static_doctor(lock_path: str | Path, root: str | Path) -> dict[str, Any]:
         )
         expected_hook = package_root / "instrumentation/vllm/glm53_runpod_stateful_edit_accuracy_ablation.py"
         checks.append({"name": "installed_hook_matches_package", "ok": installed_hook.is_file() and expected_hook.is_file() and sha256_file(installed_hook) == sha256_file(expected_hook)})
+        installed_sm120_backend = (
+            Path(distribution.locate_file("vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py"))
+            if distribution is not None
+            else Path("/__missing_vllm_sm120_backend__")
+        )
+        expected_sm120_backend_hash = lock["overlay"]["postimages"][
+            "vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py"
+        ]
+        checks.append(
+            {
+                "name": "installed_sm120_nope_adapter",
+                "expected_sha256": expected_sm120_backend_hash,
+                "actual_sha256": (
+                    sha256_file(installed_sm120_backend)
+                    if installed_sm120_backend.is_file()
+                    else None
+                ),
+                "ok": installed_sm120_backend.is_file()
+                and sha256_file(installed_sm120_backend)
+                == expected_sm120_backend_hash,
+            }
+        )
         build_evidence = Path("/opt/vllm-build-evidence/sm90-sm120-cuda-audit.json")
         evidence = json.loads(build_evidence.read_text(encoding="utf-8")) if build_evidence.is_file() else {}
         observed = set(evidence.get("observed_architectures", []))

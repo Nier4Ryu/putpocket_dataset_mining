@@ -120,6 +120,17 @@ class GLM53RunPodImageTests(unittest.TestCase):
         self.assertIn("seq_lens=active_topk_lens", topk_patch)
         self.assertNotIn("sparse_mla_top_k_lens=active_topk_lens", topk_patch)
 
+        dockerfile = (ROOT / "docker/glm53_sm90_sm120/Dockerfile").read_text()
+        self.assertIn(
+            "3b2ff18d2db7196f53c143acdbce146e0fd904ab4d797f0356c99a52c5823b50",
+            dockerfile,
+        )
+        self.assertIn("unexpected SM120 top-k ABI preimage", dockerfile)
+        self.assertIn(
+            "9f6a7a84f861190e0b1ca4cea7fb407e4aa670a2ece89a5149bcc3144475599f",
+            dockerfile,
+        )
+
     def test_static_doctor_has_no_torch_or_device_probe_and_passes(self) -> None:
         source = (ROOT / "src/putpocket_dataset_mining/glm53_runpod_image.py").read_text()
         node = next(

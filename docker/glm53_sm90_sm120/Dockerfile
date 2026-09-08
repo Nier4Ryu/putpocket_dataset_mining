@@ -45,6 +45,8 @@ RUN set -eux; \
     target="${VLLM_ROOT}/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py"; \
     adapter_patch="/opt/putpocket/patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_query_padding.patch"; \
     test "$(sha256sum "${adapter_patch}" | awk '{print $1}')" = "7cadf1f3fcf031cd018a53d5a0e63c3d4568a87a5e24345101277e87e2d1cc59"; \
+    test "$(sha256sum "${target}" | awk '{print $1}')" = "3b2ff18d2db7196f53c143acdbce146e0fd904ab4d797f0356c99a52c5823b50"; \
+    python3 -c 'from pathlib import Path; import sys; p=Path(sys.argv[1]); s=p.read_text(); needle="            sparse_mla_top_k_lens=active_topk_lens,\n"; p.write_text(s.replace(needle, "")) if s.count(needle) == 1 else sys.exit("unexpected SM120 top-k ABI preimage")' "${target}"; \
     test "$(sha256sum "${target}" | awk '{print $1}')" = "9f6a7a84f861190e0b1ca4cea7fb407e4aa670a2ece89a5149bcc3144475599f"; \
     patch --batch --forward --no-backup-if-mismatch --dry-run \
       --strip=1 --directory="${VLLM_ROOT%/vllm}" --input="${adapter_patch}"; \

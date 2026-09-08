@@ -163,7 +163,7 @@
   "artifacts": [
     {"path": "configs/execution/glm53_runpod_sm90_sm120_w4a16.example.yaml", "sha256": "f80cd06a971a2dfaffa74dcfbd4de4f08a34488b0bb97547e6f6aaa6673d91db"},
     {"path": "configs/experiments/schemas/glm53_runpod_stateful_edit_control.schema.json", "sha256": "2cbb0971e4b04d77a2d0b7f5d165b8ffb2e81f3686e77356b0f95f692a1a292a"},
-    {"path": "docker/glm53_sm90_sm120/Dockerfile", "sha256": "323de3a086137316414bdecb54143e41fbc2f5aa35a6f5f19725453713a5474c"},
+    {"path": "docker/glm53_sm90_sm120/Dockerfile", "sha256": "5ef2645ee9c821d3494d56997e806923170bdd8939e0fca5ead552eab4ce1af9"},
     {"path": "docs/GLM53_RUNPOD_SM90_SM120_IMAGE.md", "sha256": "58a9aa1e0c889441889da9b78b79b5ec2b5d2f1a47297a66088dec8c94d70643"},
     {"path": "instrumentation/vllm/glm53_runpod_stateful_edit_accuracy_ablation.py", "sha256": "dea79847b05c01424b9264b28d2340c98cc3a4661ae4dc03a8b6fe7010fc4348"},
     {"path": "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm90_sm120_build.patch", "sha256": "f60656fb783f92109b80b5c65cfb58333d5bb9b47c725a1f98d1743335f30c24"},

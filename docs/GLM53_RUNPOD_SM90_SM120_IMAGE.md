@@ -90,7 +90,14 @@ DSv4 584-byte layout. Static doctor verifies the exact installed backend
 postimage. Active sparse lengths are passed through the GLM v32 entry point's
 `seq_lens`; the native-NoPE TRTLLM-GEN-only `sparse_mla_top_k_lens` argument is
 not forwarded after selecting the 576-wide GLM ABI. This is a kernel ABI
-adapter, not a change from NoPE to RoPE.
+adapter, not a change from NoPE to RoPE. The k-pool indexer reserves a
+2,176-column padded buffer for 2,048 ranked tokens plus an incomplete
+four-token pool tail. FlashInfer's GLM SM120 kernel accepts a fixed top-k width
+of 2,048. Before physical-index conversion, the adapter therefore retains the
+valid tail tokens, drops the same number of lowest-ranked history tokens, and
+passes exactly 2,048 columns to the kernel. This matches the existing fixed
+top-k fitting policy used by the alternative sparse backend while preserving
+the causal live tail.
 
 FlashMLA, QuTLASS, fmha_sm100, tml_fa4, and DeepEP remain omitted because the
 forced GLM profiles do not use them. Vendor PyTorch/CUDA/FlashInfer

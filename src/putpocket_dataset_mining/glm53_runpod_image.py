@@ -129,10 +129,27 @@ def validate_lock(lock: dict[str, Any]) -> None:
         "kernel_qk_rope_head_dim": 64,
         "kv_scale_format": "arbitrary_fp32",
         "active_topk_length_argument": "seq_lens",
+        "model_index_topk": 2048,
+        "kernel_topk_width": 2048,
+        "kpool_tail_policy": "keep_valid_tail_drop_lowest_ranked_history",
         "attention_semantics": "unchanged_nope_zero_dot_product_tail",
     }
     if runtime.get("sm120_nope_query_adapter") != expected_sm120_nope_adapter:
         failures.append("runtime.sm120_nope_query_adapter")
+    expected_cached_base_overlay = {
+        "path": (
+            "patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/"
+            "glm53_sm120_cached_base_topk_abi.patch"
+        ),
+        "sha256": "44bd1e464f50f1b2bf2c7827816b8461b90c1838f9131a9272f2b28bfe522ac1",
+        "preimage_sha256": "3b2ff18d2db7196f53c143acdbce146e0fd904ab4d797f0356c99a52c5823b50",
+        "postimage_sha256": "c82a9697ea68a5039332e02e011afb5f07fc8a3fcc113012d552d2fc102edfb7",
+    }
+    if (
+        lock.get("runtime_image_overlay", {}).get("cached_base_sm120_topk_abi")
+        != expected_cached_base_overlay
+    ):
+        failures.append("runtime_image_overlay.cached_base_sm120_topk_abi")
     if runtime.get("default_gpu_count") != 4:
         failures.append("runtime.default_gpu_count")
     if runtime.get("weights_in_image") is not False:

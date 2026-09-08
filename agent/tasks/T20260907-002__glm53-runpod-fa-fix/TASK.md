@@ -28,6 +28,7 @@ fixed decisions:
   - preserve default-OFF full-target-prefill then donor-row-overwrite accuracy-ablation semantics; do not claim true partial prefill or compute saving
   - preserve the model's qk_rope_head_dim=0 setting; the SM120 adapter may append zero query channels only to select FlashInfer's 656-byte GLM kernel ABI and must not change RoPE/model semantics
   - after selecting the 576-wide GLM v32 ABI, pass active sparse lengths only through seq_lens; do not also forward the native-NoPE TRTLLM-GEN-only sparse_mla_top_k_lens argument
+  - fit the k-pool index buffer to FlashInfer's fixed 2048-token GLM SM120 dispatch by retaining the live incomplete-pool tail and dropping the same number of lowest-ranked history tokens
   - reuse the explicitly retained stopped RunPod Pod volume for image-only retries so the exact 181 GB model is not downloaded again; terminate the Pod and attached volume after final success or abandonment
   - failed Docker v1 tag/digest is immutable and must not be overwritten
   - Docker and Git pushes are normal, non-force, and limited to the new tag and this task branch

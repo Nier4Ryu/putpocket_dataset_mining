@@ -99,6 +99,12 @@ class GLM53RunPodImageTests(unittest.TestCase):
         self.assertEqual(adapter["kernel_qk_rope_head_dim"], 64)
         self.assertEqual(adapter["kv_scale_format"], "arbitrary_fp32")
         self.assertEqual(adapter["active_topk_length_argument"], "seq_lens")
+        self.assertEqual(adapter["model_index_topk"], 2048)
+        self.assertEqual(adapter["kernel_topk_width"], 2048)
+        self.assertEqual(
+            adapter["kpool_tail_policy"],
+            "keep_valid_tail_drop_lowest_ranked_history",
+        )
         self.assertEqual(
             adapter["attention_semantics"],
             "unchanged_nope_zero_dot_product_tail",
@@ -119,15 +125,27 @@ class GLM53RunPodImageTests(unittest.TestCase):
         ).read_text()
         self.assertIn("seq_lens=active_topk_lens", topk_patch)
         self.assertNotIn("sparse_mla_top_k_lens=active_topk_lens", topk_patch)
+        self.assertIn("_fit_kpool_indices_to_flashinfer", topk_patch)
+        self.assertIn("topk_tokens - valid_tail", topk_patch)
+        self.assertIn(
+            "NUM_TOPK_TOKENS=attn_metadata.topk_tokens", topk_patch
+        )
+
+        cached_overlay = self.lock["runtime_image_overlay"][
+            "cached_base_sm120_topk_abi"
+        ]
+        cached_patch = (ROOT / cached_overlay["path"]).read_text()
+        self.assertIn("_fit_kpool_indices_to_flashinfer", cached_patch)
+        self.assertIn("topk_tokens - valid_tail", cached_patch)
 
         dockerfile = (ROOT / "docker/glm53_sm90_sm120/Dockerfile").read_text()
         self.assertIn(
             "3b2ff18d2db7196f53c143acdbce146e0fd904ab4d797f0356c99a52c5823b50",
             dockerfile,
         )
-        self.assertIn("unexpected SM120 top-k ABI preimage", dockerfile)
+        self.assertIn("glm53_sm120_cached_base_topk_abi.patch", dockerfile)
         self.assertIn(
-            "9f6a7a84f861190e0b1ca4cea7fb407e4aa670a2ece89a5149bcc3144475599f",
+            "c82a9697ea68a5039332e02e011afb5f07fc8a3fcc113012d552d2fc102edfb7",
             dockerfile,
         )
 

@@ -36,23 +36,28 @@ COPY configs/models/glm53_flash_w4a16_runpod_sm90_sm120.lock.json /opt/putpocket
 COPY configs/execution/glm53_runpod_sm90_sm120_w4a16.example.yaml /opt/putpocket/configs/execution/glm53_runpod_sm90_sm120_w4a16.example.yaml
 COPY configs/experiments/schemas/glm53_runpod_stateful_edit_control.schema.json /opt/putpocket/configs/experiments/schemas/glm53_runpod_stateful_edit_control.schema.json
 COPY scripts/glm53_runpod /opt/putpocket/scripts/glm53_runpod
-COPY patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm90_sm120_build.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_nope_fp8_ds_mla_cache.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_topk_lens.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_query_padding.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_stateful_edit_v3_accuracy_ablation.patch /opt/putpocket/patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/
+COPY patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm90_sm120_build.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_nope_fp8_ds_mla_cache.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_topk_lens.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_cached_base_topk_abi.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_query_padding.patch patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_stateful_edit_v3_accuracy_ablation.patch /opt/putpocket/patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/
 COPY docker/glm53_sm90_sm120/Dockerfile /opt/putpocket/docker/glm53_sm90_sm120/Dockerfile
 COPY docs/GLM53_RUNPOD_SM90_SM120_IMAGE.md /opt/putpocket/docs/GLM53_RUNPOD_SM90_SM120_IMAGE.md
 
 RUN set -eux; \
     VLLM_ROOT="$(python3 -c 'import pathlib,vllm; print(pathlib.Path(vllm.__file__).resolve().parent)')"; \
     target="${VLLM_ROOT}/v1/attention/backends/mla/flashinfer_mla_sparse_sm120.py"; \
+    cached_base_patch="/opt/putpocket/patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_cached_base_topk_abi.patch"; \
     adapter_patch="/opt/putpocket/patches/vllm/9cd956c7e6cf54efa366b803cafa15ec6c2df827/glm53_sm120_nope_query_padding.patch"; \
+    test "$(sha256sum "${cached_base_patch}" | awk '{print $1}')" = "44bd1e464f50f1b2bf2c7827816b8461b90c1838f9131a9272f2b28bfe522ac1"; \
     test "$(sha256sum "${adapter_patch}" | awk '{print $1}')" = "7cadf1f3fcf031cd018a53d5a0e63c3d4568a87a5e24345101277e87e2d1cc59"; \
     test "$(sha256sum "${target}" | awk '{print $1}')" = "3b2ff18d2db7196f53c143acdbce146e0fd904ab4d797f0356c99a52c5823b50"; \
-    python3 -c 'from pathlib import Path; import sys; p=Path(sys.argv[1]); s=p.read_text(); needle="            sparse_mla_top_k_lens=active_topk_lens,\n"; p.write_text(s.replace(needle, "")) if s.count(needle) == 1 else sys.exit("unexpected SM120 top-k ABI preimage")' "${target}"; \
-    test "$(sha256sum "${target}" | awk '{print $1}')" = "9f6a7a84f861190e0b1ca4cea7fb407e4aa670a2ece89a5149bcc3144475599f"; \
+    patch --batch --forward --no-backup-if-mismatch --dry-run \
+      --strip=1 --directory="${VLLM_ROOT%/vllm}" --input="${cached_base_patch}"; \
+    patch --batch --forward --no-backup-if-mismatch \
+      --strip=1 --directory="${VLLM_ROOT%/vllm}" --input="${cached_base_patch}"; \
+    test "$(sha256sum "${target}" | awk '{print $1}')" = "c82a9697ea68a5039332e02e011afb5f07fc8a3fcc113012d552d2fc102edfb7"; \
     patch --batch --forward --no-backup-if-mismatch --dry-run \
       --strip=1 --directory="${VLLM_ROOT%/vllm}" --input="${adapter_patch}"; \
     patch --batch --forward --no-backup-if-mismatch \
       --strip=1 --directory="${VLLM_ROOT%/vllm}" --input="${adapter_patch}"; \
-    test "$(sha256sum "${target}" | awk '{print $1}')" = "d58819b3b0dc7c4fe9b195f415c60588fe589cc27dff37043b32f9a8d7e2b24e"; \
+    test "$(sha256sum "${target}" | awk '{print $1}')" = "fc8eb6f371936b18a4ca87e56bccb44aa0b897cb056c746c5002bfa5f814d714"; \
     python3 -m py_compile "${target}"
 
 ENV PYTHONPATH=/opt/putpocket/src \

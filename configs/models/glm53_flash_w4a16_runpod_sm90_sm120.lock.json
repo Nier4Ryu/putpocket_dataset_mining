@@ -24,9 +24,9 @@
     "silent_download_allowed": false,
     "metadata_sha256": {
       "chat_template.jinja": "34d5ee66b12fa6446cdae131c352b8f68cd85369e0e6fda115583805fada3891",
-      "config.json": "d4deaf40986cf029e17a46a123a76f82aa5bd4072ac7a283b22b8013c26d5692",
-      "model.safetensors.index.json": "a250db4f48cc0b437cfc177003e96e50cf8092ca428fda0f13f5eb3f9bf45102",
-      "quantization_config.json": "289e8d2a90575efac27d9ad1330250b7cc235480f75129c2946e6b211e5fd585",
+      "config.json": "d4deaf40c47b2ff49f1d8e0c306032d7a8b84f90b6a2743e694b712d87dd5692",
+      "model.safetensors.index.json": "a250db4fcc9443d0164335a7a2c7a1da4eef91e212304e2e695a08d565a75102",
+      "quantization_config.json": "289e8d2a51fae043b52e3303609d026f8bbb4c7ca6f0f4b261b84f020637d585",
       "tokenizer.json": "19e773648cb4e65de8660ea6365e10acca112d42a854923df93db4a6f333a82d",
       "tokenizer_config.json": "21848631f494177b449db5fab804cfb52e38077e0802dd4a8568978c010c3d3b"
     },
